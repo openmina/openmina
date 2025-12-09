@@ -1,9 +1,7 @@
 #[cfg(test)]
 mod priority_test;
 
-use stun::attributes::ATTR_PRIORITY;
-use stun::checks::*;
-use stun::message::*;
+use stun::{attributes::ATTR_PRIORITY, checks::*, message::*};
 
 /// Represents PRIORITY attribute.
 #[derive(Default, PartialEq, Eq, Debug, Copy, Clone)]

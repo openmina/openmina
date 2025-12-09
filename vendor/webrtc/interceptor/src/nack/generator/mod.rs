@@ -2,9 +2,7 @@ mod generator_stream;
 #[cfg(test)]
 mod generator_test;
 
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::time::Duration;
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
 use generator_stream::GeneratorStream;
@@ -14,10 +12,10 @@ use rtcp::transport_feedbacks::transport_layer_nack::{
 use tokio::sync::{mpsc, Mutex};
 use waitgroup::WaitGroup;
 
-use crate::error::{Error, Result};
-use crate::nack::stream_support_nack;
-use crate::stream_info::StreamInfo;
 use crate::{
+    error::{Error, Result},
+    nack::stream_support_nack,
+    stream_info::StreamInfo,
     Attributes, Interceptor, InterceptorBuilder, RTCPReader, RTCPWriter, RTPReader, RTPWriter,
 };
 

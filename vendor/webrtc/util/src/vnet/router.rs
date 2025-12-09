@@ -1,29 +1,29 @@
 #[cfg(test)]
 mod router_test;
 
-use std::collections::HashMap;
-use std::future::Future;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
-use std::ops::{Add, Sub};
-use std::pin::Pin;
-use std::str::FromStr;
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
-use std::time::SystemTime;
+use std::{
+    collections::HashMap,
+    future::Future,
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
+    ops::{Add, Sub},
+    pin::Pin,
+    str::FromStr,
+    sync::{atomic::Ordering, Arc},
+    time::SystemTime,
+};
 
 use async_trait::async_trait;
 use ipnet::*;
 use portable_atomic::AtomicU64;
-use tokio::sync::{mpsc, Mutex};
-use tokio::time::Duration;
+use tokio::{
+    sync::{mpsc, Mutex},
+    time::Duration,
+};
 
-use crate::error::*;
-use crate::vnet::chunk::*;
-use crate::vnet::chunk_queue::*;
-use crate::vnet::interface::*;
-use crate::vnet::nat::*;
-use crate::vnet::net::*;
-use crate::vnet::resolver::*;
+use crate::{
+    error::*,
+    vnet::{chunk::*, chunk_queue::*, interface::*, nat::*, net::*, resolver::*},
+};
 
 const DEFAULT_ROUTER_QUEUE_SIZE: usize = 0; // unlimited
 

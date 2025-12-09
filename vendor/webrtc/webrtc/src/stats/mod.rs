@@ -1,23 +1,25 @@
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::time::SystemTime;
+use std::{collections::HashMap, sync::Arc, time::SystemTime};
 
-use ice::agent::agent_stats::{CandidatePairStats, CandidateStats};
-use ice::agent::Agent;
-use ice::candidate::{CandidatePairState, CandidateType};
-use ice::network_type::NetworkType;
+use ice::{
+    agent::{
+        agent_stats::{CandidatePairStats, CandidateStats},
+        Agent,
+    },
+    candidate::{CandidatePairState, CandidateType},
+    network_type::NetworkType,
+};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use smol_str::SmolStr;
 use stats_collector::StatsCollector;
 use tokio::time::Instant;
 
-use crate::data_channel::data_channel_state::RTCDataChannelState;
-use crate::data_channel::RTCDataChannel;
-use crate::dtls_transport::dtls_fingerprint::RTCDtlsFingerprint;
-use crate::peer_connection::certificate::RTCCertificate;
-use crate::rtp_transceiver::rtp_codec::RTCRtpCodecParameters;
-use crate::rtp_transceiver::{PayloadType, SSRC};
-use crate::sctp_transport::RTCSctpTransport;
+use crate::{
+    data_channel::{data_channel_state::RTCDataChannelState, RTCDataChannel},
+    dtls_transport::dtls_fingerprint::RTCDtlsFingerprint,
+    peer_connection::certificate::RTCCertificate,
+    rtp_transceiver::{rtp_codec::RTCRtpCodecParameters, PayloadType, SSRC},
+    sctp_transport::RTCSctpTransport,
+};
 
 mod serialize;
 pub mod stats_collector;

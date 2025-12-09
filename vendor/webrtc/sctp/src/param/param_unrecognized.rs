@@ -1,11 +1,13 @@
-use std::any::Any;
-use std::fmt::{Debug, Display, Formatter};
+use std::{
+    any::Any,
+    fmt::{Debug, Display, Formatter},
+};
 
 use bytes::{Bytes, BytesMut};
 
-use crate::param::param_header::PARAM_HEADER_LENGTH;
-use crate::param::param_type::ParamType;
-use crate::param::{build_param, Param, ParamHeader};
+use crate::param::{
+    build_param, param_header::PARAM_HEADER_LENGTH, param_type::ParamType, Param, ParamHeader,
+};
 
 /// This is the parameter type used to report unrecognized parameters in e.g. init chunks back to the sender in the init ack.
 /// The contained param is likely to be a `ParamUnknown` but might be something more specific.

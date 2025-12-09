@@ -3,8 +3,10 @@ mod vp8_test;
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 
-use crate::error::{Error, Result};
-use crate::packetizer::{Depacketizer, Payloader};
+use crate::{
+    error::{Error, Result},
+    packetizer::{Depacketizer, Payloader},
+};
 
 pub const VP8_HEADER_SIZE: usize = 1;
 

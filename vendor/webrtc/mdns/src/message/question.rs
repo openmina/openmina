@@ -1,8 +1,6 @@
-use std::collections::HashMap;
-use std::fmt;
+use std::{collections::HashMap, fmt};
 
-use super::name::*;
-use super::*;
+use super::{name::*, *};
 use crate::error::Result;
 
 // A question is a DNS query.

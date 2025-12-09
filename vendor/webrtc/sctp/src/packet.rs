@@ -2,25 +2,19 @@ use std::fmt;
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 
-use crate::chunk::chunk_abort::ChunkAbort;
-use crate::chunk::chunk_cookie_ack::ChunkCookieAck;
-use crate::chunk::chunk_cookie_echo::ChunkCookieEcho;
-use crate::chunk::chunk_error::ChunkError;
-use crate::chunk::chunk_forward_tsn::ChunkForwardTsn;
-use crate::chunk::chunk_header::*;
-use crate::chunk::chunk_heartbeat::ChunkHeartbeat;
-use crate::chunk::chunk_init::ChunkInit;
-use crate::chunk::chunk_payload_data::ChunkPayloadData;
-use crate::chunk::chunk_reconfig::ChunkReconfig;
-use crate::chunk::chunk_selective_ack::ChunkSelectiveAck;
-use crate::chunk::chunk_shutdown::ChunkShutdown;
-use crate::chunk::chunk_shutdown_ack::ChunkShutdownAck;
-use crate::chunk::chunk_shutdown_complete::ChunkShutdownComplete;
-use crate::chunk::chunk_type::*;
-use crate::chunk::chunk_unknown::ChunkUnknown;
-use crate::chunk::Chunk;
-use crate::error::{Error, Result};
-use crate::util::*;
+use crate::{
+    chunk::{
+        chunk_abort::ChunkAbort, chunk_cookie_ack::ChunkCookieAck,
+        chunk_cookie_echo::ChunkCookieEcho, chunk_error::ChunkError,
+        chunk_forward_tsn::ChunkForwardTsn, chunk_header::*, chunk_heartbeat::ChunkHeartbeat,
+        chunk_init::ChunkInit, chunk_payload_data::ChunkPayloadData, chunk_reconfig::ChunkReconfig,
+        chunk_selective_ack::ChunkSelectiveAck, chunk_shutdown::ChunkShutdown,
+        chunk_shutdown_ack::ChunkShutdownAck, chunk_shutdown_complete::ChunkShutdownComplete,
+        chunk_type::*, chunk_unknown::ChunkUnknown, Chunk,
+    },
+    error::{Error, Result},
+    util::*,
+};
 
 ///Packet represents an SCTP packet, defined in https://tools.ietf.org/html/rfc4960#section-3
 ///An SCTP packet is composed of a common header and chunks.  A chunk

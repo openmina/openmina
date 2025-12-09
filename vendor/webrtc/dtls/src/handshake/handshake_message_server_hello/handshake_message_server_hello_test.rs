@@ -1,5 +1,7 @@
-use std::io::{BufReader, BufWriter};
-use std::time::{Duration, SystemTime};
+use std::{
+    io::{BufReader, BufWriter},
+    time::{Duration, SystemTime},
+};
 
 use super::*;
 

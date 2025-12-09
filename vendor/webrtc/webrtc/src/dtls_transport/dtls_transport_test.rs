@@ -1,18 +1,18 @@
-use ice::mdns::MulticastDnsMode;
-use ice::network_type::NetworkType;
+use ice::{mdns::MulticastDnsMode, network_type::NetworkType};
 use regex::Regex;
 use tokio::time::Duration;
 use waitgroup::WaitGroup;
 
 use super::*;
-use crate::api::media_engine::MediaEngine;
-use crate::api::APIBuilder;
-use crate::data_channel::RTCDataChannel;
-use crate::ice_transport::ice_candidate::RTCIceCandidate;
-use crate::peer_connection::configuration::RTCConfiguration;
-use crate::peer_connection::peer_connection_state::RTCPeerConnectionState;
-use crate::peer_connection::peer_connection_test::{
-    close_pair_now, new_pair, signal_pair, until_connection_state,
+use crate::{
+    api::{media_engine::MediaEngine, APIBuilder},
+    data_channel::RTCDataChannel,
+    ice_transport::ice_candidate::RTCIceCandidate,
+    peer_connection::{
+        configuration::RTCConfiguration,
+        peer_connection_state::RTCPeerConnectionState,
+        peer_connection_test::{close_pair_now, new_pair, signal_pair, until_connection_state},
+    },
 };
 
 //use log::LevelFilter;

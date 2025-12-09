@@ -1,11 +1,11 @@
-use std::future::Future;
-use std::pin::Pin;
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
+use std::{
+    future::Future,
+    pin::Pin,
+    sync::{atomic::Ordering, Arc},
+};
 
 use arc_swap::ArcSwapOption;
-use ice::candidate::Candidate;
-use ice::state::ConnectionState;
+use ice::{candidate::Candidate, state::ConnectionState};
 use ice_candidate::RTCIceCandidate;
 use ice_candidate_pair::RTCIceCandidatePair;
 use ice_gatherer::RTCIceGatherer;
@@ -14,15 +14,12 @@ use portable_atomic::AtomicU8;
 use tokio::sync::{mpsc, Mutex};
 use util::Conn;
 
-use crate::error::{flatten_errs, Error, Result};
-use crate::ice_transport::ice_parameters::RTCIceParameters;
-use crate::ice_transport::ice_transport_state::RTCIceTransportState;
-use crate::mux::endpoint::Endpoint;
-use crate::mux::mux_func::MatchFunc;
-use crate::mux::{Config, Mux};
-use crate::stats::stats_collector::StatsCollector;
-use crate::stats::ICETransportStats;
-use crate::stats::StatsReportType::Transport;
+use crate::{
+    error::{flatten_errs, Error, Result},
+    ice_transport::{ice_parameters::RTCIceParameters, ice_transport_state::RTCIceTransportState},
+    mux::{endpoint::Endpoint, mux_func::MatchFunc, Config, Mux},
+    stats::{stats_collector::StatsCollector, ICETransportStats, StatsReportType::Transport},
+};
 
 #[cfg(test)]
 mod ice_transport_test;

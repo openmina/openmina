@@ -1,5 +1,4 @@
-use std::string::FromUtf8Error;
-use std::{io, net};
+use std::{io, net, string::FromUtf8Error};
 
 use thiserror::Error;
 

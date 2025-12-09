@@ -1,7 +1,6 @@
 use std::fmt;
 
-use sdp::description::session::SessionDescription;
-use sdp::util::ConnectionRole;
+use sdp::{description::session::SessionDescription, util::ConnectionRole};
 use serde::{Deserialize, Serialize};
 
 /// DtlsRole indicates the role of the DTLS transport.

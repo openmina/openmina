@@ -6,8 +6,10 @@ use std::io::{Cursor, Read};
 use byteorder::{LittleEndian, ReadBytesExt};
 use bytes::BytesMut;
 
-use crate::error::{Error, Result};
-use crate::io::ResetFn;
+use crate::{
+    error::{Error, Result},
+    io::ResetFn,
+};
 
 pub const PAGE_HEADER_TYPE_CONTINUATION_OF_STREAM: u8 = 0x00;
 pub const PAGE_HEADER_TYPE_BEGINNING_OF_STREAM: u8 = 0x02;

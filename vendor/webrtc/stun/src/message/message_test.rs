@@ -1,10 +1,9 @@
 use std::io::{BufReader, BufWriter};
 
 use super::*;
-use crate::fingerprint::FINGERPRINT;
-use crate::integrity::MessageIntegrity;
-use crate::textattrs::TextAttribute;
-use crate::xoraddr::*;
+use crate::{
+    fingerprint::FINGERPRINT, integrity::MessageIntegrity, textattrs::TextAttribute, xoraddr::*,
+};
 
 #[test]
 fn test_message_buffer() -> Result<()> {

@@ -1,12 +1,13 @@
-use std::io::Write;
-use std::sync::Arc;
+use std::{io::Write, sync::Arc};
 
 use clap::{App, AppSettings, Arg};
 use hub::utilities::load_certificate;
 use util::conn::*;
-use webrtc_dtls::config::{ClientAuthType, Config, ExtendedMasterSecretType};
-use webrtc_dtls::listener::listen;
-use webrtc_dtls::Error;
+use webrtc_dtls::{
+    config::{ClientAuthType, Config, ExtendedMasterSecretType},
+    listener::listen,
+    Error,
+};
 
 // cargo run --example listen_verify -- --host 127.0.0.1:4444
 

@@ -1,9 +1,7 @@
-use std::io::BufReader;
-use std::iter::Iterator;
+use std::{io::BufReader, iter::Iterator};
 
 use super::*;
-use crate::lexer::END_LINE;
-use crate::util::ATTRIBUTE_KEY;
+use crate::{lexer::END_LINE, util::ATTRIBUTE_KEY};
 
 const EXAMPLE_ATTR_EXTMAP1: &str = "extmap:1 http://example.com/082005/ext.htm#ttime";
 const EXAMPLE_ATTR_EXTMAP2: &str =

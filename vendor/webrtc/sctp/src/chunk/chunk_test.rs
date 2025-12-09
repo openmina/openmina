@@ -1,8 +1,7 @@
 ///////////////////////////////////////////////////////////////////
 //chunk_type_test
 ///////////////////////////////////////////////////////////////////
-use super::chunk_type::*;
-use super::*;
+use super::{chunk_type::*, *};
 
 #[test]
 fn test_chunk_type_string() -> Result<()> {
@@ -461,12 +460,11 @@ fn test_chunk_shutdown_complete_failure() -> Result<()> {
 ///////////////////////////////////////////////////////////////////
 //chunk_test
 ///////////////////////////////////////////////////////////////////
-use crate::chunk::chunk_init::*;
-use crate::chunk::chunk_payload_data::*;
-use crate::chunk::chunk_selective_ack::ChunkSelectiveAck;
-use crate::packet::*;
-use crate::param::param_outgoing_reset_request::ParamOutgoingResetRequest;
-use crate::param::param_state_cookie::*;
+use crate::{
+    chunk::{chunk_init::*, chunk_payload_data::*, chunk_selective_ack::ChunkSelectiveAck},
+    packet::*,
+    param::{param_outgoing_reset_request::ParamOutgoingResetRequest, param_state_cookie::*},
+};
 
 #[test]
 fn test_init_chunk() -> Result<()> {

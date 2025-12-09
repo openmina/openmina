@@ -5,21 +5,26 @@ use interceptor::registry::Registry;
 use media::Sample;
 use portable_atomic::AtomicU32;
 use tokio::time::Duration;
-use util::vnet::net::{Net, NetConfig};
-use util::vnet::router::{Router, RouterConfig};
+use util::vnet::{
+    net::{Net, NetConfig},
+    router::{Router, RouterConfig},
+};
 use waitgroup::WaitGroup;
 
 use super::*;
-use crate::api::interceptor_registry::register_default_interceptors;
-use crate::api::media_engine::{MediaEngine, MIME_TYPE_VP8};
-use crate::api::APIBuilder;
-use crate::ice_transport::ice_candidate_pair::RTCIceCandidatePair;
-use crate::ice_transport::ice_server::RTCIceServer;
-use crate::peer_connection::configuration::RTCConfiguration;
-use crate::rtp_transceiver::rtp_codec::RTCRtpCodecCapability;
-use crate::stats::StatsReportType;
-use crate::track::track_local::track_local_static_sample::TrackLocalStaticSample;
-use crate::Error;
+use crate::{
+    api::{
+        interceptor_registry::register_default_interceptors,
+        media_engine::{MediaEngine, MIME_TYPE_VP8},
+        APIBuilder,
+    },
+    ice_transport::{ice_candidate_pair::RTCIceCandidatePair, ice_server::RTCIceServer},
+    peer_connection::configuration::RTCConfiguration,
+    rtp_transceiver::rtp_codec::RTCRtpCodecCapability,
+    stats::StatsReportType,
+    track::track_local::track_local_static_sample::TrackLocalStaticSample,
+    Error,
+};
 
 pub(crate) async fn create_vnet_pair(
 ) -> Result<(RTCPeerConnection, RTCPeerConnection, Arc<Mutex<Router>>)> {

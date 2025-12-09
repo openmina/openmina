@@ -1,21 +1,24 @@
-use std::net::{IpAddr, Ipv4Addr};
-use std::str::FromStr;
+use std::{
+    net::{IpAddr, Ipv4Addr},
+    str::FromStr,
+};
 
-use stun::attributes::ATTR_USERNAME;
-use stun::textattrs::TextAttribute;
-use tokio::net::UdpSocket;
-use tokio::sync::mpsc::Sender;
+use stun::{attributes::ATTR_USERNAME, textattrs::TextAttribute};
+use tokio::{net::UdpSocket, sync::mpsc::Sender};
 use util::vnet::net::*;
 
 use super::*;
-use crate::auth::{generate_auth_key, AuthHandler};
-use crate::client::{Client, ClientConfig};
-use crate::error::Result;
-use crate::proto::lifetime::DEFAULT_LIFETIME;
-use crate::relay::relay_none::*;
-use crate::relay::relay_static::RelayAddressGeneratorStatic;
-use crate::server::config::{ConnConfig, ServerConfig};
-use crate::server::Server;
+use crate::{
+    auth::{generate_auth_key, AuthHandler},
+    client::{Client, ClientConfig},
+    error::Result,
+    proto::lifetime::DEFAULT_LIFETIME,
+    relay::{relay_none::*, relay_static::RelayAddressGeneratorStatic},
+    server::{
+        config::{ConnConfig, ServerConfig},
+        Server,
+    },
+};
 
 fn new_test_manager() -> Manager {
     let config = ManagerConfig {

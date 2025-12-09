@@ -1,11 +1,15 @@
 use bytes::{BufMut, Bytes, BytesMut};
 
-use crate::codecs::av1::leb128::BytesMutExt;
-use crate::codecs::av1::obu::{obu_has_extension, parse_obus, OBU_HAS_SIZE_BIT};
-use crate::codecs::av1::packetizer::{
-    get_aggregation_header, packetize, AGGREGATION_HEADER_SIZE, MAX_NUM_OBUS_TO_OMIT_SIZE,
+use crate::{
+    codecs::av1::{
+        leb128::BytesMutExt,
+        obu::{obu_has_extension, parse_obus, OBU_HAS_SIZE_BIT},
+        packetizer::{
+            get_aggregation_header, packetize, AGGREGATION_HEADER_SIZE, MAX_NUM_OBUS_TO_OMIT_SIZE,
+        },
+    },
+    packetizer::Payloader,
 };
-use crate::packetizer::Payloader;
 
 #[cfg(test)]
 mod av1_test;

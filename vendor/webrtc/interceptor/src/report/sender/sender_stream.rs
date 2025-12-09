@@ -1,6 +1,8 @@
-use std::convert::TryInto;
-use std::sync::Arc;
-use std::time::{Duration, SystemTime};
+use std::{
+    convert::TryInto,
+    sync::Arc,
+    time::{Duration, SystemTime},
+};
 
 use async_trait::async_trait;
 use rtp::extension::abs_send_time_extension::unix2ntp;

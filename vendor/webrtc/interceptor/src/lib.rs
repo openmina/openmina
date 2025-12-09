@@ -1,10 +1,7 @@
 #![warn(rust_2018_idioms)]
 #![allow(dead_code)]
 
-use std::collections::HashMap;
-use std::future::Future;
-use std::pin::Pin;
-use std::sync::Arc;
+use std::{collections::HashMap, future::Future, pin::Pin, sync::Arc};
 
 use async_trait::async_trait;
 use error::Result;
@@ -214,8 +211,7 @@ impl RTCPReader for RTCPReaderFn {
 /// Helper for the tests.
 #[cfg(test)]
 mod test {
-    use std::future::Future;
-    use std::time::Duration;
+    use std::{future::Future, time::Duration};
 
     pub async fn timeout_or_fail<T>(duration: Duration, future: T) -> T::Output
     where

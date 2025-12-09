@@ -1,8 +1,9 @@
-use std::io;
-use std::io::SeekFrom;
+use std::{io, io::SeekFrom};
 
-use super::description::session::SessionDescription;
-use super::error::{Error, Result};
+use super::{
+    description::session::SessionDescription,
+    error::{Error, Result},
+};
 
 pub(crate) const END_LINE: &str = "\r\n";
 

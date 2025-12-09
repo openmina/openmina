@@ -1,10 +1,14 @@
-use std::any::Any;
-use std::fmt::{Debug, Display, Formatter};
+use std::{
+    any::Any,
+    fmt::{Debug, Display, Formatter},
+};
 
 use bytes::{Bytes, BytesMut};
 
-use crate::chunk::chunk_header::{ChunkHeader, CHUNK_HEADER_SIZE};
-use crate::chunk::Chunk;
+use crate::chunk::{
+    chunk_header::{ChunkHeader, CHUNK_HEADER_SIZE},
+    Chunk,
+};
 
 #[derive(Clone, Debug)]
 pub struct ChunkUnknown {

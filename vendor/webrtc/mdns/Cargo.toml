@@ -10,27 +10,29 @@ homepage = "https://webrtc.rs"
 repository = "https://github.com/webrtc-rs/mdns"
 
 [features]
-default = [ "reuse_port" ]
+default = ["reuse_port"]
 reuse_port = []
 
 [dependencies]
-util = { version = "0.9.0", path = "../util", package = "webrtc-util", default-features = false, features = ["ifaces"] }
-
-tokio = { version = "1.32.0", features = [
-    "fs",
-    "io-util",
-    "io-std",
-    "macros",
-    "net",
-    "parking_lot",
-    "rt",
-    "rt-multi-thread",
-    "sync",
-    "time",
+util = { version = "0.9.0", path = "../util", package = "webrtc-util", default-features = false, features = [
+  "ifaces",
 ] }
-socket2 = { version = "0.5", features = ["all"] }
+
 log = "0.4"
+socket2 = { version = "0.5", features = ["all"] }
 thiserror = "1"
+tokio = { version = "1.32.0", features = [
+  "fs",
+  "io-util",
+  "io-std",
+  "macros",
+  "net",
+  "parking_lot",
+  "rt",
+  "rt-multi-thread",
+  "sync",
+  "time",
+] }
 
 [dev-dependencies]
 env_logger = "0.10"

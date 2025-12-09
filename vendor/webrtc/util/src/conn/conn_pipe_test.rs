@@ -1,5 +1,4 @@
-use super::conn_pipe::*;
-use super::*;
+use super::{conn_pipe::*, *};
 
 #[tokio::test]
 async fn test_pipe() -> Result<()> {

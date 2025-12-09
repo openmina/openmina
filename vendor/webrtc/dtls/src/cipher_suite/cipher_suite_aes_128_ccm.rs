@@ -1,7 +1,9 @@
 use super::*;
-use crate::client_certificate_type::ClientCertificateType;
-use crate::crypto::crypto_ccm::{CryptoCcm, CryptoCcmTagLen};
-use crate::prf::*;
+use crate::{
+    client_certificate_type::ClientCertificateType,
+    crypto::crypto_ccm::{CryptoCcm, CryptoCcmTagLen},
+    prf::*,
+};
 
 #[derive(Clone)]
 pub struct CipherSuiteAes128Ccm {

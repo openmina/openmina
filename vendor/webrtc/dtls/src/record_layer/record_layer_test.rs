@@ -1,7 +1,6 @@
 use std::io::{BufReader, BufWriter};
 
-use super::record_layer_header::*;
-use super::*;
+use super::{record_layer_header::*, *};
 use crate::change_cipher_spec::ChangeCipherSpec;
 
 #[test]

@@ -3,8 +3,7 @@ mod signature_hash_algorithm_test;
 
 use std::fmt;
 
-use crate::crypto::*;
-use crate::error::*;
+use crate::{crypto::*, error::*};
 
 // HashAlgorithm is used to indicate the hash algorithm used
 // https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-18

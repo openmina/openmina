@@ -1,39 +1,42 @@
 #[cfg(test)]
 mod sdp_test;
 
-use crate::api::media_engine::MediaEngine;
-use crate::dtls_transport::dtls_fingerprint::RTCDtlsFingerprint;
-use crate::error::{Error, Result};
-use crate::ice_transport::ice_candidate::RTCIceCandidate;
-use crate::ice_transport::ice_gatherer::RTCIceGatherer;
-use crate::ice_transport::ice_gathering_state::RTCIceGatheringState;
-use crate::ice_transport::ice_parameters::RTCIceParameters;
-use crate::rtp_transceiver::rtp_codec::{
-    RTCRtpCodecCapability, RTCRtpCodecParameters, RTPCodecType,
+use crate::{
+    api::media_engine::MediaEngine,
+    dtls_transport::dtls_fingerprint::RTCDtlsFingerprint,
+    error::{Error, Result},
+    ice_transport::{
+        ice_candidate::RTCIceCandidate, ice_gatherer::RTCIceGatherer,
+        ice_gathering_state::RTCIceGatheringState, ice_parameters::RTCIceParameters,
+    },
+    rtp_transceiver::{
+        rtp_codec::{RTCRtpCodecCapability, RTCRtpCodecParameters, RTPCodecType},
+        rtp_transceiver_direction::RTCRtpTransceiverDirection,
+        PayloadType, RTCPFeedback, RTCRtpTransceiver, SSRC,
+    },
 };
-use crate::rtp_transceiver::rtp_transceiver_direction::RTCRtpTransceiverDirection;
-use crate::rtp_transceiver::{PayloadType, RTCPFeedback, RTCRtpTransceiver, SSRC};
 
 pub mod sdp_type;
 pub mod session_description;
 
-use std::collections::HashMap;
-use std::convert::From;
-use std::io::BufReader;
-use std::sync::Arc;
+use std::{collections::HashMap, convert::From, io::BufReader, sync::Arc};
 
-use ice::candidate::candidate_base::unmarshal_candidate;
-use ice::candidate::Candidate;
-use sdp::description::common::{Address, ConnectionInformation};
-use sdp::description::media::{MediaDescription, MediaName, RangedPort};
-use sdp::description::session::*;
-use sdp::extmap::ExtMap;
-use sdp::util::ConnectionRole;
+use ice::candidate::{candidate_base::unmarshal_candidate, Candidate};
+use sdp::{
+    description::{
+        common::{Address, ConnectionInformation},
+        media::{MediaDescription, MediaName, RangedPort},
+        session::*,
+    },
+    extmap::ExtMap,
+    util::ConnectionRole,
+};
 use smol_str::SmolStr;
 use url::Url;
 
-use crate::peer_connection::MEDIA_SECTION_APPLICATION;
-use crate::{SDP_ATTRIBUTE_RID, SDP_ATTRIBUTE_SIMULCAST};
+use crate::{
+    peer_connection::MEDIA_SECTION_APPLICATION, SDP_ATTRIBUTE_RID, SDP_ATTRIBUTE_SIMULCAST,
+};
 
 /// TrackDetails represents any media source that can be represented in a SDP
 /// This isn't keyed by SSRC because it also needs to support rid based sources

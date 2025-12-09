@@ -1,7 +1,6 @@
 use std::str::FromStr;
 
-use stun::attributes::ATTR_USERNAME;
-use stun::textattrs::TextAttribute;
+use stun::{attributes::ATTR_USERNAME, textattrs::TextAttribute};
 use tokio::net::UdpSocket;
 
 use super::*;

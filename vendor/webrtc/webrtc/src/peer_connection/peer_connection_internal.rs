@@ -1,5 +1,4 @@
-use std::collections::VecDeque;
-use std::sync::Weak;
+use std::{collections::VecDeque, sync::Weak};
 
 use arc_swap::ArcSwapOption;
 use portable_atomic::AtomicIsize;
@@ -8,14 +7,15 @@ use tokio::time::Instant;
 use util::Unmarshal;
 
 use super::*;
-use crate::rtp_transceiver::create_stream_info;
-use crate::stats::stats_collector::StatsCollector;
-use crate::stats::{
-    InboundRTPStats, OutboundRTPStats, RTCStatsType, RemoteInboundRTPStats, RemoteOutboundRTPStats,
-    StatsReportType,
+use crate::{
+    rtp_transceiver::create_stream_info,
+    stats::{
+        stats_collector::StatsCollector, InboundRTPStats, OutboundRTPStats, RTCStatsType,
+        RemoteInboundRTPStats, RemoteOutboundRTPStats, StatsReportType,
+    },
+    track::TrackStream,
+    SDP_ATTRIBUTE_RID,
 };
-use crate::track::TrackStream;
-use crate::SDP_ATTRIBUTE_RID;
 
 pub(crate) struct PeerConnectionInternal {
     /// a value containing the last known greater mid value

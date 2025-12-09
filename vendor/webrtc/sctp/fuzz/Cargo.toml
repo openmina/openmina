@@ -9,8 +9,8 @@ edition = "2021"
 cargo-fuzz = true
 
 [dependencies]
-libfuzzer-sys = "0.4"
 bytes = "*"
+libfuzzer-sys = "0.4"
 
 [dependencies.webrtc-sctp]
 path = ".."

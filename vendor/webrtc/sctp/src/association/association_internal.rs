@@ -5,9 +5,10 @@ use async_trait::async_trait;
 use portable_atomic::AtomicBool;
 
 use super::*;
-use crate::param::param_forward_tsn_supported::ParamForwardTsnSupported;
-use crate::param::param_type::ParamType;
-use crate::param::param_unrecognized::ParamUnrecognized;
+use crate::param::{
+    param_forward_tsn_supported::ParamForwardTsnSupported, param_type::ParamType,
+    param_unrecognized::ParamUnrecognized,
+};
 
 #[derive(Default)]
 pub struct AssociationInternal {

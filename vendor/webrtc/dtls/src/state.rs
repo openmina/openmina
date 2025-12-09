@@ -1,7 +1,8 @@
-use std::io::{BufWriter, Cursor};
-use std::marker::{Send, Sync};
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
+use std::{
+    io::{BufWriter, Cursor},
+    marker::{Send, Sync},
+    sync::{atomic::Ordering, Arc},
+};
 
 use async_trait::async_trait;
 use portable_atomic::AtomicU16;
@@ -9,12 +10,10 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 use util::{KeyingMaterialExporter, KeyingMaterialExporterError};
 
-use super::cipher_suite::*;
-use super::conn::*;
-use super::curve::named_curve::*;
-use super::extension::extension_use_srtp::SrtpProtectionProfile;
-use super::handshake::handshake_random::*;
-use super::prf::*;
+use super::{
+    cipher_suite::*, conn::*, curve::named_curve::*,
+    extension::extension_use_srtp::SrtpProtectionProfile, handshake::handshake_random::*, prf::*,
+};
 use crate::error::*;
 
 // State holds the dtls connection state and implements both encoding.BinaryMarshaler and encoding.BinaryUnmarshaler

@@ -1,30 +1,30 @@
 #[cfg(test)]
 mod rtp_receiver_test;
 
-use std::fmt;
-use std::sync::Arc;
+use std::{fmt, sync::Arc};
 
 use arc_swap::ArcSwapOption;
-use interceptor::stream_info::RTPHeaderExtension;
-use interceptor::{Attributes, Interceptor};
+use interceptor::{stream_info::RTPHeaderExtension, Attributes, Interceptor};
 use log::trace;
 use smol_str::SmolStr;
 use tokio::sync::{watch, Mutex, RwLock};
 
-use crate::api::media_engine::MediaEngine;
-use crate::dtls_transport::RTCDtlsTransport;
-use crate::error::{flatten_errs, Error, Result};
-use crate::peer_connection::sdp::TrackDetails;
-use crate::rtp_transceiver::rtp_codec::{
-    codec_parameters_fuzzy_search, CodecMatch, RTCRtpCodecCapability, RTCRtpCodecParameters,
-    RTCRtpParameters, RTPCodecType,
+use crate::{
+    api::media_engine::MediaEngine,
+    dtls_transport::RTCDtlsTransport,
+    error::{flatten_errs, Error, Result},
+    peer_connection::sdp::TrackDetails,
+    rtp_transceiver::{
+        create_stream_info,
+        rtp_codec::{
+            codec_parameters_fuzzy_search, CodecMatch, RTCRtpCodecCapability,
+            RTCRtpCodecParameters, RTCRtpParameters, RTPCodecType,
+        },
+        rtp_transceiver_direction::RTCRtpTransceiverDirection,
+        RTCRtpDecodingParameters, RTCRtpReceiveParameters, SSRC,
+    },
+    track::{track_remote::TrackRemote, TrackStream, TrackStreams},
 };
-use crate::rtp_transceiver::rtp_transceiver_direction::RTCRtpTransceiverDirection;
-use crate::rtp_transceiver::{
-    create_stream_info, RTCRtpDecodingParameters, RTCRtpReceiveParameters, SSRC,
-};
-use crate::track::track_remote::TrackRemote;
-use crate::track::{TrackStream, TrackStreams};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(u8)]

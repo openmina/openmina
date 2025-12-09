@@ -14,8 +14,8 @@ rtp = { version = "0.11.0", path = "../rtp" }
 
 byteorder = "1"
 bytes = "1"
-thiserror = "1"
 rand = "0.8"
+thiserror = "1"
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }

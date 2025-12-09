@@ -1,7 +1,8 @@
-use std::collections::HashMap;
-use std::net::SocketAddr;
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
+use std::{
+    collections::HashMap,
+    net::SocketAddr,
+    sync::{atomic::Ordering, Arc},
+};
 
 use portable_atomic::AtomicU8;
 

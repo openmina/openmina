@@ -3,8 +3,7 @@ use chrono::prelude::*;
 use rtp::extension::abs_send_time_extension::unix2ntp;
 
 use super::*;
-use crate::mock::mock_stream::MockStream;
-use crate::mock::mock_time::MockTime;
+use crate::mock::{mock_stream::MockStream, mock_time::MockTime};
 
 #[tokio::test]
 async fn test_receiver_interceptor_before_any_packet() -> Result<()> {

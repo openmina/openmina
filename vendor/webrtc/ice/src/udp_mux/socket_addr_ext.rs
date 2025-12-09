@@ -1,6 +1,4 @@
-use std::array::TryFromSliceError;
-use std::convert::TryInto;
-use std::net::SocketAddr;
+use std::{array::TryFromSliceError, convert::TryInto, net::SocketAddr};
 
 use util::Error;
 

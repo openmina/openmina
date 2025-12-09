@@ -1,16 +1,12 @@
 #[cfg(test)]
 mod agent_test;
 
-use std::collections::HashMap;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use rand::Rng;
-use tokio::sync::mpsc;
-use tokio::time::Instant;
+use tokio::{sync::mpsc, time::Instant};
 
-use crate::client::ClientTransaction;
-use crate::error::*;
-use crate::message::*;
+use crate::{client::ClientTransaction, error::*, message::*};
 
 /// Handler handles state changes of transaction.
 /// Handler is called on transaction state change.

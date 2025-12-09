@@ -1,6 +1,4 @@
-use rtp::header::Header;
-use rtp::packet::Packet;
-use rtp::packetizer::Depacketizer;
+use rtp::{header::Header, packet::Packet, packetizer::Depacketizer};
 
 use super::*;
 

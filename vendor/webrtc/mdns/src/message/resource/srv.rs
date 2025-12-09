@@ -1,7 +1,8 @@
 use super::*;
-use crate::error::Result;
-use crate::message::name::*;
-use crate::message::packer::*;
+use crate::{
+    error::Result,
+    message::{name::*, packer::*},
+};
 
 // An SRVResource is an SRV Resource record.
 #[derive(Default, Debug, Clone, PartialEq, Eq)]

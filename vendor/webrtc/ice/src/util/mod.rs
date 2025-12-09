@@ -1,23 +1,21 @@
 #[cfg(test)]
 mod util_test;
 
-use std::collections::HashSet;
-use std::net::{IpAddr, SocketAddr};
-use std::sync::Arc;
+use std::{
+    collections::HashSet,
+    net::{IpAddr, SocketAddr},
+    sync::Arc,
+};
 
-use stun::agent::*;
-use stun::attributes::*;
-use stun::integrity::*;
-use stun::message::*;
-use stun::textattrs::*;
-use stun::xoraddr::*;
+use stun::{agent::*, attributes::*, integrity::*, message::*, textattrs::*, xoraddr::*};
 use tokio::time::Duration;
-use util::vnet::net::*;
-use util::Conn;
+use util::{vnet::net::*, Conn};
 
-use crate::agent::agent_config::{InterfaceFilterFn, IpFilterFn};
-use crate::error::*;
-use crate::network_type::*;
+use crate::{
+    agent::agent_config::{InterfaceFilterFn, IpFilterFn},
+    error::*,
+    network_type::*,
+};
 
 pub fn create_addr(_network: NetworkType, ip: IpAddr, port: u16) -> SocketAddr {
     /*if network.is_tcp(){

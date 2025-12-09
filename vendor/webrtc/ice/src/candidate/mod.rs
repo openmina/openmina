@@ -13,11 +13,12 @@ pub mod candidate_peer_reflexive;
 pub mod candidate_relay;
 pub mod candidate_server_reflexive;
 
-use std::fmt;
-use std::net::{IpAddr, SocketAddr};
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
-use std::time::SystemTime;
+use std::{
+    fmt,
+    net::{IpAddr, SocketAddr},
+    sync::{atomic::Ordering, Arc},
+    time::SystemTime,
+};
 
 use async_trait::async_trait;
 use candidate_base::*;
@@ -25,9 +26,7 @@ use portable_atomic::{AtomicBool, AtomicU16, AtomicU8};
 use serde::{Deserialize, Serialize};
 use tokio::sync::{broadcast, Mutex};
 
-use crate::error::Result;
-use crate::network_type::*;
-use crate::tcp_type::*;
+use crate::{error::Result, network_type::*, tcp_type::*};
 
 pub(crate) const RECEIVE_MTU: usize = 8192;
 pub(crate) const DEFAULT_LOCAL_PREFERENCE: u16 = 65535;

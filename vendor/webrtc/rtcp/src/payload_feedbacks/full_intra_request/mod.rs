@@ -1,16 +1,12 @@
 #[cfg(test)]
 mod full_intra_request_test;
 
-use std::any::Any;
-use std::fmt;
+use std::{any::Any, fmt};
 
 use bytes::{Buf, BufMut};
 use util::marshal::{Marshal, MarshalSize, Unmarshal};
 
-use crate::error::Error;
-use crate::header::*;
-use crate::packet::*;
-use crate::util::*;
+use crate::{error::Error, header::*, packet::*, util::*};
 
 type Result<T> = std::result::Result<T, util::Error>;
 

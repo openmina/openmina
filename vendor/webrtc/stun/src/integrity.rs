@@ -6,10 +6,7 @@ use std::fmt;
 use md5::{Digest, Md5};
 use ring::hmac;
 
-use crate::attributes::*;
-use crate::checks::*;
-use crate::error::*;
-use crate::message::*;
+use crate::{attributes::*, checks::*, error::*, message::*};
 
 // separator for credentials.
 pub(crate) const CREDENTIALS_SEP: &str = ":";

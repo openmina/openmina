@@ -3,29 +3,25 @@ use std::fmt;
 use async_trait::async_trait;
 use log::*;
 
-use super::flight5::*;
-use super::*;
-use crate::cipher_suite::cipher_suite_for_id;
-use crate::compression_methods::*;
-use crate::config::*;
-use crate::content::*;
-use crate::curve::named_curve::*;
-use crate::error::Error;
-use crate::extension::extension_server_name::*;
-use crate::extension::extension_supported_elliptic_curves::*;
-use crate::extension::extension_supported_point_formats::*;
-use crate::extension::extension_supported_signature_algorithms::*;
-use crate::extension::extension_use_extended_master_secret::*;
-use crate::extension::extension_use_srtp::*;
-use crate::extension::renegotiation_info::ExtensionRenegotiationInfo;
-use crate::extension::*;
-use crate::handshake::handshake_message_client_hello::*;
-use crate::handshake::handshake_message_server_key_exchange::*;
-use crate::handshake::*;
-use crate::prf::{prf_pre_master_secret, prf_psk_pre_master_secret};
-use crate::record_layer::record_layer_header::*;
-use crate::record_layer::*;
-use crate::{find_matching_cipher_suite, find_matching_srtp_profile};
+use super::{flight5::*, *};
+use crate::{
+    cipher_suite::cipher_suite_for_id,
+    compression_methods::*,
+    config::*,
+    content::*,
+    curve::named_curve::*,
+    error::Error,
+    extension::{
+        extension_server_name::*, extension_supported_elliptic_curves::*,
+        extension_supported_point_formats::*, extension_supported_signature_algorithms::*,
+        extension_use_extended_master_secret::*, extension_use_srtp::*,
+        renegotiation_info::ExtensionRenegotiationInfo, *,
+    },
+    find_matching_cipher_suite, find_matching_srtp_profile,
+    handshake::{handshake_message_client_hello::*, handshake_message_server_key_exchange::*, *},
+    prf::{prf_pre_master_secret, prf_psk_pre_master_secret},
+    record_layer::{record_layer_header::*, *},
+};
 
 #[derive(Debug, PartialEq)]
 pub(crate) struct Flight3;

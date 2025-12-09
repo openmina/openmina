@@ -4,8 +4,7 @@
 //! [media_stream_track]: https://www.w3.org/TR/mediacapture-streams/#mediastreamtrack
 //! [media_track_supported_constraints]: https://www.w3.org/TR/mediacapture-streams/#dom-mediatracksupportedconstraints
 
-use std::borrow::Cow;
-use std::fmt::Display;
+use std::{borrow::Cow, fmt::Display};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -221,9 +220,7 @@ pub mod all {
 
     /// Names of all properties.
     pub mod name {
-        pub use super::audio_only::name::*;
-        pub use super::common::name::*;
-        pub use super::video_only::name::*;
+        pub use super::{audio_only::name::*, common::name::*, video_only::name::*};
     }
 
     /// Names of all properties.

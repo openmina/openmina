@@ -42,12 +42,16 @@ mod tests {
     use std::iter::FromIterator;
 
     use super::*;
-    use crate::constraints::advanced::AdvancedMediaTrackConstraints;
-    use crate::constraints::mandatory::MandatoryMediaTrackConstraints;
-    use crate::constraints::track::{BoolOrMediaTrackConstraints, MediaTrackConstraints};
-    use crate::macros::test_serde_symmetry;
-    use crate::property::all::name::*;
-    use crate::MediaTrackConstraintSet;
+    use crate::{
+        constraints::{
+            advanced::AdvancedMediaTrackConstraints,
+            mandatory::MandatoryMediaTrackConstraints,
+            track::{BoolOrMediaTrackConstraints, MediaTrackConstraints},
+        },
+        macros::test_serde_symmetry,
+        property::all::name::*,
+        MediaTrackConstraintSet,
+    };
 
     type Subject = MediaStreamConstraints;
 

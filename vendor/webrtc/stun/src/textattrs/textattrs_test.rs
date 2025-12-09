@@ -1,8 +1,7 @@
 use std::io::BufReader;
 
 use super::*;
-use crate::checks::*;
-use crate::error::*;
+use crate::{checks::*, error::*};
 
 #[test]
 fn test_software_get_from() -> Result<()> {

@@ -1,5 +1,4 @@
-use std::net::SocketAddr;
-use std::str::FromStr;
+use std::{net::SocketAddr, str::FromStr};
 
 use super::*;
 use crate::vnet::chunk::ChunkUdp;

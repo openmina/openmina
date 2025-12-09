@@ -1,13 +1,16 @@
-use std::collections::HashMap;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use std::str::FromStr;
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
+use std::{
+    collections::HashMap,
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+    str::FromStr,
+    sync::{atomic::Ordering, Arc},
+};
 
 use portable_atomic::AtomicU16;
 use stun::message::*;
-use tokio::sync::{mpsc, Mutex};
-use tokio::time::Duration;
+use tokio::{
+    sync::{mpsc, Mutex},
+    time::Duration,
+};
 use util::Conn;
 
 use crate::error::*;

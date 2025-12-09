@@ -3,9 +3,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tokio::sync::Mutex;
 
-use crate::error::Result;
-use crate::nack::UINT16SIZE_HALF;
-use crate::{Attributes, RTPWriter};
+use crate::{error::Result, nack::UINT16SIZE_HALF, Attributes, RTPWriter};
 
 struct ResponderStreamInternal {
     packets: Vec<Option<rtp::packet::Packet>>,

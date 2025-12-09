@@ -6,24 +6,28 @@ pub mod crypto_ccm;
 pub mod crypto_gcm;
 pub mod padding;
 
-use std::convert::TryFrom;
-use std::sync::Arc;
+use std::{convert::TryFrom, sync::Arc};
 
-use der_parser::oid;
-use der_parser::oid::Oid;
+use der_parser::{oid, oid::Oid};
 
-use rustls::client::danger::ServerCertVerifier;
-use rustls::pki_types::{CertificateDer, ServerName};
-use rustls::server::danger::ClientCertVerifier;
+use rustls::{
+    client::danger::ServerCertVerifier,
+    pki_types::{CertificateDer, ServerName},
+    server::danger::ClientCertVerifier,
+};
 
 use rcgen::{generate_simple_self_signed, CertifiedKey, KeyPair};
-use ring::rand::SystemRandom;
-use ring::signature::{EcdsaKeyPair, Ed25519KeyPair};
+use ring::{
+    rand::SystemRandom,
+    signature::{EcdsaKeyPair, Ed25519KeyPair},
+};
 
-use crate::curve::named_curve::*;
-use crate::error::*;
-use crate::record_layer::record_layer_header::*;
-use crate::signature_hash_algorithm::{HashAlgorithm, SignatureAlgorithm, SignatureHashAlgorithm};
+use crate::{
+    curve::named_curve::*,
+    error::*,
+    record_layer::record_layer_header::*,
+    signature_hash_algorithm::{HashAlgorithm, SignatureAlgorithm, SignatureHashAlgorithm},
+};
 
 /// A X.509 certificate(s) used to authenticate a DTLS connection.
 #[derive(Clone, PartialEq, Debug)]

@@ -1,5 +1,6 @@
-use super::setting::SettingFitnessDistanceError;
-use super::{FitnessDistance, SettingFitnessDistanceErrorKind};
+use super::{
+    setting::SettingFitnessDistanceError, FitnessDistance, SettingFitnessDistanceErrorKind,
+};
 use crate::constraint::ResolvedValueConstraint;
 
 // Standard implementation for value constraints of arbitrary `Setting` and `Constraint`

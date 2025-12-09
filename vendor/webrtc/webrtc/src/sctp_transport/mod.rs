@@ -4,32 +4,36 @@ mod sctp_transport_test;
 pub mod sctp_transport_capabilities;
 pub mod sctp_transport_state;
 
-use std::collections::{HashMap, HashSet};
-use std::future::Future;
-use std::pin::Pin;
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
+use std::{
+    collections::{HashMap, HashSet},
+    future::Future,
+    pin::Pin,
+    sync::{atomic::Ordering, Arc},
+};
 
 use arc_swap::ArcSwapOption;
-use data::data_channel::DataChannel;
-use data::message::message_channel_open::ChannelType;
+use data::{data_channel::DataChannel, message::message_channel_open::ChannelType};
 use portable_atomic::{AtomicBool, AtomicU32, AtomicU8};
 use sctp::association::Association;
 use sctp_transport_state::RTCSctpTransportState;
 use tokio::sync::{Mutex, Notify};
 use util::Conn;
 
-use crate::api::setting_engine::SettingEngine;
-use crate::data_channel::data_channel_parameters::DataChannelParameters;
-use crate::data_channel::data_channel_state::RTCDataChannelState;
-use crate::data_channel::RTCDataChannel;
-use crate::dtls_transport::dtls_role::DTLSRole;
-use crate::dtls_transport::*;
-use crate::error::*;
-use crate::sctp_transport::sctp_transport_capabilities::SCTPTransportCapabilities;
-use crate::stats::stats_collector::StatsCollector;
-use crate::stats::StatsReportType::{PeerConnection, SCTPTransport};
-use crate::stats::{ICETransportStats, PeerConnectionStats};
+use crate::{
+    api::setting_engine::SettingEngine,
+    data_channel::{
+        data_channel_parameters::DataChannelParameters, data_channel_state::RTCDataChannelState,
+        RTCDataChannel,
+    },
+    dtls_transport::{dtls_role::DTLSRole, *},
+    error::*,
+    sctp_transport::sctp_transport_capabilities::SCTPTransportCapabilities,
+    stats::{
+        stats_collector::StatsCollector,
+        ICETransportStats, PeerConnectionStats,
+        StatsReportType::{PeerConnection, SCTPTransport},
+    },
+};
 
 const SCTP_MAX_CHANNELS: u16 = u16::MAX;
 

@@ -3,8 +3,10 @@ mod buffer_test;
 
 use std::sync::Arc;
 
-use tokio::sync::{Mutex, Notify};
-use tokio::time::{timeout, Duration};
+use tokio::{
+    sync::{Mutex, Notify},
+    time::{timeout, Duration},
+};
 
 use crate::error::{Error, Result};
 

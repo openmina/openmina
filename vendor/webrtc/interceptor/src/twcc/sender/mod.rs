@@ -2,8 +2,7 @@ mod sender_stream;
 #[cfg(test)]
 mod sender_test;
 
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
+use std::sync::{atomic::Ordering, Arc};
 
 use portable_atomic::AtomicU32;
 use rtp::extension::transport_cc_extension::TransportCcExtension;

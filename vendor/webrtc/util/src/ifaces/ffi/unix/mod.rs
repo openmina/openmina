@@ -1,8 +1,10 @@
 use crate::ifaces::{Interface, Kind, NextHop};
 
 use nix::sys::socket::{AddressFamily, SockaddrLike, SockaddrStorage};
-use std::io::Error;
-use std::net::{SocketAddr, SocketAddrV4, SocketAddrV6};
+use std::{
+    io::Error,
+    net::{SocketAddr, SocketAddrV4, SocketAddrV6},
+};
 
 fn ss_to_netsa(ss: &SockaddrStorage) -> Option<SocketAddr> {
     match ss.family() {

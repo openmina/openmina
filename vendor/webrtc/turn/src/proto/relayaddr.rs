@@ -1,12 +1,12 @@
 #[cfg(test)]
 mod relayaddr_test;
 
-use std::fmt;
-use std::net::{IpAddr, Ipv4Addr};
+use std::{
+    fmt,
+    net::{IpAddr, Ipv4Addr},
+};
 
-use stun::attributes::*;
-use stun::message::*;
-use stun::xoraddr::*;
+use stun::{attributes::*, message::*, xoraddr::*};
 
 /// `RelayedAddress` implements `XOR-RELAYED-ADDRESS` attribute.
 ///

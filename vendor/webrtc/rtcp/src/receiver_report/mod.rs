@@ -1,17 +1,12 @@
 #[cfg(test)]
 mod receiver_report_test;
 
-use std::any::Any;
-use std::fmt;
+use std::{any::Any, fmt};
 
 use bytes::{Buf, BufMut, Bytes};
 use util::marshal::{Marshal, MarshalSize, Unmarshal};
 
-use crate::error::Error;
-use crate::header::*;
-use crate::packet::*;
-use crate::reception_report::*;
-use crate::util::*;
+use crate::{error::Error, header::*, packet::*, reception_report::*, util::*};
 
 type Result<T> = std::result::Result<T, util::Error>;
 

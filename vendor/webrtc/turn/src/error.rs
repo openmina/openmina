@@ -1,6 +1,4 @@
-use std::num::ParseIntError;
-use std::time::SystemTimeError;
-use std::{io, net};
+use std::{io, net, num::ParseIntError, time::SystemTimeError};
 
 use thiserror::Error;
 

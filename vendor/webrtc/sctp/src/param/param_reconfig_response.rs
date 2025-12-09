@@ -2,9 +2,7 @@ use std::fmt;
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 
-use super::param_header::*;
-use super::param_type::*;
-use super::*;
+use super::{param_header::*, param_type::*, *};
 
 #[derive(Default, Debug, Copy, Clone, PartialEq)]
 #[repr(C)]

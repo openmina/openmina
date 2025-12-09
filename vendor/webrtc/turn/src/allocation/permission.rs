@@ -1,9 +1,10 @@
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
+use std::sync::{atomic::Ordering, Arc};
 
 use portable_atomic::AtomicBool;
-use tokio::sync::Mutex;
-use tokio::time::{Duration, Instant};
+use tokio::{
+    sync::Mutex,
+    time::{Duration, Instant},
+};
 
 use super::*;
 

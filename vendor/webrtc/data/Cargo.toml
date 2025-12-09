@@ -10,27 +10,30 @@ homepage = "https://webrtc.rs"
 repository = "https://github.com/webrtc-rs/data"
 
 [dependencies]
-util = { version = "0.9.0", path = "../util", package = "webrtc-util", default-features = false, features = ["conn", "marshal"]  }
 sctp = { version = "0.10.0", path = "../sctp", package = "webrtc-sctp" }
-
-tokio = { version = "1.32.0", features = [
-    "fs",
-    "io-util",
-    "io-std",
-    "macros",
-    "net",
-    "parking_lot",
-    "rt",
-    "rt-multi-thread",
-    "sync",
-    "time",
+util = { version = "0.9.0", path = "../util", package = "webrtc-util", default-features = false, features = [
+  "conn",
+  "marshal",
 ] }
+
 bytes = "1"
 log = "0.4"
-thiserror = "1"
 portable-atomic = "1.6"
+thiserror = "1"
+tokio = { version = "1.32.0", features = [
+  "fs",
+  "io-util",
+  "io-std",
+  "macros",
+  "net",
+  "parking_lot",
+  "rt",
+  "rt-multi-thread",
+  "sync",
+  "time",
+] }
 
 [dev-dependencies]
-tokio-test = "0.4" # must match the min version of the `tokio` crate above
+tokio-test = "0.4"  # must match the min version of the `tokio` crate above
 env_logger = "0.10"
 chrono = "0.4.28"

@@ -1,5 +1,6 @@
-use super::setting::SettingFitnessDistanceError;
-use super::{FitnessDistance, SettingFitnessDistanceErrorKind};
+use super::{
+    setting::SettingFitnessDistanceError, FitnessDistance, SettingFitnessDistanceErrorKind,
+};
 use crate::ResolvedValueSequenceConstraint;
 
 macro_rules! impl_non_numeric_value_sequence_constraint {

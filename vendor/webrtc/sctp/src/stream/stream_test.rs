@@ -1,5 +1,4 @@
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
+use std::sync::{atomic::Ordering, Arc};
 
 use portable_atomic::AtomicU32;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};

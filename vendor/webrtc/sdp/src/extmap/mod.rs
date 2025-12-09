@@ -5,8 +5,10 @@ use std::{fmt, io};
 
 use url::Url;
 
-use super::direction::*;
-use super::error::{Error, Result};
+use super::{
+    direction::*,
+    error::{Error, Result},
+};
 use crate::description::common::*;
 
 /// Default ext values

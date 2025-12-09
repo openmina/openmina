@@ -1,8 +1,10 @@
 use std::sync::{Arc, Weak};
 
 use async_trait::async_trait;
-use tokio::sync::{mpsc, Mutex};
-use tokio::time::Duration;
+use tokio::{
+    sync::{mpsc, Mutex},
+    time::Duration,
+};
 
 use crate::association::RtxTimerId;
 

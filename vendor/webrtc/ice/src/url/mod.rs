@@ -1,9 +1,7 @@
 #[cfg(test)]
 mod url_test;
 
-use std::borrow::Cow;
-use std::convert::From;
-use std::fmt;
+use std::{borrow::Cow, convert::From, fmt};
 
 use crate::error::*;
 

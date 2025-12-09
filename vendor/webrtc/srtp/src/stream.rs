@@ -1,6 +1,5 @@
 use tokio::sync::mpsc;
-use util::marshal::*;
-use util::Buffer;
+use util::{marshal::*, Buffer};
 
 use crate::error::{Error, Result};
 

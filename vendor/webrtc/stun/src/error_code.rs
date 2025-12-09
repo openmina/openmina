@@ -1,10 +1,6 @@
-use std::collections::HashMap;
-use std::fmt;
+use std::{collections::HashMap, fmt};
 
-use crate::attributes::*;
-use crate::checks::*;
-use crate::error::*;
-use crate::message::*;
+use crate::{attributes::*, checks::*, error::*, message::*};
 
 // ErrorCodeAttribute represents ERROR-CODE attribute.
 //

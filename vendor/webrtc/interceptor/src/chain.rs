@@ -1,8 +1,6 @@
 use std::sync::Arc;
 
-use crate::error::*;
-use crate::stream_info::StreamInfo;
-use crate::*;
+use crate::{error::*, stream_info::StreamInfo, *};
 
 /// Chain is an interceptor that runs all child interceptors in order.
 #[derive(Default)]

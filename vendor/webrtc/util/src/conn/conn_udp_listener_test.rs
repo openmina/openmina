@@ -1,12 +1,8 @@
-use std::future::Future;
-use std::pin::Pin;
+use std::{future::Future, pin::Pin};
 
-use tokio::net::UdpSocket;
-use tokio::sync::mpsc;
-use tokio::time::Duration;
+use tokio::{net::UdpSocket, sync::mpsc, time::Duration};
 
-use super::conn_udp_listener::*;
-use super::*;
+use super::{conn_udp_listener::*, *};
 use crate::error::{Error, Result};
 
 async fn pipe() -> Result<(

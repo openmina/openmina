@@ -7,9 +7,10 @@ use byteorder::{LittleEndian, WriteBytesExt};
 use bytes::{Bytes, BytesMut};
 use rtp::packetizer::Depacketizer;
 
-use crate::error::Result;
-use crate::io::ivf_reader::IVFFileHeader;
-use crate::io::Writer;
+use crate::{
+    error::Result,
+    io::{ivf_reader::IVFFileHeader, Writer},
+};
 
 /// IVFWriter is used to take RTP packets and write them to an IVF on disk
 pub struct IVFWriter<W: Write + Seek> {

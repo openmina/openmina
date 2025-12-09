@@ -4,9 +4,13 @@ use bytes::{Bytes, BytesMut};
 //payload_queue_test
 ///////////////////////////////////////////////////////////////////
 use super::payload_queue::*;
-use crate::chunk::chunk_payload_data::{ChunkPayloadData, PayloadProtocolIdentifier};
-use crate::chunk::chunk_selective_ack::GapAckBlock;
-use crate::error::{Error, Result};
+use crate::{
+    chunk::{
+        chunk_payload_data::{ChunkPayloadData, PayloadProtocolIdentifier},
+        chunk_selective_ack::GapAckBlock,
+    },
+    error::{Error, Result},
+};
 
 fn make_payload(tsn: u32, n_bytes: usize) -> ChunkPayloadData {
     ChunkPayloadData {

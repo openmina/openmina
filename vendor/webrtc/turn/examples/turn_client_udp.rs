@@ -1,10 +1,8 @@
 use std::sync::Arc;
 
 use clap::{App, AppSettings, Arg};
-use tokio::net::UdpSocket;
-use tokio::time::Duration;
-use turn::client::*;
-use turn::Error;
+use tokio::{net::UdpSocket, time::Duration};
+use turn::{client::*, Error};
 use util::Conn;
 
 // RUST_LOG=trace cargo run --color=always --package turn --example turn_client_udp -- --host 0.0.0.0 --user user=pass --ping

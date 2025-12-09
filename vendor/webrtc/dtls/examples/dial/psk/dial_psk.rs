@@ -1,13 +1,9 @@
-use std::io::Write;
-use std::sync::Arc;
+use std::{io::Write, sync::Arc};
 
 use clap::{App, AppSettings, Arg};
 use tokio::net::UdpSocket;
 use util::Conn;
-use webrtc_dtls::cipher_suite::CipherSuiteId;
-use webrtc_dtls::config::*;
-use webrtc_dtls::conn::DTLSConn;
-use webrtc_dtls::Error;
+use webrtc_dtls::{cipher_suite::CipherSuiteId, config::*, conn::DTLSConn, Error};
 
 // cargo run --example dial_psk -- --server 127.0.0.1:4444
 

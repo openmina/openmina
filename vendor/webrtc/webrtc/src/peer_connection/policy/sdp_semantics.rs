@@ -61,8 +61,10 @@ impl fmt::Display for RTCSdpSemantics {
 mod test {
     use std::collections::HashSet;
 
-    use sdp::description::media::MediaDescription;
-    use sdp::description::session::{SessionDescription, ATTR_KEY_SSRC};
+    use sdp::description::{
+        media::MediaDescription,
+        session::{SessionDescription, ATTR_KEY_SSRC},
+    };
 
     use super::*;
 

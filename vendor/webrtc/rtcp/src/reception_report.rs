@@ -1,13 +1,9 @@
-use std::any::Any;
-use std::fmt;
+use std::{any::Any, fmt};
 
 use bytes::{Buf, BufMut};
 use util::marshal::{Marshal, MarshalSize, Unmarshal};
 
-use crate::error::Error;
-use crate::header::*;
-use crate::packet::*;
-use crate::util::*;
+use crate::{error::Error, header::*, packet::*, util::*};
 
 pub(crate) const RECEPTION_REPORT_LENGTH: usize = 24;
 pub(crate) const FRACTION_LOST_OFFSET: usize = 4;

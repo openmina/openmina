@@ -1,9 +1,13 @@
-use crate::error::*;
-use crate::message::header::{Header, HeaderInternal, Section};
-use crate::message::name::Name;
-use crate::message::question::Question;
-use crate::message::resource::{unpack_resource_body, Resource, ResourceBody, ResourceHeader};
-use crate::message::{DnsClass, DnsType};
+use crate::{
+    error::*,
+    message::{
+        header::{Header, HeaderInternal, Section},
+        name::Name,
+        question::Question,
+        resource::{unpack_resource_body, Resource, ResourceBody, ResourceHeader},
+        DnsClass, DnsType,
+    },
+};
 
 // A Parser allows incrementally parsing a DNS message.
 //

@@ -1,5 +1,6 @@
-use super::setting::SettingFitnessDistanceError;
-use super::{FitnessDistance, SettingFitnessDistanceErrorKind};
+use super::{
+    setting::SettingFitnessDistanceError, FitnessDistance, SettingFitnessDistanceErrorKind,
+};
 use crate::ResolvedValueRangeConstraint;
 
 macro_rules! impl_value_range_constraint {

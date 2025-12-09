@@ -1,7 +1,6 @@
 use std::io::BufReader;
 
-use base64::prelude::BASE64_STANDARD;
-use base64::Engine;
+use base64::{prelude::BASE64_STANDARD, Engine};
 
 use super::*;
 use crate::checks::*;

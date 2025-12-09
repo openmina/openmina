@@ -9,8 +9,7 @@ pub mod ssr;
 pub mod unknown;
 pub mod vm;
 
-use std::any::Any;
-use std::fmt;
+use std::{any::Any, fmt};
 
 use bytes::{Buf, BufMut, Bytes};
 pub use dlrr::{DLRRReport, DLRRReportBlock};
@@ -22,10 +21,12 @@ pub use unknown::UnknownReportBlock;
 use util::marshal::{Marshal, MarshalSize, Unmarshal};
 pub use vm::VoIPMetricsReportBlock;
 
-use crate::error;
-use crate::header::{Header, PacketType, HEADER_LENGTH, SSRC_LENGTH};
-use crate::packet::Packet;
-use crate::util::{get_padding_size, put_padding};
+use crate::{
+    error,
+    header::{Header, PacketType, HEADER_LENGTH, SSRC_LENGTH},
+    packet::Packet,
+    util::{get_padding_size, put_padding},
+};
 
 type Result<T> = std::result::Result<T, util::Error>;
 

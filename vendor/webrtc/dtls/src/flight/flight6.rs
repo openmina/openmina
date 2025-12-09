@@ -3,12 +3,13 @@ use std::fmt;
 use async_trait::async_trait;
 
 use super::*;
-use crate::change_cipher_spec::*;
-use crate::content::*;
-use crate::handshake::handshake_message_finished::*;
-use crate::handshake::*;
-use crate::prf::*;
-use crate::record_layer::record_layer_header::*;
+use crate::{
+    change_cipher_spec::*,
+    content::*,
+    handshake::{handshake_message_finished::*, *},
+    prf::*,
+    record_layer::record_layer_header::*,
+};
 
 #[derive(Debug, PartialEq)]
 pub(crate) struct Flight6;

@@ -1,8 +1,10 @@
 pub mod info;
 pub mod layout;
 
-use std::mem::{ManuallyDrop, MaybeUninit};
-use std::ops::Range;
+use std::{
+    mem::{ManuallyDrop, MaybeUninit},
+    ops::Range,
+};
 
 use byteorder::ByteOrder;
 pub use info::BufferInfo;

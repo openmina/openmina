@@ -1,8 +1,7 @@
 #[cfg(test)]
 mod prf_test;
 
-use std::convert::TryInto;
-use std::fmt;
+use std::{convert::TryInto, fmt};
 
 use hmac::{Hmac, Mac};
 use sha1::Sha1;
@@ -11,11 +10,10 @@ use sha2::{Digest, Sha256};
 type HmacSha256 = Hmac<Sha256>;
 type HmacSha1 = Hmac<Sha1>;
 
-use crate::cipher_suite::CipherSuiteHash;
-use crate::content::ContentType;
-use crate::curve::named_curve::*;
-use crate::error::*;
-use crate::record_layer::record_layer_header::ProtocolVersion;
+use crate::{
+    cipher_suite::CipherSuiteHash, content::ContentType, curve::named_curve::*, error::*,
+    record_layer::record_layer_header::ProtocolVersion,
+};
 
 pub(crate) const PRF_MASTER_SECRET_LABEL: &str = "master secret";
 pub(crate) const PRF_EXTENDED_MASTER_SECRET_LABEL: &str = "extended master secret";

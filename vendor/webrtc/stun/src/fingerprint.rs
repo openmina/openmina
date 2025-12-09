@@ -3,10 +3,7 @@ mod fingerprint_test;
 
 use crc::{Crc, CRC_32_ISO_HDLC};
 
-use crate::attributes::ATTR_FINGERPRINT;
-use crate::checks::*;
-use crate::error::*;
-use crate::message::*;
+use crate::{attributes::ATTR_FINGERPRINT, checks::*, error::*, message::*};
 
 // FingerprintAttr represents FINGERPRINT attribute.
 //

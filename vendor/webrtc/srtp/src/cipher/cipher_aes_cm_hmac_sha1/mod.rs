@@ -3,9 +3,11 @@ use hmac::{Hmac, Mac};
 use sha1::Sha1;
 
 use super::Cipher;
-use crate::error::{Error, Result};
-use crate::key_derivation::*;
-use crate::protection_profile::*;
+use crate::{
+    error::{Error, Result},
+    key_derivation::*,
+    protection_profile::*,
+};
 
 #[cfg(not(feature = "openssl"))]
 mod ctrcipher;

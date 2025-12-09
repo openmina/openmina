@@ -3,9 +3,7 @@ mod uattrs_test;
 
 use std::fmt;
 
-use crate::attributes::*;
-use crate::error::*;
-use crate::message::*;
+use crate::{attributes::*, error::*, message::*};
 
 // UnknownAttributes represents UNKNOWN-ATTRIBUTES attribute.
 //

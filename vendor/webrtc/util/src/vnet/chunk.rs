@@ -1,12 +1,14 @@
 #[cfg(test)]
 mod chunk_test;
 
-use std::fmt;
-use std::net::{IpAddr, SocketAddr};
-use std::ops::{BitAnd, BitOr};
-use std::str::FromStr;
-use std::sync::atomic::Ordering;
-use std::time::SystemTime;
+use std::{
+    fmt,
+    net::{IpAddr, SocketAddr},
+    ops::{BitAnd, BitOr},
+    str::FromStr,
+    sync::atomic::Ordering,
+    time::SystemTime,
+};
 
 use portable_atomic::AtomicU64;
 

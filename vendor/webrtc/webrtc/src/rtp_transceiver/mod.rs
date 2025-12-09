@@ -1,14 +1,17 @@
 #[cfg(test)]
 mod rtp_transceiver_test;
 
-use std::fmt;
-use std::future::Future;
-use std::pin::Pin;
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
+use std::{
+    fmt,
+    future::Future,
+    pin::Pin,
+    sync::{atomic::Ordering, Arc},
+};
 
-use interceptor::stream_info::{RTPHeaderExtension, StreamInfo};
-use interceptor::Attributes;
+use interceptor::{
+    stream_info::{RTPHeaderExtension, StreamInfo},
+    Attributes,
+};
 use log::trace;
 use portable_atomic::{AtomicBool, AtomicU8};
 use serde::{Deserialize, Serialize};
@@ -16,13 +19,17 @@ use smol_str::SmolStr;
 use tokio::sync::{Mutex, OnceCell};
 use util::Unmarshal;
 
-use crate::api::media_engine::MediaEngine;
-use crate::error::{Error, Result};
-use crate::rtp_transceiver::rtp_codec::*;
-use crate::rtp_transceiver::rtp_receiver::{RTCRtpReceiver, RTPReceiverInternal};
-use crate::rtp_transceiver::rtp_sender::RTCRtpSender;
-use crate::rtp_transceiver::rtp_transceiver_direction::RTCRtpTransceiverDirection;
-use crate::track::track_local::TrackLocal;
+use crate::{
+    api::media_engine::MediaEngine,
+    error::{Error, Result},
+    rtp_transceiver::{
+        rtp_codec::*,
+        rtp_receiver::{RTCRtpReceiver, RTPReceiverInternal},
+        rtp_sender::RTCRtpSender,
+        rtp_transceiver_direction::RTCRtpTransceiverDirection,
+    },
+    track::track_local::TrackLocal,
+};
 
 pub(crate) mod fmtp;
 pub mod rtp_codec;

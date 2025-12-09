@@ -3,13 +3,14 @@ use tokio::time::Duration;
 use waitgroup::WaitGroup;
 
 use super::*;
-use crate::api::media_engine::MediaEngine;
-use crate::api::APIBuilder;
-use crate::error::Result;
-use crate::ice_transport::ice_connection_state::RTCIceConnectionState;
-use crate::peer_connection::peer_connection_state::RTCPeerConnectionState;
-use crate::peer_connection::peer_connection_test::{
-    close_pair_now, new_pair, signal_pair, until_connection_state,
+use crate::{
+    api::{media_engine::MediaEngine, APIBuilder},
+    error::Result,
+    ice_transport::ice_connection_state::RTCIceConnectionState,
+    peer_connection::{
+        peer_connection_state::RTCPeerConnectionState,
+        peer_connection_test::{close_pair_now, new_pair, signal_pair, until_connection_state},
+    },
 };
 
 #[tokio::test]

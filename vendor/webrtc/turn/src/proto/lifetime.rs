@@ -1,12 +1,9 @@
 #[cfg(test)]
 mod lifetime_test;
 
-use std::fmt;
-use std::time::Duration;
+use std::{fmt, time::Duration};
 
-use stun::attributes::*;
-use stun::checks::*;
-use stun::message::*;
+use stun::{attributes::*, checks::*, message::*};
 
 /// `DEFAULT_LIFETIME` in RFC 5766 is 10 minutes.
 ///

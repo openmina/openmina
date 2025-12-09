@@ -1,7 +1,8 @@
 use super::*;
-use crate::error::Result;
-use crate::message::name::*;
-use crate::message::packer::*;
+use crate::{
+    error::Result,
+    message::{name::*, packer::*},
+};
 
 // An MXResource is an mx Resource record.
 #[derive(Default, Debug, Clone, PartialEq, Eq)]

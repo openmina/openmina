@@ -9,8 +9,7 @@ pub mod parser;
 pub mod question;
 pub mod resource;
 
-use std::collections::HashMap;
-use std::fmt;
+use std::{collections::HashMap, fmt};
 
 use header::*;
 use packer::*;

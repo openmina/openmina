@@ -19,9 +19,7 @@ pub(crate) mod chunk_shutdown_complete;
 pub(crate) mod chunk_type;
 pub(crate) mod chunk_unknown;
 
-use std::any::Any;
-use std::fmt;
-use std::marker::Sized;
+use std::{any::Any, fmt, marker::Sized};
 
 use bytes::{Bytes, BytesMut};
 use chunk_header::*;

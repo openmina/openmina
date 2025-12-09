@@ -1,16 +1,15 @@
 #[cfg(test)]
 mod message_test;
 
-use std::fmt;
-use std::io::{Read, Write};
+use std::{
+    fmt,
+    io::{Read, Write},
+};
 
-use base64::prelude::BASE64_STANDARD;
-use base64::Engine;
+use base64::{prelude::BASE64_STANDARD, Engine};
 use rand::Rng;
 
-use crate::agent::*;
-use crate::attributes::*;
-use crate::error::*;
+use crate::{agent::*, attributes::*, error::*};
 
 // MAGIC_COOKIE is fixed value that aids in distinguishing STUN packets
 // from packets of other protocols when STUN is multiplexed with those

@@ -1,5 +1,7 @@
-use tokio::sync::mpsc;
-use tokio::time::{sleep, Duration};
+use tokio::{
+    sync::mpsc,
+    time::{sleep, Duration},
+};
 use tokio_test::assert_ok;
 
 use super::*;

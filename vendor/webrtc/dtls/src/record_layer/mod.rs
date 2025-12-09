@@ -7,12 +7,11 @@ use std::io::{Read, Write};
 
 use record_layer_header::*;
 
-use super::content::*;
-use super::error::*;
-use crate::alert::Alert;
-use crate::application_data::ApplicationData;
-use crate::change_cipher_spec::ChangeCipherSpec;
-use crate::handshake::Handshake;
+use super::{content::*, error::*};
+use crate::{
+    alert::Alert, application_data::ApplicationData, change_cipher_spec::ChangeCipherSpec,
+    handshake::Handshake,
+};
 
 /*
  The TLS Record Layer which handles all data transport.

@@ -2,16 +2,17 @@ mod sender_stream;
 #[cfg(test)]
 mod sender_test;
 
-use std::collections::HashMap;
-use std::time::{Duration, SystemTime};
+use std::{
+    collections::HashMap,
+    time::{Duration, SystemTime},
+};
 
 use sender_stream::SenderStream;
 use tokio::sync::{mpsc, Mutex};
 use waitgroup::WaitGroup;
 
 use super::*;
-use crate::error::Error;
-use crate::*;
+use crate::{error::Error, *};
 
 pub(crate) struct SenderReportInternal {
     pub(crate) interval: Duration,

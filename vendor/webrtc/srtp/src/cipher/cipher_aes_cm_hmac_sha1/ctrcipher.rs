@@ -1,13 +1,14 @@
-use aes::cipher::generic_array::GenericArray;
-use aes::cipher::{KeyIvInit, StreamCipher, StreamCipherSeek};
+use aes::cipher::{generic_array::GenericArray, KeyIvInit, StreamCipher, StreamCipherSeek};
 use bytes::{BufMut, Bytes};
 use rtcp::header::{HEADER_LENGTH, SSRC_LENGTH};
 use subtle::ConstantTimeEq;
 use util::marshal::*;
 
 use super::{Cipher, CipherInner};
-use crate::error::{Error, Result};
-use crate::key_derivation::*;
+use crate::{
+    error::{Error, Result},
+    key_derivation::*,
+};
 
 type Aes128Ctr = ctr::Ctr128BE<aes::Aes128>;
 

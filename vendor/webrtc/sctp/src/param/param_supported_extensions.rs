@@ -1,8 +1,6 @@
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 
-use super::param_header::*;
-use super::param_type::*;
-use super::*;
+use super::{param_header::*, param_type::*, *};
 use crate::chunk::chunk_type::*;
 
 #[derive(Default, Debug, Clone, PartialEq)]

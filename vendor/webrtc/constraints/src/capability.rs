@@ -7,9 +7,10 @@ use std::ops::RangeInclusive;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-pub use self::value::MediaTrackValueCapability;
-pub use self::value_range::MediaTrackValueRangeCapability;
-pub use self::value_sequence::MediaTrackValueSequenceCapability;
+pub use self::{
+    value::MediaTrackValueCapability, value_range::MediaTrackValueRangeCapability,
+    value_sequence::MediaTrackValueSequenceCapability,
+};
 
 /// A single [capability][media_track_capabilities] value of a [`MediaStreamTrack`][media_stream_track] object.
 ///

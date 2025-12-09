@@ -1,6 +1,8 @@
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::time::{Duration, SystemTime};
+use std::{
+    collections::HashMap,
+    sync::Arc,
+    time::{Duration, SystemTime},
+};
 
 use tokio::sync::{mpsc, Mutex};
 use waitgroup::WaitGroup;
@@ -11,8 +13,7 @@ pub mod sender;
 use receiver::{ReceiverReport, ReceiverReportInternal};
 use sender::{SenderReport, SenderReportInternal};
 
-use crate::error::Result;
-use crate::{Interceptor, InterceptorBuilder};
+use crate::{error::Result, Interceptor, InterceptorBuilder};
 
 type FnTimeGen = Arc<dyn Fn() -> SystemTime + Sync + 'static + Send>;
 

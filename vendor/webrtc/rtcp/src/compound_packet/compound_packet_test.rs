@@ -1,6 +1,5 @@
 use super::*;
-use crate::goodbye::Goodbye;
-use crate::payload_feedbacks::picture_loss_indication::PictureLossIndication;
+use crate::{goodbye::Goodbye, payload_feedbacks::picture_loss_indication::PictureLossIndication};
 
 // An RTCP packet from a packet dump
 const REAL_PACKET: [u8; 116] = [

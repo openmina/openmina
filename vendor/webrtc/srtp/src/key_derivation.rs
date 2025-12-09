@@ -1,6 +1,7 @@
-use aes::cipher::generic_array::GenericArray;
-use aes::cipher::BlockEncrypt;
-use aes::Aes128;
+use aes::{
+    cipher::{generic_array::GenericArray, BlockEncrypt},
+    Aes128,
+};
 use aes_gcm::KeyInit;
 
 use crate::error::{Error, Result};

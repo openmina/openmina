@@ -6,8 +6,7 @@ use std::io::{Read, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 use super::*;
-use crate::client_certificate_type::*;
-use crate::signature_hash_algorithm::*;
+use crate::{client_certificate_type::*, signature_hash_algorithm::*};
 
 /*
 A non-anonymous server can optionally request a certificate from

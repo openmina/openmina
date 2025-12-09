@@ -1,14 +1,11 @@
-use std::io::Write;
-use std::sync::Arc;
+use std::{io::Write, sync::Arc};
 
 use clap::{App, AppSettings, Arg};
 use tokio::net::UdpSocket;
-use util::conn::conn_disconnected_packet::DisconnectedPacketConn;
-use util::Conn;
-use webrtc_sctp::association::*;
-use webrtc_sctp::chunk::chunk_payload_data::PayloadProtocolIdentifier;
-use webrtc_sctp::stream::*;
-use webrtc_sctp::Error;
+use util::{conn::conn_disconnected_packet::DisconnectedPacketConn, Conn};
+use webrtc_sctp::{
+    association::*, chunk::chunk_payload_data::PayloadProtocolIdentifier, stream::*, Error,
+};
 
 fn main() -> Result<(), Error> {
     env_logger::Builder::new()

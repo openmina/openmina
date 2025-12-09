@@ -3,8 +3,10 @@ mod opus_test;
 
 use bytes::Bytes;
 
-use crate::error::{Error, Result};
-use crate::packetizer::{Depacketizer, Payloader};
+use crate::{
+    error::{Error, Result},
+    packetizer::{Depacketizer, Payloader},
+};
 
 #[derive(Default, Debug, Copy, Clone)]
 pub struct OpusPayloader;

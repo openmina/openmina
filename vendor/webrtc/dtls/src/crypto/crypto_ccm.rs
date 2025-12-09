@@ -11,17 +11,15 @@
 use std::io::Cursor;
 
 use aes::Aes128;
-use ccm::aead::generic_array::GenericArray;
-use ccm::aead::AeadInPlace;
-use ccm::consts::{U12, U16, U8};
-use ccm::Ccm;
-use ccm::KeyInit;
+use ccm::{
+    aead::{generic_array::GenericArray, AeadInPlace},
+    consts::{U12, U16, U8},
+    Ccm, KeyInit,
+};
 use rand::Rng;
 
 use super::*;
-use crate::content::*;
-use crate::error::*;
-use crate::record_layer::record_layer_header::*;
+use crate::{content::*, error::*, record_layer::record_layer_header::*};
 
 const CRYPTO_CCM_8_TAG_LENGTH: usize = 8;
 const CRYPTO_CCM_TAG_LENGTH: usize = 16;

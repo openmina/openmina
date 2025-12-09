@@ -1,25 +1,21 @@
-use std::net::Ipv4Addr;
-use std::ops::Sub;
-use std::str::FromStr;
+use std::{net::Ipv4Addr, ops::Sub, str::FromStr};
 
 use async_trait::async_trait;
-use stun::message::*;
-use stun::textattrs::Username;
-use util::vnet::*;
-use util::Conn;
+use stun::{message::*, textattrs::Username};
+use util::{vnet::*, Conn};
 use waitgroup::{WaitGroup, Worker};
 
-use super::agent_vnet_test::*;
-use super::*;
-use crate::agent::agent_transport_test::pipe;
-use crate::candidate::candidate_base::*;
-use crate::candidate::candidate_host::*;
-use crate::candidate::candidate_peer_reflexive::*;
-use crate::candidate::candidate_relay::*;
-use crate::candidate::candidate_server_reflexive::*;
-use crate::control::AttrControlling;
-use crate::priority::PriorityAttr;
-use crate::use_candidate::UseCandidateAttr;
+use super::{agent_vnet_test::*, *};
+use crate::{
+    agent::agent_transport_test::pipe,
+    candidate::{
+        candidate_base::*, candidate_host::*, candidate_peer_reflexive::*, candidate_relay::*,
+        candidate_server_reflexive::*,
+    },
+    control::AttrControlling,
+    priority::PriorityAttr,
+    use_candidate::UseCandidateAttr,
+};
 
 #[tokio::test]
 async fn test_pair_search() -> Result<()> {

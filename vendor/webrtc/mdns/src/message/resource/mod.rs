@@ -9,8 +9,7 @@ pub mod soa;
 pub mod srv;
 pub mod txt;
 
-use std::collections::HashMap;
-use std::fmt;
+use std::{collections::HashMap, fmt};
 
 use a::*;
 use aaaa::*;
@@ -23,9 +22,7 @@ use soa::*;
 use srv::*;
 use txt::*;
 
-use super::name::*;
-use super::packer::*;
-use super::*;
+use super::{name::*, packer::*, *};
 use crate::error::*;
 
 // EDNS(0) wire constants.

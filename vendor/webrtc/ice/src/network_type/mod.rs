@@ -1,8 +1,7 @@
 #[cfg(test)]
 mod network_type_test;
 
-use std::fmt;
-use std::net::IpAddr;
+use std::{fmt, net::IpAddr};
 
 use serde::{Deserialize, Serialize};
 

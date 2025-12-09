@@ -3,11 +3,10 @@ use std::iter::FromIterator;
 use lazy_static::lazy_static;
 
 use super::DeviceInformationExposureMode;
-use crate::algorithms::{select_settings_candidates, SelectSettingsError};
-use crate::errors::OverconstrainedError;
-use crate::property::all::name::*;
-use crate::property::all::names as all_properties;
 use crate::{
+    algorithms::{select_settings_candidates, SelectSettingsError},
+    errors::OverconstrainedError,
+    property::all::{name::*, names as all_properties},
     AdvancedMediaTrackConstraints, FacingMode, MandatoryMediaTrackConstraints,
     MediaTrackConstraints, MediaTrackSettings, MediaTrackSupportedConstraints, ResizeMode,
     ResolvedAdvancedMediaTrackConstraints, ResolvedMandatoryMediaTrackConstraints,

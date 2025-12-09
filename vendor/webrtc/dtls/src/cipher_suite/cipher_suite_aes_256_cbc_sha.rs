@@ -1,6 +1,5 @@
 use super::*;
-use crate::crypto::crypto_cbc::*;
-use crate::prf::*;
+use crate::{crypto::crypto_cbc::*, prf::*};
 
 #[derive(Clone)]
 pub struct CipherSuiteAes256CbcSha {

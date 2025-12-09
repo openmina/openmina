@@ -1,10 +1,8 @@
-use std::collections::HashMap;
-use std::fmt;
+use std::{collections::HashMap, fmt};
 
 use url::Url;
 
-use crate::description::common::*;
-use crate::extmap::*;
+use crate::{description::common::*, extmap::*};
 
 /// Constants for extmap key
 pub const EXT_MAP_VALUE_TRANSPORT_CC_KEY: isize = 3;

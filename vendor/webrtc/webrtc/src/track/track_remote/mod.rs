@@ -1,8 +1,9 @@
-use std::collections::VecDeque;
-use std::future::Future;
-use std::pin::Pin;
-use std::sync::atomic::Ordering;
-use std::sync::{Arc, Weak};
+use std::{
+    collections::VecDeque,
+    future::Future,
+    pin::Pin,
+    sync::{atomic::Ordering, Arc, Weak},
+};
 
 use arc_swap::ArcSwapOption;
 use interceptor::{Attributes, Interceptor};
@@ -11,11 +12,15 @@ use smol_str::SmolStr;
 use tokio::sync::Mutex;
 use util::sync::Mutex as SyncMutex;
 
-use crate::api::media_engine::MediaEngine;
-use crate::error::{Error, Result};
-use crate::rtp_transceiver::rtp_codec::{RTCRtpCodecParameters, RTCRtpParameters, RTPCodecType};
-use crate::rtp_transceiver::rtp_receiver::RTPReceiverInternal;
-use crate::rtp_transceiver::{PayloadType, SSRC};
+use crate::{
+    api::media_engine::MediaEngine,
+    error::{Error, Result},
+    rtp_transceiver::{
+        rtp_codec::{RTCRtpCodecParameters, RTCRtpParameters, RTPCodecType},
+        rtp_receiver::RTPReceiverInternal,
+        PayloadType, SSRC,
+    },
+};
 
 lazy_static! {
     static ref TRACK_REMOTE_UNIQUE_ID: AtomicUsize = AtomicUsize::new(0);

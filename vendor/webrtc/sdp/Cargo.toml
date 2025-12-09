@@ -10,10 +10,10 @@ homepage = "https://webrtc.rs"
 repository = "https://github.com/webrtc-rs/sdp"
 
 [dependencies]
-url = "2"
 rand = "0.8"
-thiserror = "1"
 substring = "1"
+thiserror = "1"
+url = "2"
 
 [dev-dependencies]
 criterion = "0.5"

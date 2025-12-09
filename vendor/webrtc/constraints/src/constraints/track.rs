@@ -1,10 +1,14 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use super::advanced::GenericAdvancedMediaTrackConstraints;
-use super::mandatory::GenericMandatoryMediaTrackConstraints;
-use crate::constraint::SanitizedMediaTrackConstraint;
-use crate::{MediaTrackConstraint, MediaTrackSupportedConstraints, ResolvedMediaTrackConstraint};
+use super::{
+    advanced::GenericAdvancedMediaTrackConstraints,
+    mandatory::GenericMandatoryMediaTrackConstraints,
+};
+use crate::{
+    constraint::SanitizedMediaTrackConstraint, MediaTrackConstraint,
+    MediaTrackSupportedConstraints, ResolvedMediaTrackConstraint,
+};
 
 /// A boolean on/off flag or bare value or constraints for a [`MediaStreamTrack`][media_stream_track] object.
 ///
@@ -171,9 +175,8 @@ mod tests {
     use std::iter::FromIterator;
 
     use super::*;
-    use crate::constraints::mandatory::MandatoryMediaTrackConstraints;
-    use crate::property::all::name::*;
     use crate::{
+        constraints::mandatory::MandatoryMediaTrackConstraints, property::all::name::*,
         AdvancedMediaTrackConstraints, ResolvedAdvancedMediaTrackConstraints,
         ResolvedMandatoryMediaTrackConstraints, ResolvedValueConstraint,
     };
@@ -291,10 +294,10 @@ mod serde_tests {
     use std::iter::FromIterator;
 
     use super::*;
-    use crate::constraints::mandatory::MandatoryMediaTrackConstraints;
-    use crate::macros::test_serde_symmetry;
-    use crate::property::all::name::*;
-    use crate::{AdvancedMediaTrackConstraints, MediaTrackConstraintSet};
+    use crate::{
+        constraints::mandatory::MandatoryMediaTrackConstraints, macros::test_serde_symmetry,
+        property::all::name::*, AdvancedMediaTrackConstraints, MediaTrackConstraintSet,
+    };
 
     type Subject = MediaTrackConstraints;
 

@@ -9,12 +9,12 @@ use std::collections::HashMap;
 
 use util::replay_detector::*;
 
-use crate::cipher::cipher_aead_aes_gcm::*;
-use crate::cipher::cipher_aes_cm_hmac_sha1::*;
-use crate::cipher::*;
-use crate::error::{Error, Result};
-use crate::option::*;
-use crate::protection_profile::*;
+use crate::{
+    cipher::{cipher_aead_aes_gcm::*, cipher_aes_cm_hmac_sha1::*, *},
+    error::{Error, Result},
+    option::*,
+    protection_profile::*,
+};
 
 pub mod srtcp;
 pub mod srtp;

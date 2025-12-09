@@ -1,16 +1,14 @@
-use std::future::Future;
-use std::num::ParseIntError;
-use std::pin::Pin;
-use std::string::FromUtf8Error;
+use std::{future::Future, num::ParseIntError, pin::Pin, string::FromUtf8Error};
 
 use thiserror::Error;
 use tokio::sync::mpsc::error::SendError as MpscSendError;
 
-use crate::peer_connection::sdp::sdp_type::RTCSdpType;
-use crate::peer_connection::signaling_state::RTCSignalingState;
-use crate::rtp_transceiver::rtp_receiver;
 #[cfg(doc)]
 use crate::rtp_transceiver::rtp_sender;
+use crate::{
+    peer_connection::{sdp::sdp_type::RTCSdpType, signaling_state::RTCSignalingState},
+    rtp_transceiver::rtp_receiver,
+};
 
 pub type Result<T> = std::result::Result<T, Error>;
 

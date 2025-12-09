@@ -1,8 +1,10 @@
 #[cfg(test)]
 mod alert_test;
 
-use std::fmt;
-use std::io::{Read, Write};
+use std::{
+    fmt,
+    io::{Read, Write},
+};
 
 use byteorder::{ReadBytesExt, WriteBytesExt};
 

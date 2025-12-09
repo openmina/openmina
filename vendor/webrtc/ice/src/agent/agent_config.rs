@@ -1,14 +1,9 @@
-use std::net::IpAddr;
-use std::time::Duration;
+use std::{net::IpAddr, time::Duration};
 
 use util::vnet::net::*;
 
 use super::*;
-use crate::error::*;
-use crate::mdns::*;
-use crate::network_type::*;
-use crate::udp_network::UDPNetwork;
-use crate::url::*;
+use crate::{error::*, mdns::*, network_type::*, udp_network::UDPNetwork, url::*};
 
 /// The interval at which the agent performs candidate checks in the connecting phase.
 pub(crate) const DEFAULT_CHECK_INTERVAL: Duration = Duration::from_millis(200);

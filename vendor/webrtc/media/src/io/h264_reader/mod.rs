@@ -1,8 +1,7 @@
 #[cfg(test)]
 mod h264_reader_test;
 
-use std::fmt;
-use std::io::Read;
+use std::{fmt, io::Read};
 
 use bytes::{BufMut, BytesMut};
 

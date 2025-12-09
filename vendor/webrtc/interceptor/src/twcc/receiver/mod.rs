@@ -6,14 +6,17 @@ use std::time::Duration;
 
 use receiver_stream::ReceiverStream;
 use rtp::extension::transport_cc_extension::TransportCcExtension;
-use tokio::sync::{mpsc, Mutex};
-use tokio::time::MissedTickBehavior;
+use tokio::{
+    sync::{mpsc, Mutex},
+    time::MissedTickBehavior,
+};
 use util::Unmarshal;
 use waitgroup::WaitGroup;
 
-use crate::twcc::sender::TRANSPORT_CC_URI;
-use crate::twcc::Recorder;
-use crate::*;
+use crate::{
+    twcc::{sender::TRANSPORT_CC_URI, Recorder},
+    *,
+};
 
 /// ReceiverBuilder is a InterceptorBuilder for a SenderInterceptor
 #[derive(Default)]

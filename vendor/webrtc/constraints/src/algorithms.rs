@@ -5,5 +5,4 @@
 mod fitness_distance;
 mod select_settings;
 
-pub use self::fitness_distance::*;
-pub use self::select_settings::*;
+pub use self::{fitness_distance::*, select_settings::*};

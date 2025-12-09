@@ -6,31 +6,32 @@ pub mod channel_bind;
 pub mod five_tuple;
 pub mod permission;
 
-use std::collections::HashMap;
-use std::marker::{Send, Sync};
-use std::net::SocketAddr;
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
+use std::{
+    collections::HashMap,
+    marker::{Send, Sync},
+    net::SocketAddr,
+    sync::{atomic::Ordering, Arc},
+};
 
 use channel_bind::*;
 use five_tuple::*;
 use permission::*;
 use portable_atomic::{AtomicBool, AtomicUsize};
-use stun::agent::*;
-use stun::message::*;
-use stun::textattrs::Username;
-use tokio::sync::oneshot::{self, Sender};
-use tokio::sync::{mpsc, Mutex};
-use tokio::time::{Duration, Instant};
-use util::sync::Mutex as SyncMutex;
-use util::Conn;
+use stun::{agent::*, message::*, textattrs::Username};
+use tokio::{
+    sync::{
+        mpsc,
+        oneshot::{self, Sender},
+        Mutex,
+    },
+    time::{Duration, Instant},
+};
+use util::{sync::Mutex as SyncMutex, Conn};
 
-use crate::error::*;
-use crate::proto::chandata::*;
-use crate::proto::channum::*;
-use crate::proto::data::*;
-use crate::proto::peeraddr::*;
-use crate::proto::*;
+use crate::{
+    error::*,
+    proto::{chandata::*, channum::*, data::*, peeraddr::*, *},
+};
 
 const RTP_MTU: usize = 1500;
 

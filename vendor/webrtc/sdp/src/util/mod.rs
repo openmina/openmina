@@ -1,8 +1,7 @@
 #[cfg(test)]
 mod util_test;
 
-use std::collections::HashMap;
-use std::fmt;
+use std::{collections::HashMap, fmt};
 
 use super::error::{Error, Result};
 

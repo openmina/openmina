@@ -6,8 +6,7 @@ use tokio::sync::{mpsc, Mutex};
 use util::conn::conn_pipe::*;
 
 use super::*;
-use crate::error::Result;
-use crate::protection_profile::*;
+use crate::{error::Result, protection_profile::*};
 
 async fn build_session_srtcp_pair() -> Result<(Session, Session)> {
     let (ua, ub) = pipe();

@@ -2,8 +2,7 @@ use std::io::{Read, Write};
 
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
-use crate::content::*;
-use crate::error::*;
+use crate::{content::*, error::*};
 
 pub const RECORD_LAYER_HEADER_SIZE: usize = 13;
 pub const MAX_SEQUENCE_NUMBER: u64 = 0x0000FFFFFFFFFFFF;

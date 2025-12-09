@@ -4,10 +4,11 @@ mod track_local_static_test;
 pub mod track_local_static_rtp;
 pub mod track_local_static_sample;
 
-use std::any::Any;
-use std::fmt;
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
+use std::{
+    any::Any,
+    fmt,
+    sync::{atomic::Ordering, Arc},
+};
 
 use async_trait::async_trait;
 use interceptor::{Attributes, RTPWriter};
@@ -15,9 +16,10 @@ use portable_atomic::AtomicBool;
 use tokio::sync::Mutex;
 use util::Unmarshal;
 
-use crate::error::{Error, Result};
-use crate::rtp_transceiver::rtp_codec::*;
-use crate::rtp_transceiver::*;
+use crate::{
+    error::{Error, Result},
+    rtp_transceiver::{rtp_codec::*, *},
+};
 
 /// TrackLocalWriter is the Writer for outbound RTP Packets
 #[async_trait]

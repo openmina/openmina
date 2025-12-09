@@ -1,5 +1,4 @@
-use std::io;
-use std::sync::atomic::Ordering;
+use std::{io, sync::atomic::Ordering};
 
 use arc_swap::ArcSwapOption;
 use async_trait::async_trait;

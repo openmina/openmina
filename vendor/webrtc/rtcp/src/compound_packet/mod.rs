@@ -1,19 +1,15 @@
 #[cfg(test)]
 mod compound_packet_test;
 
-use std::any::Any;
-use std::fmt;
+use std::{any::Any, fmt};
 
 use bytes::{Buf, Bytes};
 use util::marshal::{Marshal, MarshalSize, Unmarshal};
 
-use crate::error::Error;
-use crate::header::*;
-use crate::packet::*;
-use crate::receiver_report::*;
-use crate::sender_report::*;
-use crate::source_description::*;
-use crate::util::*;
+use crate::{
+    error::Error, header::*, packet::*, receiver_report::*, sender_report::*,
+    source_description::*, util::*,
+};
 
 type Result<T> = std::result::Result<T, util::Error>;
 

@@ -14,42 +14,32 @@ pub mod agent_selector;
 pub mod agent_stats;
 pub mod agent_transport;
 
-use std::collections::HashMap;
-use std::future::Future;
-use std::net::{Ipv4Addr, SocketAddr};
-use std::pin::Pin;
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
-use std::time::SystemTime;
+use std::{
+    collections::HashMap,
+    future::Future,
+    net::{Ipv4Addr, SocketAddr},
+    pin::Pin,
+    sync::{atomic::Ordering, Arc},
+    time::SystemTime,
+};
 
 use agent_config::*;
 use agent_internal::*;
 use agent_stats::*;
 use mdns::conn::*;
 use portable_atomic::{AtomicU8, AtomicUsize};
-use stun::agent::*;
-use stun::attributes::*;
-use stun::fingerprint::*;
-use stun::integrity::*;
-use stun::message::*;
-use stun::xoraddr::*;
-use tokio::sync::{broadcast, mpsc, Mutex};
-use tokio::time::{Duration, Instant};
-use util::vnet::net::*;
-use util::Buffer;
+use stun::{agent::*, attributes::*, fingerprint::*, integrity::*, message::*, xoraddr::*};
+use tokio::{
+    sync::{broadcast, mpsc, Mutex},
+    time::{Duration, Instant},
+};
+use util::{vnet::net::*, Buffer};
 
-use crate::agent::agent_gather::GatherCandidatesInternalParams;
-use crate::candidate::*;
-use crate::error::*;
-use crate::external_ip_mapper::*;
-use crate::mdns::*;
-use crate::network_type::*;
-use crate::rand::*;
-use crate::state::*;
-use crate::tcp_type::TcpType;
-use crate::udp_mux::UDPMux;
-use crate::udp_network::UDPNetwork;
-use crate::url::*;
+use crate::{
+    agent::agent_gather::GatherCandidatesInternalParams, candidate::*, error::*,
+    external_ip_mapper::*, mdns::*, network_type::*, rand::*, state::*, tcp_type::TcpType,
+    udp_mux::UDPMux, udp_network::UDPNetwork, url::*,
+};
 
 #[derive(Debug, Clone)]
 pub(crate) struct BindingRequest {

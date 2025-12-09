@@ -1,10 +1,14 @@
 #![allow(unused, non_upper_case_globals)]
 
-use winapi::shared::basetsd::{UINT32, UINT8, ULONG64};
-use winapi::shared::guiddef::GUID;
-use winapi::shared::minwindef::{BYTE, DWORD, PULONG, ULONG};
-use winapi::shared::ws2def::SOCKET_ADDRESS;
-use winapi::um::winnt::{PCHAR, PVOID, PWCHAR, WCHAR};
+use winapi::{
+    shared::{
+        basetsd::{UINT32, UINT8, ULONG64},
+        guiddef::GUID,
+        minwindef::{BYTE, DWORD, PULONG, ULONG},
+        ws2def::SOCKET_ADDRESS,
+    },
+    um::winnt::{PCHAR, PVOID, PWCHAR, WCHAR},
+};
 
 const MAX_ADAPTER_ADDRESS_LENGTH: usize = 8;
 const ZONE_INDICES_LENGTH: usize = 16;
@@ -14,15 +18,20 @@ const MAX_DNS_SUFFIX_STRING_LENGTH: usize = 256;
 pub const IP_ADAPTER_IPV4_ENABLED: DWORD = 0x0080;
 pub const IP_ADAPTER_IPV6_ENABLED: DWORD = 0x0100;
 
-use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
-use std::{io, mem, ptr};
-
-use winapi::shared::winerror::{
-    ERROR_ADDRESS_NOT_ASSOCIATED, ERROR_BUFFER_OVERFLOW, ERROR_INVALID_PARAMETER,
-    ERROR_NOT_ENOUGH_MEMORY, ERROR_NO_DATA, ERROR_SUCCESS,
+use std::{
+    io, mem,
+    net::{Ipv4Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
+    ptr,
 };
-use winapi::shared::ws2def::{AF_INET, AF_INET6, AF_UNSPEC, SOCKADDR_IN};
-use winapi::shared::ws2ipdef::SOCKADDR_IN6;
+
+use winapi::shared::{
+    winerror::{
+        ERROR_ADDRESS_NOT_ASSOCIATED, ERROR_BUFFER_OVERFLOW, ERROR_INVALID_PARAMETER,
+        ERROR_NOT_ENOUGH_MEMORY, ERROR_NO_DATA, ERROR_SUCCESS,
+    },
+    ws2def::{AF_INET, AF_INET6, AF_UNSPEC, SOCKADDR_IN},
+    ws2ipdef::SOCKADDR_IN6,
+};
 
 const PREALLOC_ADAPTERS_LEN: usize = 15 * 1024;
 

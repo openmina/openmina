@@ -7,9 +7,10 @@ use byteorder::{LittleEndian, WriteBytesExt};
 use bytes::Bytes;
 use rtp::packetizer::Depacketizer;
 
-use crate::error::Result;
-use crate::io::ogg_reader::*;
-use crate::io::Writer;
+use crate::{
+    error::Result,
+    io::{ogg_reader::*, Writer},
+};
 
 /// OggWriter is used to take RTP packets and write them to an OGG on disk
 pub struct OggWriter<W: Write + Seek> {

@@ -3,8 +3,7 @@ pub mod track_remote;
 
 use std::sync::Arc;
 
-use interceptor::stream_info::StreamInfo;
-use interceptor::{RTCPReader, RTPReader};
+use interceptor::{stream_info::StreamInfo, RTCPReader, RTPReader};
 use track_remote::*;
 
 pub(crate) const RTP_OUTBOUND_MTU: usize = 1200;

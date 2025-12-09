@@ -1,19 +1,21 @@
 #[cfg(test)]
 mod client_test;
 
-use std::collections::HashMap;
-use std::io::BufReader;
-use std::marker::{Send, Sync};
-use std::ops::Add;
-use std::sync::Arc;
+use std::{
+    collections::HashMap,
+    io::BufReader,
+    marker::{Send, Sync},
+    ops::Add,
+    sync::Arc,
+};
 
-use tokio::sync::mpsc;
-use tokio::time::{self, Duration, Instant};
+use tokio::{
+    sync::mpsc,
+    time::{self, Duration, Instant},
+};
 use util::Conn;
 
-use crate::agent::*;
-use crate::error::*;
-use crate::message::*;
+use crate::{agent::*, error::*, message::*};
 
 const DEFAULT_TIMEOUT_RATE: Duration = Duration::from_millis(5);
 const DEFAULT_RTO: Duration = Duration::from_millis(300);

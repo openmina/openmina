@@ -1,18 +1,14 @@
 #[cfg(test)]
 mod packetizer_test;
 
-use std::fmt;
-use std::sync::Arc;
-use std::time::SystemTime;
+use std::{fmt, sync::Arc, time::SystemTime};
 
 use bytes::{Bytes, BytesMut};
 use util::marshal::{Marshal, MarshalSize};
 
-use crate::error::Result;
-use crate::extension::abs_send_time_extension::*;
-use crate::header::*;
-use crate::packet::*;
-use crate::sequence::*;
+use crate::{
+    error::Result, extension::abs_send_time_extension::*, header::*, packet::*, sequence::*,
+};
 
 /// Payloader payloads a byte array for use as rtp.Packet payloads
 pub trait Payloader: fmt::Debug {

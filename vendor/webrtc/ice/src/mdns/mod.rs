@@ -1,12 +1,9 @@
 #[cfg(test)]
 mod mdns_test;
 
-use std::net::SocketAddr;
-use std::str::FromStr;
-use std::sync::Arc;
+use std::{net::SocketAddr, str::FromStr, sync::Arc};
 
-use mdns::config::*;
-use mdns::conn::*;
+use mdns::{config::*, conn::*};
 use uuid::Uuid;
 
 use crate::error::Result;

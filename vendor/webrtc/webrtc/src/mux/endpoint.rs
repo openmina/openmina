@@ -1,7 +1,4 @@
-use std::collections::HashMap;
-use std::io;
-use std::net::SocketAddr;
-use std::sync::Arc;
+use std::{collections::HashMap, io, net::SocketAddr, sync::Arc};
 
 use async_trait::async_trait;
 use tokio::sync::Mutex;

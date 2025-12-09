@@ -1,27 +1,32 @@
-use std::collections::HashMap;
-use std::future::Future;
-use std::pin::Pin;
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
+use std::{
+    collections::HashMap,
+    future::Future,
+    pin::Pin,
+    sync::{atomic::Ordering, Arc},
+};
 
 use arc_swap::ArcSwapOption;
-use ice::agent::Agent;
-use ice::candidate::{Candidate, CandidateType};
-use ice::url::Url;
+use ice::{
+    agent::Agent,
+    candidate::{Candidate, CandidateType},
+    url::Url,
+};
 use portable_atomic::AtomicU8;
 use tokio::sync::Mutex;
 
-use crate::api::setting_engine::SettingEngine;
-use crate::error::{Error, Result};
-use crate::ice_transport::ice_candidate::*;
-use crate::ice_transport::ice_candidate_type::RTCIceCandidateType;
-use crate::ice_transport::ice_gatherer_state::RTCIceGathererState;
-use crate::ice_transport::ice_parameters::RTCIceParameters;
-use crate::ice_transport::ice_server::RTCIceServer;
-use crate::peer_connection::policy::ice_transport_policy::RTCIceTransportPolicy;
-use crate::stats::stats_collector::StatsCollector;
-use crate::stats::SourceStatsType::*;
-use crate::stats::{ICECandidatePairStats, StatsReportType};
+use crate::{
+    api::setting_engine::SettingEngine,
+    error::{Error, Result},
+    ice_transport::{
+        ice_candidate::*, ice_candidate_type::RTCIceCandidateType,
+        ice_gatherer_state::RTCIceGathererState, ice_parameters::RTCIceParameters,
+        ice_server::RTCIceServer,
+    },
+    peer_connection::policy::ice_transport_policy::RTCIceTransportPolicy,
+    stats::{
+        stats_collector::StatsCollector, ICECandidatePairStats, SourceStatsType::*, StatsReportType,
+    },
+};
 
 /// ICEGatherOptions provides options relating to the gathering of ICE candidates.
 #[derive(Default, Debug, Clone)]
@@ -321,9 +326,10 @@ mod test {
     use tokio::sync::mpsc;
 
     use super::*;
-    use crate::api::APIBuilder;
-    use crate::ice_transport::ice_gatherer::RTCIceGatherOptions;
-    use crate::ice_transport::ice_server::RTCIceServer;
+    use crate::{
+        api::APIBuilder,
+        ice_transport::{ice_gatherer::RTCIceGatherOptions, ice_server::RTCIceServer},
+    };
 
     #[tokio::test]
     async fn test_new_ice_gatherer_success() -> Result<()> {

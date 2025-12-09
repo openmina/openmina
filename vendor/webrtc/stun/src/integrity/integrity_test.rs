@@ -1,8 +1,8 @@
 use super::*;
-use crate::agent::TransactionId;
-use crate::attributes::ATTR_SOFTWARE;
-use crate::fingerprint::FINGERPRINT;
-use crate::textattrs::TextAttribute;
+use crate::{
+    agent::TransactionId, attributes::ATTR_SOFTWARE, fingerprint::FINGERPRINT,
+    textattrs::TextAttribute,
+};
 
 #[test]
 fn test_message_integrity_add_to_simple() -> Result<()> {

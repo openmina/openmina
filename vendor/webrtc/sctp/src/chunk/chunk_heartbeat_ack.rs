@@ -2,13 +2,11 @@ use std::fmt;
 
 use bytes::{Bytes, BytesMut};
 
-use super::chunk_header::*;
-use super::chunk_type::*;
-use super::*;
-use crate::param::param_header::*;
-use crate::param::param_type::ParamType;
-use crate::param::*;
-use crate::util::get_padding_size;
+use super::{chunk_header::*, chunk_type::*, *};
+use crate::{
+    param::{param_header::*, param_type::ParamType, *},
+    util::get_padding_size,
+};
 
 ///chunkHeartbeatAck represents an SCTP Chunk of type HEARTBEAT ACK
 ///

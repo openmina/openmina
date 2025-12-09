@@ -1,9 +1,7 @@
-use util::vnet::*;
-use util::Conn;
+use util::{vnet::*, Conn};
 use waitgroup::WaitGroup;
 
-use super::agent_vnet_test::*;
-use super::*;
+use super::{agent_vnet_test::*, *};
 use crate::agent::agent_transport::AgentConn;
 
 pub(crate) async fn pipe(

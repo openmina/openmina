@@ -1,8 +1,9 @@
 use super::*;
-use crate::candidate::candidate_host::CandidateHostConfig;
-use crate::candidate::candidate_peer_reflexive::CandidatePeerReflexiveConfig;
-use crate::candidate::candidate_relay::CandidateRelayConfig;
-use crate::candidate::candidate_server_reflexive::CandidateServerReflexiveConfig;
+use crate::candidate::{
+    candidate_host::CandidateHostConfig, candidate_peer_reflexive::CandidatePeerReflexiveConfig,
+    candidate_relay::CandidateRelayConfig,
+    candidate_server_reflexive::CandidateServerReflexiveConfig,
+};
 
 pub(crate) fn host_candidate() -> Result<CandidateBase> {
     CandidateHostConfig {

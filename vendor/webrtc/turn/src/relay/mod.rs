@@ -2,8 +2,7 @@ pub mod relay_none;
 pub mod relay_range;
 pub mod relay_static;
 
-use std::net::SocketAddr;
-use std::sync::Arc;
+use std::{net::SocketAddr, sync::Arc};
 
 use async_trait::async_trait;
 use util::Conn;

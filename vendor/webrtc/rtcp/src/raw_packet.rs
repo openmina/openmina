@@ -1,13 +1,9 @@
-use std::any::Any;
-use std::fmt;
+use std::{any::Any, fmt};
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use util::marshal::{Marshal, MarshalSize, Unmarshal};
 
-use crate::error::Error;
-use crate::header::*;
-use crate::packet::Packet;
-use crate::util::*;
+use crate::{error::Error, header::*, packet::Packet, util::*};
 
 /// RawPacket represents an unparsed RTCP packet. It's returned by Unmarshal when
 /// a packet with an unknown type is encountered.

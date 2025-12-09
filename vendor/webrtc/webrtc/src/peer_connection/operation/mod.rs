@@ -1,11 +1,12 @@
 #[cfg(test)]
 mod operation_test;
 
-use std::fmt;
-use std::future::Future;
-use std::pin::Pin;
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
+use std::{
+    fmt,
+    future::Future,
+    pin::Pin,
+    sync::{atomic::Ordering, Arc},
+};
 
 use portable_atomic::AtomicUsize;
 use tokio::sync::mpsc;

@@ -1,5 +1,7 @@
-use std::iter::FromIterator;
-use std::ops::{Deref, DerefMut};
+use std::{
+    iter::FromIterator,
+    ops::{Deref, DerefMut},
+};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -124,8 +126,7 @@ impl ResolvedAdvancedMediaTrackConstraints {
 #[cfg(test)]
 mod serde_tests {
     use super::*;
-    use crate::property::all::name::*;
-    use crate::MediaTrackConstraintSet;
+    use crate::{property::all::name::*, MediaTrackConstraintSet};
 
     #[test]
     fn serialize_default() {

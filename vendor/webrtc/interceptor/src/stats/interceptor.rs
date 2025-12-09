@@ -1,25 +1,27 @@
-use std::collections::HashMap;
-use std::fmt;
-use std::sync::Arc;
-use std::time::SystemTime;
+use std::{collections::HashMap, fmt, sync::Arc, time::SystemTime};
 
 use async_trait::async_trait;
-use rtcp::extended_report::{DLRRReportBlock, ExtendedReport};
-use rtcp::payload_feedbacks::full_intra_request::FullIntraRequest;
-use rtcp::payload_feedbacks::picture_loss_indication::PictureLossIndication;
-use rtcp::receiver_report::ReceiverReport;
-use rtcp::sender_report::SenderReport;
-use rtcp::transport_feedbacks::transport_layer_nack::TransportLayerNack;
+use rtcp::{
+    extended_report::{DLRRReportBlock, ExtendedReport},
+    payload_feedbacks::{
+        full_intra_request::FullIntraRequest, picture_loss_indication::PictureLossIndication,
+    },
+    receiver_report::ReceiverReport,
+    sender_report::SenderReport,
+    transport_feedbacks::transport_layer_nack::TransportLayerNack,
+};
 use rtp::extension::abs_send_time_extension::unix2ntp;
-use tokio::sync::{mpsc, oneshot};
-use tokio::time::Duration;
-use util::sync::Mutex;
-use util::MarshalSize;
+use tokio::{
+    sync::{mpsc, oneshot},
+    time::Duration,
+};
+use util::{sync::Mutex, MarshalSize};
 
 use super::{inbound, outbound, StatsContainer};
-use crate::error::Result;
-use crate::stream_info::StreamInfo;
-use crate::{Attributes, Interceptor, RTCPReader, RTCPWriter, RTPReader, RTPWriter};
+use crate::{
+    error::Result, stream_info::StreamInfo, Attributes, Interceptor, RTCPReader, RTCPWriter,
+    RTPReader, RTPWriter,
+};
 
 #[derive(Debug)]
 enum Message {
@@ -836,22 +838,26 @@ mod test {
         };
     }
 
-    use std::sync::Arc;
-    use std::time::{Duration, SystemTime};
+    use std::{
+        sync::Arc,
+        time::{Duration, SystemTime},
+    };
 
     use bytes::Bytes;
-    use rtcp::extended_report::{DLRRReport, DLRRReportBlock, ExtendedReport};
-    use rtcp::payload_feedbacks::full_intra_request::{FirEntry, FullIntraRequest};
-    use rtcp::payload_feedbacks::picture_loss_indication::PictureLossIndication;
-    use rtcp::receiver_report::ReceiverReport;
-    use rtcp::reception_report::ReceptionReport;
-    use rtcp::sender_report::SenderReport;
-    use rtcp::transport_feedbacks::transport_layer_nack::{NackPair, TransportLayerNack};
+    use rtcp::{
+        extended_report::{DLRRReport, DLRRReportBlock, ExtendedReport},
+        payload_feedbacks::{
+            full_intra_request::{FirEntry, FullIntraRequest},
+            picture_loss_indication::PictureLossIndication,
+        },
+        receiver_report::ReceiverReport,
+        reception_report::ReceptionReport,
+        sender_report::SenderReport,
+        transport_feedbacks::transport_layer_nack::{NackPair, TransportLayerNack},
+    };
 
     use super::StatsInterceptor;
-    use crate::error::Result;
-    use crate::mock::mock_stream::MockStream;
-    use crate::stream_info::StreamInfo;
+    use crate::{error::Result, mock::mock_stream::MockStream, stream_info::StreamInfo};
 
     #[tokio::test]
     async fn test_stats_interceptor_rtp() -> Result<()> {

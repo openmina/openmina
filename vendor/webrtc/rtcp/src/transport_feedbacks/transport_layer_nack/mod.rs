@@ -1,16 +1,12 @@
 #[cfg(test)]
 mod transport_layer_nack_test;
 
-use std::any::Any;
-use std::fmt;
+use std::{any::Any, fmt};
 
 use bytes::{Buf, BufMut};
 use util::marshal::{Marshal, MarshalSize, Unmarshal};
 
-use crate::error::Error;
-use crate::header::*;
-use crate::packet::*;
-use crate::util::*;
+use crate::{error::Error, header::*, packet::*, util::*};
 
 /// PacketBitmap shouldn't be used like a normal integral,
 /// so it's type is masked here. Access it with PacketList().

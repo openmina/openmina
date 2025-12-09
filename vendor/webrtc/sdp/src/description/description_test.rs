@@ -2,9 +2,7 @@ use std::io::Cursor;
 
 use url::Url;
 
-use super::common::*;
-use super::media::*;
-use super::session::*;
+use super::{common::*, media::*, session::*};
 use crate::error::{Error, Result};
 
 const CANONICAL_MARSHAL_SDP: &str = "v=0\r\n\

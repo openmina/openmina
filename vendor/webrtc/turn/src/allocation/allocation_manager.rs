@@ -9,8 +9,7 @@ use tokio::sync::mpsc;
 use util::Conn;
 
 use super::*;
-use crate::error::*;
-use crate::relay::*;
+use crate::{error::*, relay::*};
 
 /// `ManagerConfig` a bag of config params for `Manager`.
 pub struct ManagerConfig {

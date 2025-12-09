@@ -3,13 +3,14 @@
 // Silence warning on `..Default::default()` with no effect:
 #![allow(clippy::needless_update)]
 
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
+use std::sync::{atomic::Ordering, Arc};
 
 use async_trait::async_trait;
 use portable_atomic::AtomicU32;
-use tokio::sync::Mutex;
-use tokio::time::{sleep, Duration};
+use tokio::{
+    sync::Mutex,
+    time::{sleep, Duration},
+};
 
 ///////////////////////////////////////////////////////////////////
 //ack_timer_test
@@ -166,8 +167,7 @@ mod test_rtx_timer {
     use tokio::sync::mpsc;
 
     use super::*;
-    use crate::association::RtxTimerId;
-    use crate::error::Result;
+    use crate::{association::RtxTimerId, error::Result};
 
     struct TestTimerObserver {
         ncbs: Arc<AtomicU32>,

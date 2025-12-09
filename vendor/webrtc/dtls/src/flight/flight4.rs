@@ -1,36 +1,32 @@
-use std::fmt;
-use std::io::BufWriter;
+use std::{fmt, io::BufWriter};
 
 use async_trait::async_trait;
 use log::*;
 
-use super::flight6::*;
-use super::*;
-use crate::cipher_suite::*;
-use crate::client_certificate_type::*;
-use crate::compression_methods::*;
-use crate::config::*;
-use crate::content::*;
-use crate::crypto::*;
-use crate::curve::named_curve::*;
-use crate::curve::*;
-use crate::error::Error;
-use crate::extension::extension_supported_elliptic_curves::*;
-use crate::extension::extension_supported_point_formats::*;
-use crate::extension::extension_use_extended_master_secret::*;
-use crate::extension::extension_use_srtp::*;
-use crate::extension::renegotiation_info::ExtensionRenegotiationInfo;
-use crate::extension::*;
-use crate::handshake::handshake_message_certificate::*;
-use crate::handshake::handshake_message_certificate_request::*;
-use crate::handshake::handshake_message_server_hello::*;
-use crate::handshake::handshake_message_server_hello_done::*;
-use crate::handshake::handshake_message_server_key_exchange::*;
-use crate::handshake::*;
-use crate::prf::*;
-use crate::record_layer::record_layer_header::*;
-use crate::record_layer::*;
-use crate::signature_hash_algorithm::*;
+use super::{flight6::*, *};
+use crate::{
+    cipher_suite::*,
+    client_certificate_type::*,
+    compression_methods::*,
+    config::*,
+    content::*,
+    crypto::*,
+    curve::{named_curve::*, *},
+    error::Error,
+    extension::{
+        extension_supported_elliptic_curves::*, extension_supported_point_formats::*,
+        extension_use_extended_master_secret::*, extension_use_srtp::*,
+        renegotiation_info::ExtensionRenegotiationInfo, *,
+    },
+    handshake::{
+        handshake_message_certificate::*, handshake_message_certificate_request::*,
+        handshake_message_server_hello::*, handshake_message_server_hello_done::*,
+        handshake_message_server_key_exchange::*, *,
+    },
+    prf::*,
+    record_layer::{record_layer_header::*, *},
+    signature_hash_algorithm::*,
+};
 
 #[derive(Debug, PartialEq)]
 pub(crate) struct Flight4;

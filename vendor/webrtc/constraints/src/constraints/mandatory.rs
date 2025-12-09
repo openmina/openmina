@@ -1,5 +1,7 @@
-use std::iter::FromIterator;
-use std::ops::{Deref, DerefMut};
+use std::{
+    iter::FromIterator,
+    ops::{Deref, DerefMut},
+};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -169,9 +171,9 @@ impl ResolvedMandatoryMediaTrackConstraints {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::property::all::name::*;
     use crate::{
-        ResolvedMediaTrackConstraintSet, ResolvedValueConstraint, ResolvedValueRangeConstraint,
+        property::all::name::*, ResolvedMediaTrackConstraintSet, ResolvedValueConstraint,
+        ResolvedValueRangeConstraint,
     };
 
     #[test]
@@ -256,8 +258,7 @@ mod tests {
 #[cfg(test)]
 mod serde_tests {
     use super::*;
-    use crate::property::all::name::*;
-    use crate::MediaTrackConstraintSet;
+    use crate::{property::all::name::*, MediaTrackConstraintSet};
 
     #[test]
     fn serialize_default() {

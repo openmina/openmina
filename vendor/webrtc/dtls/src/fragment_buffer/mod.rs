@@ -1,13 +1,14 @@
 #[cfg(test)]
 mod fragment_buffer_test;
 
-use std::collections::HashMap;
-use std::io::{BufWriter, Cursor};
+use std::{
+    collections::HashMap,
+    io::{BufWriter, Cursor},
+};
 
-use crate::content::*;
-use crate::error::*;
-use crate::handshake::handshake_header::*;
-use crate::record_layer::record_layer_header::*;
+use crate::{
+    content::*, error::*, handshake::handshake_header::*, record_layer::record_layer_header::*,
+};
 
 // 2 mb max buffer size
 const FRAGMENT_BUFFER_MAX_SIZE: usize = 2_000_000;

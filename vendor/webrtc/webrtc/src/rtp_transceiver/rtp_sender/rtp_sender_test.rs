@@ -4,17 +4,23 @@ use tokio::time::Duration;
 use waitgroup::WaitGroup;
 
 use super::*;
-use crate::api::media_engine::{MIME_TYPE_H264, MIME_TYPE_OPUS, MIME_TYPE_VP8, MIME_TYPE_VP9};
-use crate::api::setting_engine::SettingEngine;
-use crate::api::APIBuilder;
-use crate::error::Result;
-use crate::peer_connection::peer_connection_state::RTCPeerConnectionState;
-use crate::peer_connection::peer_connection_test::{
-    close_pair_now, create_vnet_pair, new_pair, send_video_until_done, signal_pair,
-    until_connection_state,
+use crate::{
+    api::{
+        media_engine::{MIME_TYPE_H264, MIME_TYPE_OPUS, MIME_TYPE_VP8, MIME_TYPE_VP9},
+        setting_engine::SettingEngine,
+        APIBuilder,
+    },
+    error::Result,
+    peer_connection::{
+        peer_connection_state::RTCPeerConnectionState,
+        peer_connection_test::{
+            close_pair_now, create_vnet_pair, new_pair, send_video_until_done, signal_pair,
+            until_connection_state,
+        },
+    },
+    rtp_transceiver::rtp_codec::RTCRtpCodecCapability,
+    track::track_local::track_local_static_sample::TrackLocalStaticSample,
 };
-use crate::rtp_transceiver::rtp_codec::RTCRtpCodecCapability;
-use crate::track::track_local::track_local_static_sample::TrackLocalStaticSample;
 
 #[tokio::test]
 async fn test_rtp_sender_replace_track() -> Result<()> {

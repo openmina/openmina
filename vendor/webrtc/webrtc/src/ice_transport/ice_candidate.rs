@@ -1,17 +1,16 @@
-use std::fmt;
-use std::sync::Arc;
+use std::{fmt, sync::Arc};
 
-use ice::candidate::candidate_base::CandidateBaseConfig;
-use ice::candidate::candidate_host::CandidateHostConfig;
-use ice::candidate::candidate_peer_reflexive::CandidatePeerReflexiveConfig;
-use ice::candidate::candidate_relay::CandidateRelayConfig;
-use ice::candidate::candidate_server_reflexive::CandidateServerReflexiveConfig;
-use ice::candidate::Candidate;
+use ice::candidate::{
+    candidate_base::CandidateBaseConfig, candidate_host::CandidateHostConfig,
+    candidate_peer_reflexive::CandidatePeerReflexiveConfig, candidate_relay::CandidateRelayConfig,
+    candidate_server_reflexive::CandidateServerReflexiveConfig, Candidate,
+};
 use serde::{Deserialize, Serialize};
 
-use crate::error::{Error, Result};
-use crate::ice_transport::ice_candidate_type::RTCIceCandidateType;
-use crate::ice_transport::ice_protocol::RTCIceProtocol;
+use crate::{
+    error::{Error, Result},
+    ice_transport::{ice_candidate_type::RTCIceCandidateType, ice_protocol::RTCIceProtocol},
+};
 
 /// ICECandidate represents a ice candidate
 #[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

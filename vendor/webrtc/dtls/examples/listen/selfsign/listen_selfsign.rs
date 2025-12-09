@@ -1,12 +1,13 @@
-use std::io::Write;
-use std::sync::Arc;
+use std::{io::Write, sync::Arc};
 
 use clap::{App, AppSettings, Arg};
 use util::conn::*;
-use webrtc_dtls::config::{Config, ExtendedMasterSecretType};
-use webrtc_dtls::crypto::Certificate;
-use webrtc_dtls::listener::listen;
-use webrtc_dtls::Error;
+use webrtc_dtls::{
+    config::{Config, ExtendedMasterSecretType},
+    crypto::Certificate,
+    listener::listen,
+    Error,
+};
 
 // cargo run --example listen_selfsign -- --host 127.0.0.1:4444
 

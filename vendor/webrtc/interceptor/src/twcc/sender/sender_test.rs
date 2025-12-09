@@ -1,12 +1,10 @@
 use rtp::packet::Packet;
-use tokio::sync::mpsc;
-use tokio::time::Duration;
+use tokio::{sync::mpsc, time::Duration};
 use util::Unmarshal;
 use waitgroup::WaitGroup;
 
 use super::*;
-use crate::mock::mock_stream::MockStream;
-use crate::stream_info::RTPHeaderExtension;
+use crate::{mock::mock_stream::MockStream, stream_info::RTPHeaderExtension};
 
 #[tokio::test]
 async fn test_twcc_sender_interceptor() -> Result<()> {

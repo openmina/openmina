@@ -11,12 +11,9 @@ use std::fmt;
 use async_trait::async_trait;
 use tokio::sync::mpsc;
 
-use crate::alert::*;
-use crate::error::Error;
-use crate::handshake::handshake_cache::*;
-use crate::handshaker::*;
-use crate::record_layer::*;
-use crate::state::*;
+use crate::{
+    alert::*, error::Error, handshake::handshake_cache::*, handshaker::*, record_layer::*, state::*,
+};
 
 /*
   DTLS messages are grouped into a series of message flights, according

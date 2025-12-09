@@ -1,6 +1,8 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use webrtc_media::audio::buffer::layout::{Deinterleaved, Interleaved};
-use webrtc_media::audio::buffer::Buffer;
+use webrtc_media::audio::buffer::{
+    layout::{Deinterleaved, Interleaved},
+    Buffer,
+};
 
 fn benchmark_from(c: &mut Criterion) {
     type Sample = i32;

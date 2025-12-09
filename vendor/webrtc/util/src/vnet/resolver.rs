@@ -1,12 +1,7 @@
 #[cfg(test)]
 mod resolver_test;
 
-use std::collections::HashMap;
-use std::future::Future;
-use std::net::IpAddr;
-use std::pin::Pin;
-use std::str::FromStr;
-use std::sync::Arc;
+use std::{collections::HashMap, future::Future, net::IpAddr, pin::Pin, str::FromStr, sync::Arc};
 
 use tokio::sync::Mutex;
 

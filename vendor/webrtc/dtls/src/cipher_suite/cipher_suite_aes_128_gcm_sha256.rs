@@ -1,6 +1,5 @@
 use super::*;
-use crate::crypto::crypto_gcm::*;
-use crate::prf::*;
+use crate::{crypto::crypto_gcm::*, prf::*};
 
 #[derive(Clone)]
 pub struct CipherSuiteAes128GcmSha256 {

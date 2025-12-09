@@ -2,16 +2,17 @@ mod receiver_stream;
 #[cfg(test)]
 mod receiver_test;
 
-use std::collections::HashMap;
-use std::time::{Duration, SystemTime};
+use std::{
+    collections::HashMap,
+    time::{Duration, SystemTime},
+};
 
 use receiver_stream::ReceiverStream;
 use tokio::sync::{mpsc, Mutex};
 use waitgroup::WaitGroup;
 
 use super::*;
-use crate::error::Error;
-use crate::*;
+use crate::{error::Error, *};
 
 pub(crate) struct ReceiverReportInternal {
     pub(crate) interval: Duration,

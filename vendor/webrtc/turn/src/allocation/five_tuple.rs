@@ -1,8 +1,10 @@
 #[cfg(test)]
 mod five_tuple_test;
 
-use std::fmt;
-use std::net::{Ipv4Addr, SocketAddr};
+use std::{
+    fmt,
+    net::{Ipv4Addr, SocketAddr},
+};
 
 use crate::proto::*;
 

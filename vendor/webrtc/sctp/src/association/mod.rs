@@ -4,11 +4,12 @@ mod association_test;
 mod association_internal;
 mod association_stats;
 
-use std::collections::{HashMap, VecDeque};
-use std::fmt;
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
-use std::time::SystemTime;
+use std::{
+    collections::{HashMap, VecDeque},
+    fmt,
+    sync::{atomic::Ordering, Arc},
+    time::SystemTime,
+};
 
 use association_internal::*;
 use association_stats::*;
@@ -18,38 +19,43 @@ use rand::random;
 use tokio::sync::{broadcast, mpsc, Mutex};
 use util::Conn;
 
-use crate::chunk::chunk_abort::ChunkAbort;
-use crate::chunk::chunk_cookie_ack::ChunkCookieAck;
-use crate::chunk::chunk_cookie_echo::ChunkCookieEcho;
-use crate::chunk::chunk_error::ChunkError;
-use crate::chunk::chunk_forward_tsn::{ChunkForwardTsn, ChunkForwardTsnStream};
-use crate::chunk::chunk_heartbeat::ChunkHeartbeat;
-use crate::chunk::chunk_heartbeat_ack::ChunkHeartbeatAck;
-use crate::chunk::chunk_init::ChunkInit;
-use crate::chunk::chunk_payload_data::{ChunkPayloadData, PayloadProtocolIdentifier};
-use crate::chunk::chunk_reconfig::ChunkReconfig;
-use crate::chunk::chunk_selective_ack::ChunkSelectiveAck;
-use crate::chunk::chunk_shutdown::ChunkShutdown;
-use crate::chunk::chunk_shutdown_ack::ChunkShutdownAck;
-use crate::chunk::chunk_shutdown_complete::ChunkShutdownComplete;
-use crate::chunk::chunk_type::*;
-use crate::chunk::Chunk;
-use crate::error::{Error, Result};
-use crate::error_cause::*;
-use crate::packet::Packet;
-use crate::param::param_heartbeat_info::ParamHeartbeatInfo;
-use crate::param::param_outgoing_reset_request::ParamOutgoingResetRequest;
-use crate::param::param_reconfig_response::{ParamReconfigResponse, ReconfigResult};
-use crate::param::param_state_cookie::ParamStateCookie;
-use crate::param::param_supported_extensions::ParamSupportedExtensions;
-use crate::param::Param;
-use crate::queue::control_queue::ControlQueue;
-use crate::queue::payload_queue::PayloadQueue;
-use crate::queue::pending_queue::PendingQueue;
-use crate::stream::*;
-use crate::timer::ack_timer::*;
-use crate::timer::rtx_timer::*;
-use crate::util::*;
+use crate::{
+    chunk::{
+        chunk_abort::ChunkAbort,
+        chunk_cookie_ack::ChunkCookieAck,
+        chunk_cookie_echo::ChunkCookieEcho,
+        chunk_error::ChunkError,
+        chunk_forward_tsn::{ChunkForwardTsn, ChunkForwardTsnStream},
+        chunk_heartbeat::ChunkHeartbeat,
+        chunk_heartbeat_ack::ChunkHeartbeatAck,
+        chunk_init::ChunkInit,
+        chunk_payload_data::{ChunkPayloadData, PayloadProtocolIdentifier},
+        chunk_reconfig::ChunkReconfig,
+        chunk_selective_ack::ChunkSelectiveAck,
+        chunk_shutdown::ChunkShutdown,
+        chunk_shutdown_ack::ChunkShutdownAck,
+        chunk_shutdown_complete::ChunkShutdownComplete,
+        chunk_type::*,
+        Chunk,
+    },
+    error::{Error, Result},
+    error_cause::*,
+    packet::Packet,
+    param::{
+        param_heartbeat_info::ParamHeartbeatInfo,
+        param_outgoing_reset_request::ParamOutgoingResetRequest,
+        param_reconfig_response::{ParamReconfigResponse, ReconfigResult},
+        param_state_cookie::ParamStateCookie,
+        param_supported_extensions::ParamSupportedExtensions,
+        Param,
+    },
+    queue::{
+        control_queue::ControlQueue, payload_queue::PayloadQueue, pending_queue::PendingQueue,
+    },
+    stream::*,
+    timer::{ack_timer::*, rtx_timer::*},
+    util::*,
+};
 
 pub(crate) const RECEIVE_MTU: usize = 8192;
 /// MTU for inbound packet (from DTLS)

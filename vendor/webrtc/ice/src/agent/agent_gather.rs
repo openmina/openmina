@@ -1,22 +1,25 @@
-use std::net::{Ipv4Addr, Ipv6Addr};
-use std::str::FromStr;
-use std::sync::Arc;
+use std::{
+    net::{Ipv4Addr, Ipv6Addr},
+    str::FromStr,
+    sync::Arc,
+};
 
-use util::vnet::net::*;
-use util::Conn;
+use util::{vnet::net::*, Conn};
 use waitgroup::WaitGroup;
 
 use super::*;
-use crate::candidate::candidate_base::CandidateBaseConfig;
-use crate::candidate::candidate_host::CandidateHostConfig;
-use crate::candidate::candidate_relay::CandidateRelayConfig;
-use crate::candidate::candidate_server_reflexive::CandidateServerReflexiveConfig;
-use crate::candidate::*;
-use crate::error::*;
-use crate::network_type::*;
-use crate::udp_network::UDPNetwork;
-use crate::url::{ProtoType, SchemeType, Url};
-use crate::util::*;
+use crate::{
+    candidate::{
+        candidate_base::CandidateBaseConfig, candidate_host::CandidateHostConfig,
+        candidate_relay::CandidateRelayConfig,
+        candidate_server_reflexive::CandidateServerReflexiveConfig, *,
+    },
+    error::*,
+    network_type::*,
+    udp_network::UDPNetwork,
+    url::{ProtoType, SchemeType, Url},
+    util::*,
+};
 
 const STUN_GATHER_TIMEOUT: Duration = Duration::from_secs(5);
 

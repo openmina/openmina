@@ -15,16 +15,15 @@ pub mod peer_connection_state;
 pub mod policy;
 pub mod signaling_state;
 
-use std::future::Future;
-use std::pin::Pin;
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    future::Future,
+    pin::Pin,
+    sync::{atomic::Ordering, Arc},
+    time::{SystemTime, UNIX_EPOCH},
+};
 
-use ::ice::candidate::candidate_base::unmarshal_candidate;
-use ::ice::candidate::Candidate;
-use ::sdp::description::session::*;
-use ::sdp::util::ConnectionRole;
+use ::ice::candidate::{candidate_base::unmarshal_candidate, Candidate};
+use ::sdp::{description::session::*, util::ConnectionRole};
 use arc_swap::ArcSwapOption;
 use async_trait::async_trait;
 use interceptor::{stats, Attributes, Interceptor, RTCPWriter};
@@ -36,60 +35,58 @@ use smol_str::SmolStr;
 use srtp::stream::Stream;
 use tokio::sync::{mpsc, Mutex};
 
-use crate::api::media_engine::MediaEngine;
-use crate::api::setting_engine::SettingEngine;
-use crate::api::API;
-use crate::data_channel::data_channel_init::RTCDataChannelInit;
-use crate::data_channel::data_channel_parameters::DataChannelParameters;
-use crate::data_channel::data_channel_state::RTCDataChannelState;
-use crate::data_channel::RTCDataChannel;
-use crate::dtls_transport::dtls_fingerprint::RTCDtlsFingerprint;
-use crate::dtls_transport::dtls_parameters::DTLSParameters;
-use crate::dtls_transport::dtls_role::{
-    DTLSRole, DEFAULT_DTLS_ROLE_ANSWER, DEFAULT_DTLS_ROLE_OFFER,
+use crate::{
+    api::{media_engine::MediaEngine, setting_engine::SettingEngine, API},
+    data_channel::{
+        data_channel_init::RTCDataChannelInit, data_channel_parameters::DataChannelParameters,
+        data_channel_state::RTCDataChannelState, RTCDataChannel,
+    },
+    dtls_transport::{
+        dtls_fingerprint::RTCDtlsFingerprint,
+        dtls_parameters::DTLSParameters,
+        dtls_role::{DTLSRole, DEFAULT_DTLS_ROLE_ANSWER, DEFAULT_DTLS_ROLE_OFFER},
+        dtls_transport_state::RTCDtlsTransportState,
+        RTCDtlsTransport,
+    },
+    error::{flatten_errs, Error, Result},
+    ice_transport::{
+        ice_candidate::{RTCIceCandidate, RTCIceCandidateInit},
+        ice_connection_state::RTCIceConnectionState,
+        ice_gatherer::{
+            OnGatheringCompleteHdlrFn, OnICEGathererStateChangeHdlrFn, OnLocalCandidateHdlrFn,
+            RTCIceGatherOptions, RTCIceGatherer,
+        },
+        ice_gatherer_state::RTCIceGathererState,
+        ice_gathering_state::RTCIceGatheringState,
+        ice_parameters::RTCIceParameters,
+        ice_role::RTCIceRole,
+        ice_transport_state::RTCIceTransportState,
+        RTCIceTransport,
+    },
+    peer_connection::{
+        certificate::RTCCertificate,
+        configuration::RTCConfiguration,
+        offer_answer_options::{RTCAnswerOptions, RTCOfferOptions},
+        operation::{Operation, Operations},
+        peer_connection_state::{NegotiationNeededState, RTCPeerConnectionState},
+        sdp::{sdp_type::RTCSdpType, session_description::RTCSessionDescription, *},
+        signaling_state::{check_next_signaling_state, RTCSignalingState, StateChangeOp},
+    },
+    rtp_transceiver::{
+        find_by_mid, handle_unknown_rtp_packet,
+        rtp_codec::{RTCRtpHeaderExtensionCapability, RTPCodecType},
+        rtp_receiver::RTCRtpReceiver,
+        rtp_sender::RTCRtpSender,
+        rtp_transceiver_direction::RTCRtpTransceiverDirection,
+        satisfy_type_and_direction, RTCRtpTransceiver, RTCRtpTransceiverInit, SSRC,
+    },
+    sctp_transport::{
+        sctp_transport_capabilities::SCTPTransportCapabilities,
+        sctp_transport_state::RTCSctpTransportState, RTCSctpTransport,
+    },
+    stats::StatsReport,
+    track::{track_local::TrackLocal, track_remote::TrackRemote},
 };
-use crate::dtls_transport::dtls_transport_state::RTCDtlsTransportState;
-use crate::dtls_transport::RTCDtlsTransport;
-use crate::error::{flatten_errs, Error, Result};
-use crate::ice_transport::ice_candidate::{RTCIceCandidate, RTCIceCandidateInit};
-use crate::ice_transport::ice_connection_state::RTCIceConnectionState;
-use crate::ice_transport::ice_gatherer::{
-    OnGatheringCompleteHdlrFn, OnICEGathererStateChangeHdlrFn, OnLocalCandidateHdlrFn,
-    RTCIceGatherOptions, RTCIceGatherer,
-};
-use crate::ice_transport::ice_gatherer_state::RTCIceGathererState;
-use crate::ice_transport::ice_gathering_state::RTCIceGatheringState;
-use crate::ice_transport::ice_parameters::RTCIceParameters;
-use crate::ice_transport::ice_role::RTCIceRole;
-use crate::ice_transport::ice_transport_state::RTCIceTransportState;
-use crate::ice_transport::RTCIceTransport;
-use crate::peer_connection::certificate::RTCCertificate;
-use crate::peer_connection::configuration::RTCConfiguration;
-use crate::peer_connection::offer_answer_options::{RTCAnswerOptions, RTCOfferOptions};
-use crate::peer_connection::operation::{Operation, Operations};
-use crate::peer_connection::peer_connection_state::{
-    NegotiationNeededState, RTCPeerConnectionState,
-};
-use crate::peer_connection::sdp::sdp_type::RTCSdpType;
-use crate::peer_connection::sdp::session_description::RTCSessionDescription;
-use crate::peer_connection::sdp::*;
-use crate::peer_connection::signaling_state::{
-    check_next_signaling_state, RTCSignalingState, StateChangeOp,
-};
-use crate::rtp_transceiver::rtp_codec::{RTCRtpHeaderExtensionCapability, RTPCodecType};
-use crate::rtp_transceiver::rtp_receiver::RTCRtpReceiver;
-use crate::rtp_transceiver::rtp_sender::RTCRtpSender;
-use crate::rtp_transceiver::rtp_transceiver_direction::RTCRtpTransceiverDirection;
-use crate::rtp_transceiver::{
-    find_by_mid, handle_unknown_rtp_packet, satisfy_type_and_direction, RTCRtpTransceiver,
-    RTCRtpTransceiverInit, SSRC,
-};
-use crate::sctp_transport::sctp_transport_capabilities::SCTPTransportCapabilities;
-use crate::sctp_transport::sctp_transport_state::RTCSctpTransportState;
-use crate::sctp_transport::RTCSctpTransport;
-use crate::stats::StatsReport;
-use crate::track::track_local::TrackLocal;
-use crate::track::track_remote::TrackRemote;
 
 /// SIMULCAST_PROBE_COUNT is the amount of RTP Packets
 /// that handleUndeclaredSSRC will read and try to dispatch from

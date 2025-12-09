@@ -1,7 +1,20 @@
 #![warn(rust_2018_idioms)]
 #![allow(dead_code)]
 
-pub use {data, dtls, ice, interceptor, mdns, media, rtcp, rtp, sctp, sdp, srtp, stun, turn, util};
+pub use data;
+pub use dtls;
+pub use ice;
+pub use interceptor;
+pub use mdns;
+pub use media;
+pub use rtcp;
+pub use rtp;
+pub use sctp;
+pub use sdp;
+pub use srtp;
+pub use stun;
+pub use turn;
+pub use util;
 
 /// [`peer_connection::RTCPeerConnection`] allows to establish connection between two peers given RTC configuration. Its API is similar to one in JavaScript.
 pub mod peer_connection;

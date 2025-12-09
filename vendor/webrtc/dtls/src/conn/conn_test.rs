@@ -2,29 +2,28 @@ use std::time::SystemTime;
 
 use rand::Rng;
 use rustls::pki_types::CertificateDer;
-use util::conn::conn_pipe::*;
-use util::KeyingMaterialExporter;
+use util::{conn::conn_pipe::*, KeyingMaterialExporter};
 
 use super::*;
-use crate::cipher_suite::cipher_suite_aes_128_gcm_sha256::*;
-use crate::cipher_suite::*;
-use crate::compression_methods::*;
-use crate::crypto::*;
-use crate::curve::*;
-use crate::error::*;
-use crate::extension::extension_supported_elliptic_curves::*;
-use crate::extension::extension_supported_point_formats::*;
-use crate::extension::extension_supported_signature_algorithms::*;
-use crate::extension::renegotiation_info::ExtensionRenegotiationInfo;
-use crate::extension::*;
-use crate::handshake::handshake_message_certificate::*;
-use crate::handshake::handshake_message_client_hello::*;
-use crate::handshake::handshake_message_hello_verify_request::*;
-use crate::handshake::handshake_message_server_hello::*;
-use crate::handshake::handshake_message_server_hello_done::*;
-use crate::handshake::handshake_message_server_key_exchange::*;
-use crate::handshake::handshake_random::*;
-use crate::signature_hash_algorithm::*;
+use crate::{
+    cipher_suite::{cipher_suite_aes_128_gcm_sha256::*, *},
+    compression_methods::*,
+    crypto::*,
+    curve::*,
+    error::*,
+    extension::{
+        extension_supported_elliptic_curves::*, extension_supported_point_formats::*,
+        extension_supported_signature_algorithms::*,
+        renegotiation_info::ExtensionRenegotiationInfo, *,
+    },
+    handshake::{
+        handshake_message_certificate::*, handshake_message_client_hello::*,
+        handshake_message_hello_verify_request::*, handshake_message_server_hello::*,
+        handshake_message_server_hello_done::*, handshake_message_server_key_exchange::*,
+        handshake_random::*,
+    },
+    signature_hash_algorithm::*,
+};
 
 const ERR_TEST_PSK_INVALID_IDENTITY: &str = "TestPSK: Server got invalid identity";
 const ERR_PSK_REJECTED: &str = "PSK Rejected";

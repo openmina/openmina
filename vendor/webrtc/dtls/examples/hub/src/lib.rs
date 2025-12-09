@@ -3,9 +3,11 @@
 
 pub mod utilities;
 
-use std::collections::HashMap;
-use std::io::{BufRead, BufReader};
-use std::sync::Arc;
+use std::{
+    collections::HashMap,
+    io::{BufRead, BufReader},
+    sync::Arc,
+};
 
 use dtls::Error;
 use tokio::sync::Mutex;

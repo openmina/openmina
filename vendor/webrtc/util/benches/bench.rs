@@ -1,5 +1,4 @@
-use criterion::async_executor::FuturesExecutor;
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{async_executor::FuturesExecutor, criterion_group, criterion_main, Criterion};
 use webrtc_util::Buffer;
 
 async fn buffer_write_then_read(times: u32) {

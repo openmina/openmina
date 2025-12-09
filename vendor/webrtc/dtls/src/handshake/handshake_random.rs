@@ -1,5 +1,7 @@
-use std::io::{self, Read, Write};
-use std::time::{Duration, SystemTime};
+use std::{
+    io::{self, Read, Write},
+    time::{Duration, SystemTime},
+};
 
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use rand::Rng;

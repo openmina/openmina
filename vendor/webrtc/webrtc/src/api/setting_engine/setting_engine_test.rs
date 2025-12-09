@@ -1,10 +1,11 @@
 use std::sync::atomic::Ordering;
 
 use super::*;
-use crate::api::media_engine::MediaEngine;
-use crate::api::APIBuilder;
-use crate::peer_connection::peer_connection_test::*;
-use crate::rtp_transceiver::rtp_codec::RTPCodecType;
+use crate::{
+    api::{media_engine::MediaEngine, APIBuilder},
+    peer_connection::peer_connection_test::*,
+    rtp_transceiver::rtp_codec::RTPCodecType,
+};
 
 #[test]
 fn test_set_connection_timeout() -> Result<()> {

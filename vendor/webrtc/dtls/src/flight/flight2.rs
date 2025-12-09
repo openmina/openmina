@@ -2,14 +2,13 @@ use std::fmt;
 
 use async_trait::async_trait;
 
-use super::flight0::*;
-use super::flight4::*;
-use super::*;
-use crate::content::*;
-use crate::error::Error;
-use crate::handshake::handshake_message_hello_verify_request::*;
-use crate::handshake::*;
-use crate::record_layer::record_layer_header::*;
+use super::{flight0::*, flight4::*, *};
+use crate::{
+    content::*,
+    error::Error,
+    handshake::{handshake_message_hello_verify_request::*, *},
+    record_layer::record_layer_header::*,
+};
 
 #[derive(Debug, PartialEq)]
 pub(crate) struct Flight2;

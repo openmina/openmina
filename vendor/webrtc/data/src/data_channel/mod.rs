@@ -1,27 +1,29 @@
 #[cfg(test)]
 mod data_channel_test;
 
-use std::borrow::Borrow;
-use std::future::Future;
-use std::net::Shutdown;
-use std::pin::Pin;
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
-use std::task::{Context, Poll};
-use std::{fmt, io};
+use std::{
+    borrow::Borrow,
+    fmt,
+    future::Future,
+    io,
+    net::Shutdown,
+    pin::Pin,
+    sync::{atomic::Ordering, Arc},
+    task::{Context, Poll},
+};
 
 use bytes::{Buf, Bytes};
 use portable_atomic::AtomicUsize;
-use sctp::association::Association;
-use sctp::chunk::chunk_payload_data::PayloadProtocolIdentifier;
-use sctp::stream::*;
+use sctp::{
+    association::Association, chunk::chunk_payload_data::PayloadProtocolIdentifier, stream::*,
+};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use util::marshal::*;
 
-use crate::error::{Error, Result};
-use crate::message::message_channel_ack::*;
-use crate::message::message_channel_open::*;
-use crate::message::*;
+use crate::{
+    error::{Error, Result},
+    message::{message_channel_ack::*, message_channel_open::*, *},
+};
 
 const RECEIVE_MTU: usize = 8192;
 

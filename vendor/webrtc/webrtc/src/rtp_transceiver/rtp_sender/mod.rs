@@ -1,29 +1,29 @@
 #[cfg(test)]
 mod rtp_sender_test;
 
-use std::sync::atomic::Ordering;
-use std::sync::{Arc, Weak};
+use std::sync::{atomic::Ordering, Arc, Weak};
 
 use ice::rand::generate_crypto_random_string;
-use interceptor::stream_info::StreamInfo;
-use interceptor::{Attributes, Interceptor, RTCPReader, RTPWriter};
+use interceptor::{stream_info::StreamInfo, Attributes, Interceptor, RTCPReader, RTPWriter};
 use portable_atomic::AtomicBool;
 use tokio::sync::{mpsc, Mutex, Notify};
 use util::sync::Mutex as SyncMutex;
 
 use super::srtp_writer_future::SequenceTransformer;
-use crate::api::media_engine::MediaEngine;
-use crate::dtls_transport::RTCDtlsTransport;
-use crate::error::{Error, Result};
-use crate::rtp_transceiver::rtp_codec::{RTCRtpCodecParameters, RTPCodecType};
-use crate::rtp_transceiver::rtp_transceiver_direction::RTCRtpTransceiverDirection;
-use crate::rtp_transceiver::srtp_writer_future::SrtpWriterFuture;
-use crate::rtp_transceiver::{
-    create_stream_info, PayloadType, RTCRtpEncodingParameters, RTCRtpSendParameters,
-    RTCRtpTransceiver, SSRC,
-};
-use crate::track::track_local::{
-    InterceptorToTrackLocalWriter, TrackLocal, TrackLocalContext, TrackLocalWriter,
+use crate::{
+    api::media_engine::MediaEngine,
+    dtls_transport::RTCDtlsTransport,
+    error::{Error, Result},
+    rtp_transceiver::{
+        create_stream_info,
+        rtp_codec::{RTCRtpCodecParameters, RTPCodecType},
+        rtp_transceiver_direction::RTCRtpTransceiverDirection,
+        srtp_writer_future::SrtpWriterFuture,
+        PayloadType, RTCRtpEncodingParameters, RTCRtpSendParameters, RTCRtpTransceiver, SSRC,
+    },
+    track::track_local::{
+        InterceptorToTrackLocalWriter, TrackLocal, TrackLocalContext, TrackLocalWriter,
+    },
 };
 
 pub(crate) struct RTPSenderInternal {

@@ -1,6 +1,8 @@
-use std::collections::HashMap;
-use std::iter::FromIterator;
-use std::ops::{Deref, DerefMut};
+use std::{
+    collections::HashMap,
+    iter::FromIterator,
+    ops::{Deref, DerefMut},
+};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -136,8 +138,7 @@ mod tests {
 #[cfg(test)]
 mod serde_tests {
     use super::*;
-    use crate::macros::test_serde_symmetry;
-    use crate::property::all::name::*;
+    use crate::{macros::test_serde_symmetry, property::all::name::*};
 
     type Subject = MediaTrackSettings;
 

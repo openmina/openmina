@@ -1,5 +1,4 @@
-use std::net::Ipv4Addr;
-use std::sync::Arc;
+use std::{net::Ipv4Addr, sync::Arc};
 
 use super::*;
 use crate::sync::RwLock;

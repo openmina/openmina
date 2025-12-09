@@ -4,10 +4,11 @@ use ipnet::IpNet;
 use tokio::net::UdpSocket;
 use util::vnet::*;
 
-use super::agent_vnet_test::*;
-use super::*;
-use crate::udp_mux::{UDPMuxDefault, UDPMuxParams};
-use crate::util::*;
+use super::{agent_vnet_test::*, *};
+use crate::{
+    udp_mux::{UDPMuxDefault, UDPMuxParams},
+    util::*,
+};
 
 #[tokio::test]
 async fn test_vnet_gather_no_local_ip_address() -> Result<()> {

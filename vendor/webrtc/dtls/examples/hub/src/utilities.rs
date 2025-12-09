@@ -1,6 +1,8 @@
-use std::fs::File;
-use std::io::{self, Read};
-use std::path::PathBuf;
+use std::{
+    fs::File,
+    io::{self, Read},
+    path::PathBuf,
+};
 
 use dtls::crypto::{Certificate, CryptoPrivateKey};
 use rcgen::KeyPair;

@@ -1,11 +1,15 @@
-use std::any::Any;
-use std::fmt::{Debug, Display, Formatter};
+use std::{
+    any::Any,
+    fmt::{Debug, Display, Formatter},
+};
 
 use bytes::{Bytes, BytesMut};
 
-use crate::param::param_header::{ParamHeader, PARAM_HEADER_LENGTH};
-use crate::param::param_type::ParamType;
-use crate::param::Param;
+use crate::param::{
+    param_header::{ParamHeader, PARAM_HEADER_LENGTH},
+    param_type::ParamType,
+    Param,
+};
 
 /// This type is meant to represent ANY parameter for un/remarshaling purposes, where we do not have a more specific type for it.
 /// This means we do not really understand the semantics of the param but can represent it.

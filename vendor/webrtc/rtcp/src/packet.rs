@@ -1,24 +1,25 @@
-use std::any::Any;
-use std::fmt;
+use std::{any::Any, fmt};
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use util::marshal::{Marshal, Unmarshal};
 
-use crate::error::{Error, Result};
-use crate::extended_report::ExtendedReport;
-use crate::goodbye::*;
-use crate::header::*;
-use crate::payload_feedbacks::full_intra_request::*;
-use crate::payload_feedbacks::picture_loss_indication::*;
-use crate::payload_feedbacks::receiver_estimated_maximum_bitrate::*;
-use crate::payload_feedbacks::slice_loss_indication::*;
-use crate::raw_packet::*;
-use crate::receiver_report::*;
-use crate::sender_report::*;
-use crate::source_description::*;
-use crate::transport_feedbacks::rapid_resynchronization_request::*;
-use crate::transport_feedbacks::transport_layer_cc::*;
-use crate::transport_feedbacks::transport_layer_nack::*;
+use crate::{
+    error::{Error, Result},
+    extended_report::ExtendedReport,
+    goodbye::*,
+    header::*,
+    payload_feedbacks::{
+        full_intra_request::*, picture_loss_indication::*, receiver_estimated_maximum_bitrate::*,
+        slice_loss_indication::*,
+    },
+    raw_packet::*,
+    receiver_report::*,
+    sender_report::*,
+    source_description::*,
+    transport_feedbacks::{
+        rapid_resynchronization_request::*, transport_layer_cc::*, transport_layer_nack::*,
+    },
+};
 
 /// Packet represents an RTCP packet, a protocol used for out-of-band statistics and
 /// control information for an RTP session

@@ -1,13 +1,15 @@
-use std::net::{IpAddr, Ipv4Addr};
-use std::result::Result;
-use std::str::FromStr;
+use std::{
+    net::{IpAddr, Ipv4Addr},
+    result::Result,
+    str::FromStr,
+};
 
 use async_trait::async_trait;
 use portable_atomic::AtomicU64;
-use util::vnet::chunk::Chunk;
-use util::vnet::router::Nic;
-use util::vnet::*;
-use util::Conn;
+use util::{
+    vnet::{chunk::Chunk, router::Nic, *},
+    Conn,
+};
 use waitgroup::WaitGroup;
 
 use super::*;

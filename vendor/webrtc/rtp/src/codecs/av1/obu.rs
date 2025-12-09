@@ -3,9 +3,11 @@
 
 use bytes::Bytes;
 
-use crate::codecs::av1::leb128::read_leb128;
-use crate::error::Result;
-use crate::Error::{ErrPayloadTooSmallForObuExtensionHeader, ErrPayloadTooSmallForObuPayloadSize};
+use crate::{
+    codecs::av1::leb128::read_leb128,
+    error::Result,
+    Error::{ErrPayloadTooSmallForObuExtensionHeader, ErrPayloadTooSmallForObuPayloadSize},
+};
 
 pub const OBU_HAS_EXTENSION_BIT: u8 = 0b0000_0100;
 pub const OBU_HAS_SIZE_BIT: u8 = 0b0000_0010;

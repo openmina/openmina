@@ -85,7 +85,7 @@ impl UdpSocket {
             drop(unsafe { Box::from_raw(ptr) });
         }
     }
-    }
+}
 
 #[async_trait]
 impl Conn for UdpSocket {

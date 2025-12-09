@@ -1,11 +1,9 @@
-use std::net::IpAddr;
-use std::str::FromStr;
+use std::{net::IpAddr, str::FromStr};
 
 use async_trait::async_trait;
 
 use super::*;
-use crate::vnet::chunk::*;
-use crate::vnet::conn::*;
+use crate::vnet::{chunk::*, conn::*};
 
 #[derive(Default)]
 struct DummyObserver;

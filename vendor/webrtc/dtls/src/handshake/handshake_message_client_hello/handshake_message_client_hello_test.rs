@@ -1,9 +1,10 @@
-use std::io::{BufReader, BufWriter};
-use std::time::{Duration, SystemTime};
+use std::{
+    io::{BufReader, BufWriter},
+    time::{Duration, SystemTime},
+};
 
 use super::*;
-use crate::curve::named_curve::*;
-use crate::extension::extension_supported_elliptic_curves::*;
+use crate::{curve::named_curve::*, extension::extension_supported_elliptic_curves::*};
 
 #[test]
 fn test_handshake_message_client_hello() -> Result<()> {

@@ -1,12 +1,12 @@
-use std::convert::TryInto;
-use std::io;
-use std::time::Duration;
+use std::{convert::TryInto, io, time::Duration};
 
 use rand::{thread_rng, Rng};
 use sha1::{Digest, Sha1};
 use stun::message::{Message, BINDING_REQUEST};
-use tokio::net::UdpSocket;
-use tokio::time::{sleep, timeout};
+use tokio::{
+    net::UdpSocket,
+    time::{sleep, timeout},
+};
 
 use super::*;
 use crate::error::Result;

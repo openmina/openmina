@@ -1,20 +1,16 @@
-use std::future::Future;
-use std::io::BufReader;
-use std::net::SocketAddr;
-use std::pin::Pin;
-use std::sync::Arc;
+use std::{future::Future, io::BufReader, net::SocketAddr, pin::Pin, sync::Arc};
 
 use async_trait::async_trait;
 use tokio::net::ToSocketAddrs;
-use util::conn::conn_udp_listener::*;
-use util::conn::*;
+use util::conn::{conn_udp_listener::*, *};
 
-use crate::config::*;
-use crate::conn::DTLSConn;
-use crate::content::ContentType;
-use crate::error::Result;
-use crate::record_layer::record_layer_header::RecordLayerHeader;
-use crate::record_layer::unpack_datagram;
+use crate::{
+    config::*,
+    conn::DTLSConn,
+    content::ContentType,
+    error::Result,
+    record_layer::{record_layer_header::RecordLayerHeader, unpack_datagram},
+};
 
 /// Listen creates a DTLS listener
 pub async fn listen<A: 'static + ToSocketAddrs>(laddr: A, config: Config) -> Result<impl Listener> {

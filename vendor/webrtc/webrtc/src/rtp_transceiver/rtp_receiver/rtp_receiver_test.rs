@@ -1,20 +1,21 @@
 use bytes::Bytes;
 use media::Sample;
-use tokio::sync::mpsc;
-use tokio::time::Duration;
+use tokio::{sync::mpsc, time::Duration};
 use waitgroup::WaitGroup;
 
 use super::*;
-use crate::api::media_engine::{MIME_TYPE_OPUS, MIME_TYPE_VP8};
-use crate::error::Result;
-use crate::peer_connection::peer_connection_state::RTCPeerConnectionState;
-use crate::peer_connection::peer_connection_test::{
-    close_pair_now, create_vnet_pair, signal_pair, until_connection_state,
+use crate::{
+    api::media_engine::{MIME_TYPE_OPUS, MIME_TYPE_VP8},
+    error::Result,
+    peer_connection::{
+        peer_connection_state::RTCPeerConnectionState,
+        peer_connection_test::{
+            close_pair_now, create_vnet_pair, signal_pair, until_connection_state,
+        },
+    },
+    rtp_transceiver::{rtp_codec::RTCRtpHeaderExtensionParameters, RTCPFeedback},
+    track::track_local::{track_local_static_sample::TrackLocalStaticSample, TrackLocal},
 };
-use crate::rtp_transceiver::rtp_codec::RTCRtpHeaderExtensionParameters;
-use crate::rtp_transceiver::RTCPFeedback;
-use crate::track::track_local::track_local_static_sample::TrackLocalStaticSample;
-use crate::track::track_local::TrackLocal;
 
 lazy_static! {
     static ref P: RTCRtpParameters = RTCRtpParameters {

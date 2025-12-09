@@ -1,8 +1,7 @@
 #[cfg(test)]
 mod dontfrag_test;
 
-use stun::attributes::*;
-use stun::message::*;
+use stun::{attributes::*, message::*};
 
 /// `DontFragmentAttr` represents `DONT-FRAGMENT` attribute.
 #[derive(Debug, Default, PartialEq, Eq)]

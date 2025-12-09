@@ -4,17 +4,21 @@ mod setting_engine_test;
 use std::sync::Arc;
 
 use dtls::extension::extension_use_srtp::SrtpProtectionProfile;
-use ice::agent::agent_config::{InterfaceFilterFn, IpFilterFn};
-use ice::mdns::MulticastDnsMode;
-use ice::network_type::NetworkType;
-use ice::udp_network::UDPNetwork;
+use ice::{
+    agent::agent_config::{InterfaceFilterFn, IpFilterFn},
+    mdns::MulticastDnsMode,
+    network_type::NetworkType,
+    udp_network::UDPNetwork,
+};
 use tokio::time::Duration;
 use util::vnet::net::*;
 
-use crate::dtls_transport::dtls_role::DTLSRole;
-use crate::error::{Error, Result};
-use crate::ice_transport::ice_candidate_type::RTCIceCandidateType;
-use crate::RECEIVE_MTU;
+use crate::{
+    dtls_transport::dtls_role::DTLSRole,
+    error::{Error, Result},
+    ice_transport::ice_candidate_type::RTCIceCandidateType,
+    RECEIVE_MTU,
+};
 
 #[derive(Default, Clone)]
 pub struct Detach {

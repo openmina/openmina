@@ -1,8 +1,6 @@
 #![allow(dead_code)]
 
-use std::num::ParseIntError;
-use std::string::FromUtf8Error;
-use std::{io, net};
+use std::{io, net, num::ParseIntError, string::FromUtf8Error};
 
 use thiserror::Error;
 

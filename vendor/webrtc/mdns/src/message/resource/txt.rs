@@ -1,6 +1,5 @@
 use super::*;
-use crate::error::*;
-use crate::message::packer::*;
+use crate::{error::*, message::packer::*};
 
 // A TXTResource is a txt Resource record.
 #[derive(Default, Debug, Clone, PartialEq, Eq)]

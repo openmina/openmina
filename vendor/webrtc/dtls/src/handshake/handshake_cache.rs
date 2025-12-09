@@ -1,15 +1,12 @@
 #[cfg(test)]
 mod handshake_cache_test;
 
-use std::collections::HashMap;
-use std::io::BufReader;
-use std::sync::Arc;
+use std::{collections::HashMap, io::BufReader, sync::Arc};
 
 use sha2::{Digest, Sha256};
 use tokio::sync::Mutex;
 
-use crate::cipher_suite::*;
-use crate::handshake::*;
+use crate::{cipher_suite::*, handshake::*};
 
 #[derive(Clone, Debug)]
 pub(crate) struct HandshakeCacheItem {

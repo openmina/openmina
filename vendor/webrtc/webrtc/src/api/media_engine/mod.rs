@@ -1,29 +1,32 @@
 #[cfg(test)]
 mod media_engine_test;
 
-use std::collections::HashMap;
-use std::ops::Range;
-use std::sync::atomic::Ordering;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    collections::HashMap,
+    ops::Range,
+    sync::atomic::Ordering,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use portable_atomic::AtomicBool;
 use sdp::description::session::SessionDescription;
 use util::sync::Mutex as SyncMutex;
 
-use crate::error::{Error, Result};
-use crate::peer_connection::sdp::{
-    codecs_from_media_description, rtp_extensions_from_media_description,
+use crate::{
+    error::{Error, Result},
+    peer_connection::sdp::{codecs_from_media_description, rtp_extensions_from_media_description},
+    rtp_transceiver::{
+        fmtp,
+        rtp_codec::{
+            codec_parameters_fuzzy_search, CodecMatch, RTCRtpCodecCapability,
+            RTCRtpCodecParameters, RTCRtpHeaderExtensionCapability,
+            RTCRtpHeaderExtensionParameters, RTCRtpParameters, RTPCodecType,
+        },
+        rtp_transceiver_direction::RTCRtpTransceiverDirection,
+        PayloadType, RTCPFeedback,
+    },
+    stats::{stats_collector::StatsCollector, CodecStats, StatsReportType::Codec},
 };
-use crate::rtp_transceiver::rtp_codec::{
-    codec_parameters_fuzzy_search, CodecMatch, RTCRtpCodecCapability, RTCRtpCodecParameters,
-    RTCRtpHeaderExtensionCapability, RTCRtpHeaderExtensionParameters, RTCRtpParameters,
-    RTPCodecType,
-};
-use crate::rtp_transceiver::rtp_transceiver_direction::RTCRtpTransceiverDirection;
-use crate::rtp_transceiver::{fmtp, PayloadType, RTCPFeedback};
-use crate::stats::stats_collector::StatsCollector;
-use crate::stats::CodecStats;
-use crate::stats::StatsReportType::Codec;
 
 /// MIME_TYPE_H264 H264 MIME type.
 /// Note: Matching should be case insensitive.

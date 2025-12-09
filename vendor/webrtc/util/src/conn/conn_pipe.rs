@@ -1,5 +1,7 @@
-use std::io::{Error, ErrorKind};
-use std::str::FromStr;
+use std::{
+    io::{Error, ErrorKind},
+    str::FromStr,
+};
 
 use tokio::sync::{mpsc, Mutex};
 

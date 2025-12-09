@@ -4,9 +4,11 @@ use async_trait::async_trait;
 use tokio::sync::{mpsc, Mutex};
 use util::Marshal;
 
-use crate::error::{Error, Result};
-use crate::stream_info::StreamInfo;
-use crate::{Attributes, Interceptor, RTCPReader, RTCPWriter, RTPReader, RTPWriter};
+use crate::{
+    error::{Error, Result},
+    stream_info::StreamInfo,
+    Attributes, Interceptor, RTCPReader, RTCPWriter, RTPReader, RTPWriter,
+};
 
 type RTCPPackets = Vec<Box<dyn rtcp::packet::Packet + Send + Sync>>;
 
@@ -295,8 +297,7 @@ mod test {
     use tokio::time::Duration;
 
     use super::*;
-    use crate::noop::NoOp;
-    use crate::test::timeout_or_fail;
+    use crate::{noop::NoOp, test::timeout_or_fail};
 
     #[tokio::test]
     async fn test_mock_stream() -> Result<()> {

@@ -1,14 +1,14 @@
 use std::net::IpAddr;
 
-use tokio::net::UdpSocket;
-use tokio::time::Duration;
+use tokio::{net::UdpSocket, time::Duration};
 use util::vnet::net::*;
 
 use super::*;
-use crate::auth::*;
-use crate::relay::relay_static::*;
-use crate::server::config::*;
-use crate::server::*;
+use crate::{
+    auth::*,
+    relay::relay_static::*,
+    server::{config::*, *},
+};
 
 async fn create_listening_test_client(rto_in_ms: u16) -> Result<Client> {
     let conn = UdpSocket::bind("0.0.0.0:0").await?;

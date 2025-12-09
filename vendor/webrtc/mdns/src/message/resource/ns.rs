@@ -1,6 +1,5 @@
 use super::*;
-use crate::error::Result;
-use crate::message::name::*;
+use crate::{error::Result, message::name::*};
 
 // An NSResource is an NS Resource record.
 #[derive(Default, Debug, Clone, PartialEq, Eq)]

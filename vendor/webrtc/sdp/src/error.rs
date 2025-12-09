@@ -1,6 +1,4 @@
-use std::io;
-use std::num::ParseIntError;
-use std::string::FromUtf8Error;
+use std::{io, num::ParseIntError, string::FromUtf8Error};
 
 use substring::Substring;
 use thiserror::Error;

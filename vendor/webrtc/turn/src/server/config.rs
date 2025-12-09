@@ -1,13 +1,9 @@
 use std::sync::Arc;
 
-use tokio::sync::mpsc;
-use tokio::time::Duration;
+use tokio::{sync::mpsc, time::Duration};
 use util::Conn;
 
-use crate::allocation::*;
-use crate::auth::*;
-use crate::error::*;
-use crate::relay::*;
+use crate::{allocation::*, auth::*, error::*, relay::*};
 
 /// ConnConfig is used for UDP listeners
 pub struct ConnConfig {

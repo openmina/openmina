@@ -1,20 +1,19 @@
 // Silence warning on `for i in 0..vec.len() { … }`:
 #![allow(clippy::needless_range_loop)]
 
-use std::io;
-use std::net::{Shutdown, SocketAddr};
-use std::str::FromStr;
-use std::time::Duration;
+use std::{
+    io,
+    net::{Shutdown, SocketAddr},
+    str::FromStr,
+    time::Duration,
+};
 
 use async_trait::async_trait;
 use tokio::net::UdpSocket;
-use util::conn::conn_bridge::*;
-use util::conn::conn_pipe::pipe;
-use util::conn::*;
+use util::conn::{conn_bridge::*, conn_pipe::pipe, *};
 
 use super::*;
-use crate::chunk::chunk_selective_ack::GapAckBlock;
-use crate::stream::*;
+use crate::{chunk::chunk_selective_ack::GapAckBlock, stream::*};
 
 async fn create_new_association_pair(
     br: &Arc<Bridge>,

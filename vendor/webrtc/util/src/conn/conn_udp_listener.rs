@@ -1,14 +1,11 @@
 use core::sync::atomic::Ordering;
-use std::collections::HashMap;
-use std::future::Future;
-use std::pin::Pin;
+use std::{collections::HashMap, future::Future, pin::Pin};
 
 use portable_atomic::AtomicBool;
 use tokio::sync::{mpsc, watch, Mutex};
 
 use super::*;
-use crate::error::Error;
-use crate::Buffer;
+use crate::{error::Error, Buffer};
 use conn_udp::UdpSocket;
 
 const RECEIVE_MTU: usize = 8192;

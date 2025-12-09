@@ -6,11 +6,12 @@ pub mod data_channel_message;
 pub mod data_channel_parameters;
 pub mod data_channel_state;
 
-use std::future::Future;
-use std::pin::Pin;
-use std::sync::atomic::Ordering;
-use std::sync::{Arc, Weak};
-use std::time::SystemTime;
+use std::{
+    future::Future,
+    pin::Pin,
+    sync::{atomic::Ordering, Arc, Weak},
+    time::SystemTime,
+};
 
 use arc_swap::ArcSwapOption;
 use bytes::Bytes;
@@ -23,11 +24,12 @@ use sctp::stream::OnBufferedAmountLowFn;
 use tokio::sync::{Mutex, Notify};
 use util::sync::Mutex as SyncMutex;
 
-use crate::api::setting_engine::SettingEngine;
-use crate::error::{Error, OnErrorHdlrFn, Result};
-use crate::sctp_transport::RTCSctpTransport;
-use crate::stats::stats_collector::StatsCollector;
-use crate::stats::{DataChannelStats, StatsReportType};
+use crate::{
+    api::setting_engine::SettingEngine,
+    error::{Error, OnErrorHdlrFn, Result},
+    sctp_transport::RTCSctpTransport,
+    stats::{stats_collector::StatsCollector, DataChannelStats, StatsReportType},
+};
 
 /// message size limit for Chromium
 const DATA_CHANNEL_BUFFER_SIZE: u16 = u16::MAX;

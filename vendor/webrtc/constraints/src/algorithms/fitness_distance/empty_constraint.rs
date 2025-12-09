@@ -1,5 +1,4 @@
-use super::setting::SettingFitnessDistanceError;
-use super::FitnessDistance;
+use super::{setting::SettingFitnessDistanceError, FitnessDistance};
 use crate::constraint::EmptyConstraint;
 
 impl<'a, T> FitnessDistance<Option<&'a T>> for EmptyConstraint {

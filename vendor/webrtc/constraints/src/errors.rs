@@ -6,8 +6,10 @@ use std::collections::HashMap;
 
 use thiserror::Error;
 
-use crate::algorithms::{ConstraintFailureInfo, SettingFitnessDistanceErrorKind};
-use crate::MediaTrackProperty;
+use crate::{
+    algorithms::{ConstraintFailureInfo, SettingFitnessDistanceErrorKind},
+    MediaTrackProperty,
+};
 
 /// An error indicating one or more over-constrained settings.
 #[derive(Error, Clone, Eq, PartialEq, Debug)]

@@ -16,8 +16,7 @@ use extension_supported_signature_algorithms::*;
 use extension_use_extended_master_secret::*;
 use extension_use_srtp::*;
 
-use crate::error::*;
-use crate::extension::renegotiation_info::ExtensionRenegotiationInfo;
+use crate::{error::*, extension::renegotiation_info::ExtensionRenegotiationInfo};
 
 // https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml
 #[derive(Clone, Debug, PartialEq, Eq)]

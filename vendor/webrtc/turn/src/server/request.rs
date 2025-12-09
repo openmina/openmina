@@ -1,47 +1,47 @@
 #[cfg(test)]
 mod request_test;
 
-use std::collections::HashMap;
-use std::marker::{Send, Sync};
-use std::net::SocketAddr;
 #[cfg(feature = "metrics")]
 use std::sync::atomic::Ordering;
-use std::sync::Arc;
-use std::time::SystemTime;
+use std::{
+    collections::HashMap,
+    marker::{Send, Sync},
+    net::SocketAddr,
+    sync::Arc,
+    time::SystemTime,
+};
 
 use md5::{Digest, Md5};
-use stun::agent::*;
-use stun::attributes::*;
-use stun::error_code::*;
-use stun::fingerprint::*;
-use stun::integrity::*;
-use stun::message::*;
-use stun::textattrs::*;
-use stun::uattrs::*;
-use stun::xoraddr::*;
-use tokio::sync::Mutex;
-use tokio::time::{Duration, Instant};
+use stun::{
+    agent::*, attributes::*, error_code::*, fingerprint::*, integrity::*, message::*, textattrs::*,
+    uattrs::*, xoraddr::*,
+};
+use tokio::{
+    sync::Mutex,
+    time::{Duration, Instant},
+};
 use util::Conn;
 
-use crate::allocation::allocation_manager::*;
-use crate::allocation::channel_bind::ChannelBind;
-use crate::allocation::five_tuple::*;
-use crate::allocation::permission::Permission;
-use crate::auth::*;
-use crate::error::*;
-use crate::proto::chandata::ChannelData;
-use crate::proto::channum::ChannelNumber;
-use crate::proto::data::Data;
-use crate::proto::evenport::EvenPort;
-use crate::proto::lifetime::*;
-use crate::proto::peeraddr::PeerAddress;
-use crate::proto::relayaddr::RelayedAddress;
-use crate::proto::reqfamily::{
-    RequestedAddressFamily, REQUESTED_FAMILY_IPV4, REQUESTED_FAMILY_IPV6,
+use crate::{
+    allocation::{
+        allocation_manager::*, channel_bind::ChannelBind, five_tuple::*, permission::Permission,
+    },
+    auth::*,
+    error::*,
+    proto::{
+        chandata::ChannelData,
+        channum::ChannelNumber,
+        data::Data,
+        evenport::EvenPort,
+        lifetime::*,
+        peeraddr::PeerAddress,
+        relayaddr::RelayedAddress,
+        reqfamily::{RequestedAddressFamily, REQUESTED_FAMILY_IPV4, REQUESTED_FAMILY_IPV6},
+        reqtrans::RequestedTransport,
+        rsrvtoken::ReservationToken,
+        *,
+    },
 };
-use crate::proto::reqtrans::RequestedTransport;
-use crate::proto::rsrvtoken::ReservationToken;
-use crate::proto::*;
 
 pub(crate) const MAXIMUM_ALLOCATION_LIFETIME: Duration = Duration::from_secs(3600); // https://tools.ietf.org/html/rfc5766#section-6.2 defines 3600 seconds recommendation
 pub(crate) const NONCE_LIFETIME: Duration = Duration::from_secs(3600); // https://tools.ietf.org/html/rfc5766#section-4

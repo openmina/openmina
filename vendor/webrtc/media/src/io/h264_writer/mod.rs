@@ -3,11 +3,9 @@ mod h264_writer_test;
 
 use std::io::{Seek, Write};
 
-use rtp::codecs::h264::H264Packet;
-use rtp::packetizer::Depacketizer;
+use rtp::{codecs::h264::H264Packet, packetizer::Depacketizer};
 
-use crate::error::Result;
-use crate::io::Writer;
+use crate::{error::Result, io::Writer};
 
 const NALU_TTYPE_STAP_A: u32 = 24;
 const NALU_TTYPE_SPS: u32 = 7;

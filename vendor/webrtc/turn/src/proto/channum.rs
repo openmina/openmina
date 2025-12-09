@@ -3,9 +3,7 @@ mod channnum_test;
 
 use std::fmt;
 
-use stun::attributes::*;
-use stun::checks::*;
-use stun::message::*;
+use stun::{attributes::*, checks::*, message::*};
 
 // 16 bits of uint + 16 bits of RFFU = 0.
 const CHANNEL_NUMBER_SIZE: usize = 4;

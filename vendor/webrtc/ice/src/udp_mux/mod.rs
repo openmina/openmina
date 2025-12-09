@@ -1,12 +1,13 @@
-use std::collections::HashMap;
-use std::io::ErrorKind;
-use std::net::SocketAddr;
-use std::sync::{Arc, Weak};
+use std::{
+    collections::HashMap,
+    io::ErrorKind,
+    net::SocketAddr,
+    sync::{Arc, Weak},
+};
 
 use async_trait::async_trait;
 use tokio::sync::{watch, Mutex};
-use util::sync::RwLock;
-use util::{Conn, Error};
+use util::{sync::RwLock, Conn, Error};
 
 mod udp_mux_conn;
 pub use udp_mux_conn::{UDPMuxConn, UDPMuxConnParams, UDPMuxWriter};
@@ -16,8 +17,10 @@ mod udp_mux_test;
 
 mod socket_addr_ext;
 
-use stun::attributes::ATTR_USERNAME;
-use stun::message::{is_message as is_stun_message, Message as STUNMessage};
+use stun::{
+    attributes::ATTR_USERNAME,
+    message::{is_message as is_stun_message, Message as STUNMessage},
+};
 
 use crate::candidate::RECEIVE_MTU;
 

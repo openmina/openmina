@@ -3,8 +3,7 @@ mod attributes_test;
 
 use std::fmt;
 
-use crate::error::*;
-use crate::message::*;
+use crate::{error::*, message::*};
 
 /// Attributes is list of message attributes.
 #[derive(Default, PartialEq, Eq, Debug, Clone)]

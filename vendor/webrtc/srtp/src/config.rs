@@ -1,8 +1,6 @@
 use util::KeyingMaterialExporter;
 
-use crate::error::Result;
-use crate::option::*;
-use crate::protection_profile::*;
+use crate::{error::Result, option::*, protection_profile::*};
 
 const LABEL_EXTRACTOR_DTLS_SRTP: &str = "EXTRACTOR-dtls_srtp";
 

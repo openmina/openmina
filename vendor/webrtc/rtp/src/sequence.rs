@@ -1,6 +1,7 @@
-use std::fmt;
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
+use std::{
+    fmt,
+    sync::{atomic::Ordering, Arc},
+};
 
 use portable_atomic::{AtomicU16, AtomicU64};
 

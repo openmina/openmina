@@ -1,5 +1,4 @@
-use crate::audio::buffer::BufferInfo;
-use crate::audio::sealed::Sealed;
+use crate::audio::{buffer::BufferInfo, sealed::Sealed};
 
 pub trait BufferLayout: Sized + Sealed {
     fn index_of(info: &BufferInfo<Self>, channel: usize, frame: usize) -> usize;

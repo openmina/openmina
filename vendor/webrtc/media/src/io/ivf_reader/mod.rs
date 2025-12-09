@@ -6,8 +6,10 @@ use std::io::Read;
 use byteorder::{LittleEndian, ReadBytesExt};
 use bytes::BytesMut;
 
-use crate::error::{Error, Result};
-use crate::io::ResetFn;
+use crate::{
+    error::{Error, Result},
+    io::ResetFn,
+};
 
 pub const IVF_FILE_HEADER_SIGNATURE: &[u8] = b"DKIF";
 pub const IVF_FILE_HEADER_SIZE: usize = 32;

@@ -1,15 +1,18 @@
-use std::collections::HashMap;
-use std::convert::TryFrom;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use std::{fmt, io};
+use std::{
+    collections::HashMap,
+    convert::TryFrom,
+    fmt, io,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
 use url::Url;
 
-use super::common::*;
-use super::media::*;
-use crate::error::{Error, Result};
-use crate::lexer::*;
-use crate::util::*;
+use super::{common::*, media::*};
+use crate::{
+    error::{Error, Result},
+    lexer::*,
+    util::*,
+};
 
 /// Constants for SDP attributes used in JSEP
 pub const ATTR_KEY_CANDIDATE: &str = "candidate";

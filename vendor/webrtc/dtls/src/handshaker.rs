@@ -1,21 +1,16 @@
-use std::collections::HashMap;
-use std::fmt;
-use std::sync::Arc;
+use std::{collections::HashMap, fmt, sync::Arc};
 
 use log::*;
 
-use crate::cipher_suite::*;
-use crate::config::*;
-use crate::conn::*;
-use crate::content::*;
-use crate::crypto::*;
-use crate::error::*;
-use crate::extension::extension_use_srtp::*;
-use crate::signature_hash_algorithm::*;
+use crate::{
+    cipher_suite::*, config::*, conn::*, content::*, crypto::*, error::*,
+    extension::extension_use_srtp::*, signature_hash_algorithm::*,
+};
 
-use rustls::client::danger::ServerCertVerifier;
-use rustls::pki_types::CertificateDer;
-use rustls::server::danger::ClientCertVerifier;
+use rustls::{
+    client::danger::ServerCertVerifier, pki_types::CertificateDer,
+    server::danger::ClientCertVerifier,
+};
 
 //use std::io::BufWriter;
 

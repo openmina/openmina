@@ -3,13 +3,14 @@ use std::sync::Arc;
 use bytes::Bytes;
 use tokio::sync::{mpsc, Mutex};
 
-use super::track_local_static_rtp::*;
-use super::track_local_static_sample::*;
-use super::*;
-use crate::api::media_engine::{MediaEngine, MIME_TYPE_VP8};
-use crate::api::APIBuilder;
-use crate::peer_connection::configuration::RTCConfiguration;
-use crate::peer_connection::peer_connection_test::*;
+use super::{track_local_static_rtp::*, track_local_static_sample::*, *};
+use crate::{
+    api::{
+        media_engine::{MediaEngine, MIME_TYPE_VP8},
+        APIBuilder,
+    },
+    peer_connection::{configuration::RTCConfiguration, peer_connection_test::*},
+};
 
 // If a remote doesn't support a Codec used by a `TrackLocalStatic`
 // an error should be returned to the user

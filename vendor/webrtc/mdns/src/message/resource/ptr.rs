@@ -1,6 +1,5 @@
 use super::*;
-use crate::error::Result;
-use crate::message::name::*;
+use crate::{error::Result, message::name::*};
 
 // A PTRResource is a PTR Resource record.
 #[derive(Default, Debug, Clone, PartialEq, Eq)]

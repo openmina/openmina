@@ -1,42 +1,39 @@
 #[cfg(test)]
 mod conn_test;
 
-use std::io::{BufReader, BufWriter};
-use std::marker::{Send, Sync};
-use std::net::SocketAddr;
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
+use std::{
+    io::{BufReader, BufWriter},
+    marker::{Send, Sync},
+    net::SocketAddr,
+    sync::{atomic::Ordering, Arc},
+};
 
 use async_trait::async_trait;
 use log::*;
 use portable_atomic::{AtomicBool, AtomicU16};
-use tokio::sync::{mpsc, Mutex};
-use tokio::time::Duration;
-use util::replay_detector::*;
-use util::Conn;
+use tokio::{
+    sync::{mpsc, Mutex},
+    time::Duration,
+};
+use util::{replay_detector::*, Conn};
 
-use crate::alert::*;
-use crate::application_data::*;
-use crate::cipher_suite::*;
-use crate::config::*;
-use crate::content::*;
-use crate::curve::named_curve::NamedCurve;
-use crate::error::*;
-use crate::extension::extension_use_srtp::*;
-use crate::flight::flight0::*;
-use crate::flight::flight1::*;
-use crate::flight::flight5::*;
-use crate::flight::flight6::*;
-use crate::flight::*;
-use crate::fragment_buffer::*;
-use crate::handshake::handshake_cache::*;
-use crate::handshake::handshake_header::HandshakeHeader;
-use crate::handshake::*;
-use crate::handshaker::*;
-use crate::record_layer::record_layer_header::*;
-use crate::record_layer::*;
-use crate::signature_hash_algorithm::parse_signature_schemes;
-use crate::state::*;
+use crate::{
+    alert::*,
+    application_data::*,
+    cipher_suite::*,
+    config::*,
+    content::*,
+    curve::named_curve::NamedCurve,
+    error::*,
+    extension::extension_use_srtp::*,
+    flight::{flight0::*, flight1::*, flight5::*, flight6::*, *},
+    fragment_buffer::*,
+    handshake::{handshake_cache::*, handshake_header::HandshakeHeader, *},
+    handshaker::*,
+    record_layer::{record_layer_header::*, *},
+    signature_hash_algorithm::parse_signature_schemes,
+    state::*,
+};
 
 pub(crate) const INITIAL_TICKER_INTERVAL: Duration = Duration::from_secs(1);
 pub(crate) const COOKIE_LENGTH: usize = 20;

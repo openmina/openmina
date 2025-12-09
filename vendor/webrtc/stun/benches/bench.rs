@@ -1,29 +1,31 @@
-use std::io::Cursor;
-use std::net::Ipv4Addr;
-use std::ops::{Add, Sub};
-use std::time::Duration;
+use std::{
+    io::Cursor,
+    net::Ipv4Addr,
+    ops::{Add, Sub},
+    time::Duration,
+};
 
-use base64::prelude::BASE64_STANDARD;
-use base64::Engine;
+use base64::{prelude::BASE64_STANDARD, Engine};
 use criterion::{criterion_group, criterion_main, Criterion};
-use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
-use stun::addr::{AlternateServer, MappedAddress};
-use stun::agent::{noop_handler, Agent, TransactionId};
-use stun::attributes::{
-    ATTR_CHANNEL_NUMBER, ATTR_DONT_FRAGMENT, ATTR_ERROR_CODE, ATTR_MESSAGE_INTEGRITY, ATTR_NONCE,
-    ATTR_REALM, ATTR_SOFTWARE, ATTR_USERNAME, ATTR_XORMAPPED_ADDRESS,
+use rand::{rngs::StdRng, Rng, SeedableRng};
+use stun::{
+    addr::{AlternateServer, MappedAddress},
+    agent::{noop_handler, Agent, TransactionId},
+    attributes::{
+        ATTR_CHANNEL_NUMBER, ATTR_DONT_FRAGMENT, ATTR_ERROR_CODE, ATTR_MESSAGE_INTEGRITY,
+        ATTR_NONCE, ATTR_REALM, ATTR_SOFTWARE, ATTR_USERNAME, ATTR_XORMAPPED_ADDRESS,
+    },
+    error_code::{ErrorCode, ErrorCodeAttribute, CODE_STALE_NONCE},
+    fingerprint::{FINGERPRINT, FINGERPRINT_SIZE},
+    integrity::MessageIntegrity,
+    message::{
+        is_message, Getter, Message, MessageType, Setter, ATTRIBUTE_HEADER_SIZE, BINDING_REQUEST,
+        CLASS_REQUEST, MESSAGE_HEADER_SIZE, METHOD_BINDING,
+    },
+    textattrs::{Nonce, Realm, Software, Username},
+    uattrs::UnknownAttributes,
+    xoraddr::{xor_bytes, XorMappedAddress},
 };
-use stun::error_code::{ErrorCode, ErrorCodeAttribute, CODE_STALE_NONCE};
-use stun::fingerprint::{FINGERPRINT, FINGERPRINT_SIZE};
-use stun::integrity::MessageIntegrity;
-use stun::message::{
-    is_message, Getter, Message, MessageType, Setter, ATTRIBUTE_HEADER_SIZE, BINDING_REQUEST,
-    CLASS_REQUEST, MESSAGE_HEADER_SIZE, METHOD_BINDING,
-};
-use stun::textattrs::{Nonce, Realm, Software, Username};
-use stun::uattrs::UnknownAttributes;
-use stun::xoraddr::{xor_bytes, XorMappedAddress};
 use tokio::time::Instant;
 
 // AGENT_COLLECT_CAP is initial capacity for Agent.Collect slices,

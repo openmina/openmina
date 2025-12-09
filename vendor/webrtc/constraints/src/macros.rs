@@ -163,12 +163,12 @@ pub(crate) use test_serde_symmetry;
 
 #[cfg(test)]
 mod tests {
-    use crate::property::all::name::*;
     use crate::{
-        AdvancedMediaTrackConstraints, FacingMode, MandatoryMediaTrackConstraints,
-        MediaTrackConstraintSet, MediaTrackConstraints, MediaTrackSettings,
-        ResolvedValueConstraint, ResolvedValueRangeConstraint, ResolvedValueSequenceConstraint,
-        ValueConstraint, ValueRangeConstraint, ValueSequenceConstraint,
+        property::all::name::*, AdvancedMediaTrackConstraints, FacingMode,
+        MandatoryMediaTrackConstraints, MediaTrackConstraintSet, MediaTrackConstraints,
+        MediaTrackSettings, ResolvedValueConstraint, ResolvedValueRangeConstraint,
+        ResolvedValueSequenceConstraint, ValueConstraint, ValueRangeConstraint,
+        ValueSequenceConstraint,
     };
 
     #[test]

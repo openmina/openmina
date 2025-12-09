@@ -2,21 +2,16 @@ mod responder_stream;
 #[cfg(test)]
 mod responder_test;
 
-use std::collections::HashMap;
-use std::future::Future;
-use std::pin::Pin;
-use std::sync::Arc;
+use std::{collections::HashMap, future::Future, pin::Pin, sync::Arc};
 
 use async_trait::async_trait;
 use responder_stream::ResponderStream;
 use rtcp::transport_feedbacks::transport_layer_nack::TransportLayerNack;
 use tokio::sync::Mutex;
 
-use crate::error::Result;
-use crate::nack::stream_support_nack;
-use crate::stream_info::StreamInfo;
 use crate::{
-    Attributes, Interceptor, InterceptorBuilder, RTCPReader, RTCPWriter, RTPReader, RTPWriter,
+    error::Result, nack::stream_support_nack, stream_info::StreamInfo, Attributes, Interceptor,
+    InterceptorBuilder, RTCPReader, RTCPWriter, RTPReader, RTPWriter,
 };
 
 /// GeneratorBuilder can be used to configure Responder Interceptor

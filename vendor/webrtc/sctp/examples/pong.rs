@@ -1,17 +1,10 @@
-use std::net::Shutdown;
-use std::sync::Arc;
-use std::time::Duration;
+use std::{net::Shutdown, sync::Arc, time::Duration};
 
 use bytes::Bytes;
 use clap::{App, AppSettings, Arg};
-use tokio::net::UdpSocket;
-use tokio::signal;
-use tokio::sync::mpsc;
-use util::conn::conn_disconnected_packet::DisconnectedPacketConn;
-use util::Conn;
-use webrtc_sctp::association::*;
-use webrtc_sctp::stream::*;
-use webrtc_sctp::Error;
+use tokio::{net::UdpSocket, signal, sync::mpsc};
+use util::{conn::conn_disconnected_packet::DisconnectedPacketConn, Conn};
+use webrtc_sctp::{association::*, stream::*, Error};
 
 // RUST_LOG=trace cargo run --color=always --package webrtc-sctp --example pong -- --host 0.0.0.0:5678
 

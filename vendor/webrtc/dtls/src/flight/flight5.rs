@@ -1,26 +1,26 @@
-use std::fmt;
-use std::io::{BufReader, BufWriter};
+use std::{
+    fmt,
+    io::{BufReader, BufWriter},
+};
 
 use async_trait::async_trait;
 
-use super::flight3::*;
-use super::*;
-use crate::change_cipher_spec::ChangeCipherSpec;
-use crate::content::*;
-use crate::crypto::*;
-use crate::curve::named_curve::*;
-use crate::curve::*;
-use crate::error::Error;
-use crate::handshake::handshake_message_certificate::*;
-use crate::handshake::handshake_message_certificate_verify::*;
-use crate::handshake::handshake_message_client_key_exchange::*;
-use crate::handshake::handshake_message_finished::*;
-use crate::handshake::handshake_message_server_key_exchange::*;
-use crate::handshake::*;
-use crate::prf::*;
-use crate::record_layer::record_layer_header::*;
-use crate::record_layer::*;
-use crate::signature_hash_algorithm::*;
+use super::{flight3::*, *};
+use crate::{
+    change_cipher_spec::ChangeCipherSpec,
+    content::*,
+    crypto::*,
+    curve::{named_curve::*, *},
+    error::Error,
+    handshake::{
+        handshake_message_certificate::*, handshake_message_certificate_verify::*,
+        handshake_message_client_key_exchange::*, handshake_message_finished::*,
+        handshake_message_server_key_exchange::*, *,
+    },
+    prf::*,
+    record_layer::{record_layer_header::*, *},
+    signature_hash_algorithm::*,
+};
 
 #[derive(Debug, PartialEq)]
 pub(crate) struct Flight5;

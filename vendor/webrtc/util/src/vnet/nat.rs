@@ -1,20 +1,21 @@
 #[cfg(test)]
 mod nat_test;
 
-use std::collections::{HashMap, HashSet};
-use std::net::IpAddr;
-use std::ops::Add;
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
-use std::time::SystemTime;
+use std::{
+    collections::{HashMap, HashSet},
+    net::IpAddr,
+    ops::Add,
+    sync::{atomic::Ordering, Arc},
+    time::SystemTime,
+};
 
 use portable_atomic::AtomicU16;
-use tokio::sync::Mutex;
-use tokio::time::Duration;
+use tokio::{sync::Mutex, time::Duration};
 
-use crate::error::*;
-use crate::vnet::chunk::Chunk;
-use crate::vnet::net::UDP_STR;
+use crate::{
+    error::*,
+    vnet::{chunk::Chunk, net::UDP_STR},
+};
 
 const DEFAULT_NAT_MAPPING_LIFE_TIME: Duration = Duration::from_secs(30);
 

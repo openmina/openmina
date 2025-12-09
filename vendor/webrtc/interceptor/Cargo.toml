@@ -10,19 +10,22 @@ homepage = "https://webrtc.rs"
 repository = "https://github.com/webrtc-rs/interceptor"
 
 [dependencies]
-util = { version = "0.9.0", path = "../util", package = "webrtc-util", default-features = false, features = ["marshal", "sync"] }
-rtp = { version = "0.11.0", path = "../rtp" }
 rtcp = { version = "0.11.0", path = "../rtcp" }
+rtp = { version = "0.11.0", path = "../rtp" }
 srtp = { version = "0.13.0", path = "../srtp", package = "webrtc-srtp" }
+util = { version = "0.9.0", path = "../util", package = "webrtc-util", default-features = false, features = [
+  "marshal",
+  "sync",
+] }
 
-tokio = { version = "1.32.0", features = ["sync", "time"] }
 async-trait = "0.1"
 bytes = "1"
-thiserror = "1"
-rand = "0.8"
-waitgroup = "0.1"
 log = "0.4"
 portable-atomic = "1.6"
+rand = "0.8"
+thiserror = "1"
+tokio = { version = "1.32.0", features = ["sync", "time"] }
+waitgroup = "0.1"
 
 [dev-dependencies]
 tokio-test = "0.4"

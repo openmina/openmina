@@ -3,8 +3,7 @@ use std::time::{Duration, UNIX_EPOCH};
 use chrono::prelude::*;
 
 use super::*;
-use crate::codecs::*;
-use crate::error::Result;
+use crate::{codecs::*, error::Result};
 
 #[test]
 fn test_packetizer() -> Result<()> {

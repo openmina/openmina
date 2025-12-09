@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
-use super::udp_mux::UDPMux;
-use super::Error;
+use super::{udp_mux::UDPMux, Error};
 
 #[derive(Default, Clone)]
 pub struct EphemeralUDP {

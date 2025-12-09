@@ -1,11 +1,12 @@
 #[cfg(test)]
 mod auth_test;
 
-use std::net::SocketAddr;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::{
+    net::SocketAddr,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
-use base64::prelude::BASE64_STANDARD;
-use base64::Engine;
+use base64::{prelude::BASE64_STANDARD, Engine};
 use md5::{Digest, Md5};
 use ring::hmac;
 

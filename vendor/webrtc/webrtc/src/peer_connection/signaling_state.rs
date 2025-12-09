@@ -1,7 +1,9 @@
 use std::fmt;
 
-use crate::error::{Error, Result};
-use crate::peer_connection::sdp::sdp_type::RTCSdpType;
+use crate::{
+    error::{Error, Result},
+    peer_connection::sdp::sdp_type::RTCSdpType,
+};
 
 #[derive(Default, Debug, Copy, Clone, PartialEq)]
 pub(crate) enum StateChangeOp {

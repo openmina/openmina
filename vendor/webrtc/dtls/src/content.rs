@@ -1,9 +1,6 @@
 use std::io::{Read, Write};
 
-use super::alert::*;
-use super::application_data::*;
-use super::change_cipher_spec::*;
-use super::handshake::*;
+use super::{alert::*, application_data::*, change_cipher_spec::*, handshake::*};
 use crate::error::*;
 
 // https://tools.ietf.org/html/rfc4346#section-6.2.1

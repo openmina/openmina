@@ -1,9 +1,6 @@
 use std::collections::HashMap;
 
-use super::header::*;
-use super::question::*;
-use super::resource::*;
-use super::*;
+use super::{header::*, question::*, resource::*, *};
 use crate::error::*;
 
 // A Builder allows incrementally packing a DNS message.

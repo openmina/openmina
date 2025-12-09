@@ -1,28 +1,24 @@
-use std::fmt;
-use std::sync::atomic::Ordering;
+use std::{fmt, sync::atomic::Ordering};
 
 use async_trait::async_trait;
 
-use super::flight3::*;
-use super::*;
-use crate::compression_methods::*;
-use crate::config::*;
-use crate::conn::*;
-use crate::content::*;
-use crate::curve::named_curve::*;
-use crate::error::Error;
-use crate::extension::extension_server_name::*;
-use crate::extension::extension_supported_elliptic_curves::*;
-use crate::extension::extension_supported_point_formats::*;
-use crate::extension::extension_supported_signature_algorithms::*;
-use crate::extension::extension_use_extended_master_secret::*;
-use crate::extension::extension_use_srtp::*;
-use crate::extension::renegotiation_info::ExtensionRenegotiationInfo;
-use crate::extension::*;
-use crate::handshake::handshake_message_client_hello::*;
-use crate::handshake::*;
-use crate::record_layer::record_layer_header::*;
-use crate::record_layer::*;
+use super::{flight3::*, *};
+use crate::{
+    compression_methods::*,
+    config::*,
+    conn::*,
+    content::*,
+    curve::named_curve::*,
+    error::Error,
+    extension::{
+        extension_server_name::*, extension_supported_elliptic_curves::*,
+        extension_supported_point_formats::*, extension_supported_signature_algorithms::*,
+        extension_use_extended_master_secret::*, extension_use_srtp::*,
+        renegotiation_info::ExtensionRenegotiationInfo, *,
+    },
+    handshake::{handshake_message_client_hello::*, *},
+    record_layer::{record_layer_header::*, *},
+};
 
 #[derive(Debug, PartialEq)]
 pub(crate) struct Flight1;

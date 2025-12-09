@@ -6,8 +6,7 @@ use std::fmt;
 use bytes::{Buf, BufMut, Bytes};
 use util::marshal::{Marshal, MarshalSize, Unmarshal};
 
-use crate::error::Error;
-use crate::header::*;
+use crate::{error::Error, header::*};
 
 /// Packet represents an RTP Packet
 /// NOTE: Raw is populated by Marshal/Unmarshal and should not be modified

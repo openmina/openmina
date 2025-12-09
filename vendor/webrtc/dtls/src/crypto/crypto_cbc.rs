@@ -11,14 +11,10 @@
 use aes::cipher::{BlockDecryptMut, BlockEncryptMut, KeyIvInit};
 use p256::elliptic_curve::subtle::ConstantTimeEq;
 use rand::Rng;
-use std::io::Cursor;
-use std::ops::Not;
+use std::{io::Cursor, ops::Not};
 
 use super::padding::DtlsPadding;
-use crate::content::*;
-use crate::error::*;
-use crate::prf::*;
-use crate::record_layer::record_layer_header::*;
+use crate::{content::*, error::*, prf::*, record_layer::record_layer_header::*};
 type Aes256CbcEnc = cbc::Encryptor<aes::Aes256>;
 type Aes256CbcDec = cbc::Decryptor<aes::Aes256>;
 

@@ -3,20 +3,23 @@ mod session_rtcp_test;
 #[cfg(test)]
 mod session_rtp_test;
 
-use std::collections::{HashMap, HashSet};
-use std::marker::{Send, Sync};
-use std::sync::Arc;
+use std::{
+    collections::{HashMap, HashSet},
+    marker::{Send, Sync},
+    sync::Arc,
+};
 
 use bytes::Bytes;
 use tokio::sync::{mpsc, Mutex};
-use util::conn::Conn;
-use util::marshal::*;
+use util::{conn::Conn, marshal::*};
 
-use crate::config::*;
-use crate::context::*;
-use crate::error::{Error, Result};
-use crate::option::*;
-use crate::stream::*;
+use crate::{
+    config::*,
+    context::*,
+    error::{Error, Result},
+    option::*,
+    stream::*,
+};
 
 const DEFAULT_SESSION_SRTP_REPLAY_PROTECTION_WINDOW: usize = 64;
 const DEFAULT_SESSION_SRTCP_REPLAY_PROTECTION_WINDOW: usize = 64;

@@ -117,8 +117,7 @@ impl<'a> FitnessDistance<Option<&'a MediaTrackSetting>> for ResolvedMediaTrackCo
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::constraint::EmptyConstraint;
-    use crate::{MediaTrackSetting, ResolvedMediaTrackConstraint};
+    use crate::{constraint::EmptyConstraint, MediaTrackSetting, ResolvedMediaTrackConstraint};
 
     #[test]
     fn empty_constraint() {

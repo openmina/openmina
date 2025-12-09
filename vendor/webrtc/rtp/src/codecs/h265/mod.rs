@@ -1,7 +1,9 @@
 use bytes::Bytes;
 
-use crate::error::{Error, Result};
-use crate::packetizer::Depacketizer;
+use crate::{
+    error::{Error, Result},
+    packetizer::Depacketizer,
+};
 
 #[cfg(test)]
 mod h265_test;

@@ -1,6 +1,4 @@
-use std::io;
-use std::net::SocketAddr;
-use std::sync::atomic::Ordering;
+use std::{io, net::SocketAddr, sync::atomic::Ordering};
 
 use async_trait::async_trait;
 use portable_atomic::AtomicUsize;

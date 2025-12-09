@@ -8,8 +8,7 @@ use rtcp::transport_feedbacks::transport_layer_cc::{
 use util::Marshal;
 
 use super::*;
-use crate::mock::mock_stream::MockStream;
-use crate::stream_info::RTPHeaderExtension;
+use crate::{mock::mock_stream::MockStream, stream_info::RTPHeaderExtension};
 
 #[tokio::test]
 async fn test_twcc_receiver_interceptor_before_any_packets() -> Result<()> {

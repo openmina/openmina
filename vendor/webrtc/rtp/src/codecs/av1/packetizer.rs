@@ -3,8 +3,10 @@
 
 use std::cmp::min;
 
-use crate::codecs::av1::leb128::leb128_size;
-use crate::codecs::av1::obu::{obu_type, Obu, OBU_TYPE_SEQUENCE_HEADER};
+use crate::codecs::av1::{
+    leb128::leb128_size,
+    obu::{obu_type, Obu, OBU_TYPE_SEQUENCE_HEADER},
+};
 
 /// When there are 3 or less OBU (fragments) in a packet, size of the last one
 /// can be omitted.

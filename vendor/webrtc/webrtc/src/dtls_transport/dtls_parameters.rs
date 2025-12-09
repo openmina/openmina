@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::dtls_fingerprint::*;
-use super::dtls_role::*;
+use super::{dtls_fingerprint::*, dtls_role::*};
 
 /// DTLSParameters holds information relating to DTLS configuration.
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]

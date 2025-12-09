@@ -1,18 +1,23 @@
-use std::ops::Add;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::{
+    ops::Add,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
 use dtls::crypto::{CryptoPrivateKey, CryptoPrivateKeyKind};
 use rcgen::{CertificateParams, KeyPair};
-use ring::rand::SystemRandom;
-use ring::rsa;
-use ring::signature::{EcdsaKeyPair, Ed25519KeyPair};
+use ring::{
+    rand::SystemRandom,
+    rsa,
+    signature::{EcdsaKeyPair, Ed25519KeyPair},
+};
 use sha2::{Digest, Sha256};
 
-use crate::dtls_transport::dtls_fingerprint::RTCDtlsFingerprint;
-use crate::error::{Error, Result};
-use crate::peer_connection::math_rand_alpha;
-use crate::stats::stats_collector::StatsCollector;
-use crate::stats::{CertificateStats, StatsReportType};
+use crate::{
+    dtls_transport::dtls_fingerprint::RTCDtlsFingerprint,
+    error::{Error, Result},
+    peer_connection::math_rand_alpha,
+    stats::{stats_collector::StatsCollector, CertificateStats, StatsReportType},
+};
 
 /// Certificate represents a X.509 certificate used to authenticate WebRTC communications.
 #[derive(Clone, Debug)]

@@ -1,13 +1,16 @@
-use std::collections::VecDeque;
-use std::io::{Error, ErrorKind};
-use std::str::FromStr;
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
+use std::{
+    collections::VecDeque,
+    io::{Error, ErrorKind},
+    str::FromStr,
+    sync::{atomic::Ordering, Arc},
+};
 
 use bytes::Bytes;
 use portable_atomic::AtomicUsize;
-use tokio::sync::{mpsc, Mutex};
-use tokio::time::Duration;
+use tokio::{
+    sync::{mpsc, Mutex},
+    time::Duration,
+};
 
 use super::*;
 

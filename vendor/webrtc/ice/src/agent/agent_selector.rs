@@ -1,21 +1,13 @@
-use std::net::SocketAddr;
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
+use std::{
+    net::SocketAddr,
+    sync::{atomic::Ordering, Arc},
+};
 
 use async_trait::async_trait;
-use stun::agent::*;
-use stun::attributes::*;
-use stun::fingerprint::*;
-use stun::integrity::*;
-use stun::message::*;
-use stun::textattrs::*;
+use stun::{agent::*, attributes::*, fingerprint::*, integrity::*, message::*, textattrs::*};
 use tokio::time::{Duration, Instant};
 
-use crate::agent::agent_internal::*;
-use crate::candidate::*;
-use crate::control::*;
-use crate::priority::*;
-use crate::use_candidate::*;
+use crate::{agent::agent_internal::*, candidate::*, control::*, priority::*, use_candidate::*};
 
 #[async_trait]
 trait ControllingSelector {

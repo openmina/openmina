@@ -1,37 +1,40 @@
-use std::collections::HashMap;
-use std::future::Future;
-use std::pin::Pin;
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
+use std::{
+    collections::HashMap,
+    future::Future,
+    pin::Pin,
+    sync::{atomic::Ordering, Arc},
+};
 
 use arc_swap::ArcSwapOption;
 use bytes::Bytes;
-use dtls::config::ClientAuthType;
-use dtls::conn::DTLSConn;
-use dtls::extension::extension_use_srtp::SrtpProtectionProfile;
+use dtls::{
+    config::ClientAuthType, conn::DTLSConn, extension::extension_use_srtp::SrtpProtectionProfile,
+};
 use dtls_role::*;
-use interceptor::stream_info::StreamInfo;
-use interceptor::{Interceptor, RTCPReader, RTPReader};
+use interceptor::{stream_info::StreamInfo, Interceptor, RTCPReader, RTPReader};
 use portable_atomic::{AtomicBool, AtomicU8};
 use sha2::{Digest, Sha256};
-use srtp::protection_profile::ProtectionProfile;
-use srtp::session::Session;
-use srtp::stream::Stream;
+use srtp::{protection_profile::ProtectionProfile, session::Session, stream::Stream};
 use tokio::sync::{mpsc, Mutex};
 use util::Conn;
 
-use crate::api::setting_engine::SettingEngine;
-use crate::dtls_transport::dtls_parameters::DTLSParameters;
-use crate::dtls_transport::dtls_transport_state::RTCDtlsTransportState;
-use crate::error::{flatten_errs, Error, Result};
-use crate::ice_transport::ice_role::RTCIceRole;
-use crate::ice_transport::ice_transport_state::RTCIceTransportState;
-use crate::ice_transport::RTCIceTransport;
-use crate::mux::endpoint::Endpoint;
-use crate::mux::mux_func::{match_dtls, match_srtcp, match_srtp, MatchFunc};
-use crate::peer_connection::certificate::RTCCertificate;
-use crate::rtp_transceiver::SSRC;
-use crate::stats::stats_collector::StatsCollector;
+use crate::{
+    api::setting_engine::SettingEngine,
+    dtls_transport::{
+        dtls_parameters::DTLSParameters, dtls_transport_state::RTCDtlsTransportState,
+    },
+    error::{flatten_errs, Error, Result},
+    ice_transport::{
+        ice_role::RTCIceRole, ice_transport_state::RTCIceTransportState, RTCIceTransport,
+    },
+    mux::{
+        endpoint::Endpoint,
+        mux_func::{match_dtls, match_srtcp, match_srtp, MatchFunc},
+    },
+    peer_connection::certificate::RTCCertificate,
+    rtp_transceiver::SSRC,
+    stats::stats_collector::StatsCollector,
+};
 
 #[cfg(test)]
 mod dtls_transport_test;
