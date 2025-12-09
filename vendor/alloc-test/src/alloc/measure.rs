@@ -35,11 +35,13 @@ static mut ALLOC_STATS: MemoryStats = MemoryStats {
 ///
 /// Beware that allocations made by nother threads will be also recorded.
 ///
-/// ```
-/// use tracing_allocator::{TracingAllocator, default_tracing_allocator, trace_allocs};
+/// ```ignore
+/// use alloc_test::{TracingAllocator, MemoryTracingHooks, trace_allocs};
+/// use std::alloc::System;
 ///
 /// #[global_allocator]
-/// static ALLOCATOR: TracingAllocator = default_tracing_allocator();
+/// static ALLOCATOR: TracingAllocator<MemoryTracingHooks, System> =
+///     TracingAllocator::new(MemoryTracingHooks, System);
 ///
 /// fn main() {
 ///     let (_, stats) = trace_allocs(|| {
