@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changes
 
+- **Dependencies**: vendor redux-rs into `vendor/redux` to centralize all code
+  in the monorepo ([#1814](https://github.com/o1-labs/mina-rust/pull/1814))
 - **Dependency**: use tag instead of references of o1-labs/proof-systems, fix
   [[#1674](https://github.com/o1-labs/mina-rust/issues/1674)]
   ([#1673](https://github.com/o1-labs/mina-rust/pull/1673))
