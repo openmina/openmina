@@ -22,7 +22,10 @@
 
 use std::cmp::Ordering::{Equal, Greater, Less};
 
+use ark_ff::BigInteger256;
 use serde::{Deserialize, Serialize};
+
+use crate::proofs::field::FieldWitness;
 
 /// Sign of a signed value.
 ///
@@ -120,6 +123,12 @@ where
     fn sub_flagged(&self, rhs: &Self) -> (Self, bool) {
         (self.wrapping_sub(rhs), self < rhs)
     }
+
+    /// Convert to a field element.
+    fn to_field<F: FieldWitness>(&self) -> F;
+
+    /// Create from a field element.
+    fn of_field<F: FieldWitness>(field: F) -> Self;
 }
 
 /// Trait for types with minimum and maximum values.
@@ -356,6 +365,17 @@ macro_rules! impl_number {
 
             fn abs_diff(&self, rhs: &Self) -> Self {
                 Self(self.0.abs_diff(rhs.0))
+            }
+
+            fn to_field<F: FieldWitness>(&self) -> F {
+                let int = self.0 as u64;
+                F::from(int)
+            }
+
+            fn of_field<F: FieldWitness>(field: F) -> Self {
+                let amount: BigInteger256 = field.into();
+                let amount: $inner = amount.0[0].try_into().unwrap();
+                Self::$from_name(amount)
             }
         }
 

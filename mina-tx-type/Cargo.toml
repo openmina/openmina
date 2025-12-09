@@ -6,5 +6,12 @@ license = "Apache-2.0"
 description = "Transaction types for the Mina Protocol"
 
 [dependencies]
+ark-ec = { workspace = true }
+ark-ff = { workspace = true }
+kimchi = { workspace = true }
+mina-curves = { workspace = true }
+mina-p2p-messages = { workspace = true }
+mina-poseidon = { workspace = true }
 mina-signer = { workspace = true }
+poseidon = { workspace = true }
 serde = { workspace = true, features = ["derive"] }

@@ -22,9 +22,15 @@
 
 pub mod coinbase;
 pub mod currency;
+pub mod proofs;
 
 pub use coinbase::{Coinbase, CoinbaseFeeTransfer};
 pub use currency::{Amount, Fee, Magnitude, MinMax, Sgn, Signed};
+pub use proofs::{
+    Boolean, Check, CircuitVar, FieldWitness, FromFpFq, GroupAffine, IntoGeneric, Params, Shift,
+    ShiftedValue, ShiftingValue, ToBoolean, ToFieldElements, Witness, BACKEND_TICK_ROUNDS_N,
+    BACKEND_TOCK_ROUNDS_N,
+};
 
 // Re-export mina-signer types for convenience
 pub use mina_signer::CompressedPubKey;
