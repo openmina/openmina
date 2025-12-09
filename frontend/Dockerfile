@@ -62,6 +62,7 @@ RUN make setup-wasm
 
 # Copy source code required for WASM build
 COPY Cargo.toml Cargo.lock ./
+COPY .cargo/config.toml ./.cargo/config.toml
 COPY cli ./cli
 COPY core ./core
 COPY fuzzer ./fuzzer
@@ -137,7 +138,7 @@ COPY Makefile ./
 COPY frontend/httpd.conf /usr/local/apache2/conf/httpd.conf
 
 # Copy WASM files from build stage
-COPY --from=wasm_files . /usr/local/apache2/htdocs/assets/webnode/pkg/
+COPY --from=wasm_files . /usr/local/apache2/htdocs/assets/webnode/
 
 # Copy circuit blobs for devnet and mainnet from local directory
 COPY circuit-blobs/3.0.0mainnet /usr/local/apache2/htdocs/assets/webnode/circuit-blobs/3.0.0mainnet
