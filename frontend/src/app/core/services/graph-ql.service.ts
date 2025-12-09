@@ -27,9 +27,6 @@ export class GraphQLService {
       return this.query<any>(queryData).pipe(
         map((response: any): T => OCAML_TO_RUST_MAP[path](response) as T),
       );
-    } else {
-      // fallback to rust. (testing only)
-      return this.http.get<T>('https://mina-rust-seed-1.gcp.o1test.net' + path);
     }
     throw new Error(`No GQL mapping for path: ${path}`);
   }
@@ -42,7 +39,7 @@ export class GraphQLService {
 
     const isArray = Array.isArray(data);
     const dataArray = isArray ? data : [data];
-    const DELAY_MS = 100; // Adjust delay as needed
+    const DELAY_MS = 100;
 
     return from(dataArray).pipe(
       concatMap((item: any, index: number) => {
@@ -50,7 +47,6 @@ export class GraphQLService {
         return this.mutation<any>(queryData, item).pipe(
           map((response: any) => OCAML_TO_RUST_MAP[path](response)),
           catchError((err) => of(OCAML_TO_RUST_MAP[path](err))),
-          // Add delay after each request (except the first one)
           delay(index > 0 ? DELAY_MS : 0),
         );
       }),
@@ -98,7 +94,7 @@ export type GqlQuery = { queryName: string, query: string };
 export type GqlMap = { [key: string]: (data: any) => GqlQuery };
 
 const GQL_QUERY_MAP: GqlMap = {
-  // '/status': () => getStatus(),
+  '/status': () => getStatus(),
   '/accounts': (data: any) => getAccounts(data),
   '/transaction-pool': () => getPooledUserCommands(),
   '/best-chain-user-commands': () => getBestChainUserCommands(),
@@ -149,7 +145,6 @@ function getPooledUserCommands(): GqlQuery {
 }
 
 function getBestChainUserCommands(): GqlQuery {
-  // TODO: search for the correct query
   const query = `{
     bestChain {
       transactions {

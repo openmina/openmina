@@ -35,7 +35,7 @@ export class ApiService {
   get<T>(path: string, data?: any): Observable<T> {
     if (this.node.isWebNode) {
       return this.getFromWebNode(path);
-    } else if (this.node.type === MinaNodeType.RUST) {
+    } else if (this.node.type === MinaNodeType.RUST || !this.node.type) {
       return this.http.get<T>(this.URL + path);
     } else if (this.node.type === MinaNodeType.OCAML) {
       return this.graphQlService.get<T>(path, data);
@@ -47,7 +47,7 @@ export class ApiService {
   post<T, B = string | object>(path: string, body: B): Observable<T> {
     if (this.node.isWebNode) {
       return this.postToWebNode(path, body);
-    } else if (this.node.type === MinaNodeType.RUST) {
+    } else if (this.node.type === MinaNodeType.RUST || !this.node.type) {
       return this.http.post<T>(this.URL + path, body);
     } else if (this.node.type === MinaNodeType.OCAML) {
       return this.graphQlService.post<T>(path, body);
