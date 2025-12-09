@@ -56,6 +56,13 @@ where
     }
 }
 
+/// Trait for implementing allocation hooks in a tracing allocator.
+///
+/// # Safety
+///
+/// Implementors must ensure that hook methods do not allocate memory
+/// (to avoid infinite recursion) and are safe to call from any thread
+/// at any time during allocation operations.
 pub unsafe trait AllocHooks {
     fn on_alloc(&self, pointer: *mut u8, size: usize, align: usize);
     fn on_dealloc(&self, pointer: *mut u8, size: usize, align: usize);
