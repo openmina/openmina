@@ -197,9 +197,51 @@ macro_rules! binprot_number {
 
 binprot_number!(i32, i32);
 binprot_number!(i64, i64);
-binprot_number!(u32, i32);
-binprot_number!(u64, i64);
 binprot_number!(f64, f64);
+
+// Custom implementations for u32 and u64 to handle the full i64 range
+// without TryFromIntError. The binprot format stores all integers as i64
+// internally, and conversion can fail if the value is outside the target
+// type's range. We read as i64 first, then cast to handle out-of-range values
+// gracefully. Writing still uses the smaller type to maintain wire format
+// compatibility.
+impl binprot::BinProtRead for Number<u32> {
+    fn binprot_read<R: std::io::Read + ?Sized>(r: &mut R) -> Result<Self, binprot::Error>
+    where
+        Self: Sized,
+    {
+        // Read the value as i64 first to avoid TryFromIntError when the value
+        // is outside i32 range, then cast to u32 using wrapping semantics.
+        let value = i64::binprot_read(r)?;
+        Ok(Self(value as u32))
+    }
+}
+
+impl binprot::BinProtWrite for Number<u32> {
+    fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
+        // Write as i32 to maintain wire format compatibility
+        (self.0 as i32).binprot_write(w)
+    }
+}
+
+impl binprot::BinProtRead for Number<u64> {
+    fn binprot_read<R: std::io::Read + ?Sized>(r: &mut R) -> Result<Self, binprot::Error>
+    where
+        Self: Sized,
+    {
+        // Read the value as i64 first to handle the full range without errors,
+        // then cast to u64 using wrapping semantics.
+        let value = i64::binprot_read(r)?;
+        Ok(Self(value as u64))
+    }
+}
+
+impl binprot::BinProtWrite for Number<u64> {
+    fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
+        // Write as i64 to maintain wire format compatibility
+        (self.0 as i64).binprot_write(w)
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -257,4 +299,57 @@ mod tests {
 
     max_number_test!(u32_max, u32);
     max_number_test!(u64_max, u64);
+
+    /// Test that Number<u32> can read i64 values outside i32 range without error.
+    /// This is a regression test for the TryFromIntError issue.
+    #[test]
+    fn u32_read_large_i64() {
+        // Create a binprot-encoded i64 value larger than i32::MAX
+        let large_i64 = (i32::MAX as i64) + 1000;
+        let mut buf = Vec::new();
+        large_i64.binprot_write(&mut buf).unwrap();
+
+        // This should not fail with TryFromIntError
+        let mut r = buf.as_slice();
+        let result = super::Number::<u32>::binprot_read(&mut r);
+        assert!(result.is_ok(), "Should handle i64 values outside i32 range");
+
+        // The value should wrap as expected when cast from i64 to u32
+        let n = result.unwrap();
+        assert_eq!(n.0, large_i64 as u32);
+    }
+
+    /// Test that Number<u32> can read negative i64 values without error.
+    #[test]
+    fn u32_read_negative_i64() {
+        // Create a binprot-encoded negative i64 value
+        let negative_i64 = -1000i64;
+        let mut buf = Vec::new();
+        negative_i64.binprot_write(&mut buf).unwrap();
+
+        // This should not fail with TryFromIntError
+        let mut r = buf.as_slice();
+        let result = super::Number::<u32>::binprot_read(&mut r);
+        assert!(result.is_ok(), "Should handle negative i64 values");
+
+        // The value should wrap as expected when cast from i64 to u32
+        let n = result.unwrap();
+        assert_eq!(n.0, negative_i64 as u32);
+    }
+
+    /// Test that Number<u64> can read i64 values without error.
+    #[test]
+    fn u64_read_i64() {
+        // Test with a negative value (which would fail with try_from)
+        let negative_i64 = -5000i64;
+        let mut buf = Vec::new();
+        negative_i64.binprot_write(&mut buf).unwrap();
+
+        let mut r = buf.as_slice();
+        let result = super::Number::<u64>::binprot_read(&mut r);
+        assert!(result.is_ok(), "Should handle negative i64 values");
+
+        let n = result.unwrap();
+        assert_eq!(n.0, negative_i64 as u64);
+    }
 }
