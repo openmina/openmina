@@ -1,0 +1,37 @@
+name: Vendor tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: full
+  CARGO_INCREMENTAL: 1
+  CACHE_VERSION: "v0"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  redux-tests:
+    timeout-minutes: 10
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v6
+
+      - name: Load versions
+        uses: ./.github/actions/load-versions
+
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          toolchain: ${{ env.RUST_STABLE_VERSION }}
+          cache-prefix: vendor-redux-${{ env.CACHE_VERSION }}
+
+      - name: Test redux crate
+        run: cargo test -p redux
