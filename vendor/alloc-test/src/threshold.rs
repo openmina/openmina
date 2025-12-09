@@ -166,7 +166,7 @@ where
     T: Serialize + Deserialize<'a>,
     <H as ThresholdFor<T>>::Error: Debug + Display,
 {
-    let ref_value = toml::from_str(&baseline)?;
+    let ref_value = toml::from_str(baseline)?;
     let value = f();
     threshold
         .check_threshold(&value, &ref_value)
@@ -216,7 +216,7 @@ fn cargo_target_directory() -> Option<PathBuf> {
         .map(PathBuf::from)
         .or_else(|| {
             let output = Command::new(env::var_os("CARGO")?)
-                .args(&["metadata", "--format-version", "1"])
+                .args(["metadata", "--format-version", "1"])
                 .output()
                 .ok()?;
             let metadata: Metadata = serde_json::from_slice(&output.stdout).ok()?;
@@ -225,9 +225,7 @@ fn cargo_target_directory() -> Option<PathBuf> {
 }
 
 fn default_dir(dir: &str) -> PathBuf {
-    cargo_target_directory()
-        .unwrap_or_else(PathBuf::new)
-        .join(dir)
+    cargo_target_directory().unwrap_or_default().join(dir)
 }
 
 const EXT: &str = "toml";

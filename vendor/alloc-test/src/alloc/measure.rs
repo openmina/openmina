@@ -50,6 +50,7 @@ static mut ALLOC_STATS: MemoryStats = MemoryStats {
 ///     assert_eq!(stats.current, 3);
 /// }
 /// ```
+#[allow(static_mut_refs)]
 pub fn trace_allocs<F: FnOnce() -> O, O>(f: F) -> (O, MemoryStats) {
     unsafe {
         while TRACE_ALLOCS
@@ -57,7 +58,7 @@ pub fn trace_allocs<F: FnOnce() -> O, O>(f: F) -> (O, MemoryStats) {
             .is_err()
         {}
         let o = f();
-        let stats = mem::replace(&mut ALLOC_STATS, Default::default());
+        let stats = mem::take(&mut ALLOC_STATS);
         TRACE_ALLOCS.store(false, Ordering::Release);
         (o, stats)
     }
@@ -65,6 +66,7 @@ pub fn trace_allocs<F: FnOnce() -> O, O>(f: F) -> (O, MemoryStats) {
 
 pub struct MemoryTracingHooks;
 
+#[allow(static_mut_refs)]
 unsafe impl super::allocator::AllocHooks for MemoryTracingHooks {
     fn on_alloc(&self, _pointer: *mut u8, size: usize, _align: usize) {
         unsafe {
