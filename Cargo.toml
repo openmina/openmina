@@ -27,6 +27,7 @@ members = [
   "tools/ledger-tool",
   "tools/transport",
   "tools/webrtc-sniffer",
+  "vendor/redux",
   "vendor/salsa-simple",
   "vrf",
 ]
@@ -179,9 +180,7 @@ rand_pcg = "0.3"
 rand_seeder = "0.2"
 rayon = "1.5"
 rcgen = { version = "0.13", features = ["pem", "x509-parser"] }
-redux = { git = "https://github.com/o1-labs/redux-rs.git", rev = "06c8366", features = [
-  "serde",
-] }
+redux = { path = "vendor/redux", features = ["serde"] }
 regex = "1"
 reqwest = { version = "0.12.8", features = ["blocking", "json"] }
 ring_buffer = "2.0.2"
