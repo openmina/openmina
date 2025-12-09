@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- **Frontend**: remove outdated `frontend/functions` directory containing unused
+  Firebase Cloud Functions
 - **CI**: remove network debugger from CI
   ([#1700](https://github.com/o1-labs/mina-rust/pull/1700))
 
