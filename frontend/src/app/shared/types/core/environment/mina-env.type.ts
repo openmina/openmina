@@ -55,6 +55,12 @@ export interface MinaEnv {
     features?: FeaturesConfig;
     /** GraphQL endpoint URL for blockchain queries */
     graphQL?: string;
+
+    /** For WebNodes, optionally supply HTTP(S) URLs to fetch bootnodes from */
+    webNodeSeedUrls?: Readonly<string[]>;
+
+    /** For WebNodes, optionally supply multiaddrs of known bootnodes */
+    webNodeBootNodes?: Readonly<string[]>;
   };
 }
 

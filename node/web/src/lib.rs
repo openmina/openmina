@@ -1,6 +1,5 @@
 #![cfg(target_family = "wasm")]
 
-use ::node::transition_frontier::genesis::GenesisConfig;
 pub use mina_node_common::*;
 
 mod rayon;
@@ -11,8 +10,9 @@ pub use node::{Node, NodeBuilder};
 
 use ::node::{
     account::AccountSecretKey,
-    core::thread,
+    core::{log, thread},
     snark::{BlockVerifier, TransactionVerifier},
+    transition_frontier::genesis::GenesisConfig,
 };
 use anyhow::Context;
 use gloo_utils::format::JsValueSerdeExt;
@@ -28,7 +28,7 @@ fn main() {
     thread::main_thread_init();
     wasm_bindgen_futures::spawn_local(async {
         console_error_panic_hook::set_once();
-        tracing::initialize(tracing::Level::INFO);
+        tracing::initialize(tracing::Level::DEBUG);
 
         init_rayon().await.unwrap();
     });
@@ -77,7 +77,8 @@ fn parse_bp_key(key: JsValue) -> Option<AccountSecretKey> {
 #[wasm_bindgen]
 pub async fn run(
     block_producer: JsValue,
-    seed_nodes_url: Option<String>,
+    seed_nodes_urls: Option<Vec<String>>,
+    seed_nodes_fixed: Option<Vec<String>>,
     genesis_config_url: Option<String>,
 ) -> RpcSender {
     let block_producer = parse_bp_key(block_producer);
@@ -85,7 +86,13 @@ pub async fn run(
     let (rpc_sender_tx, rpc_sender_rx) = ::node::core::channels::oneshot::channel();
     let _ = thread::spawn(move || {
         wasm_bindgen_futures::spawn_local(async move {
-            let mut node = setup_node(block_producer, seed_nodes_url, genesis_config_url).await;
+            let mut node = setup_node(
+                block_producer,
+                seed_nodes_urls,
+                seed_nodes_fixed,
+                genesis_config_url,
+            )
+            .await;
             let _ = rpc_sender_tx.send(node.rpc());
             node.run_forever().await;
         });
@@ -98,7 +105,8 @@ pub async fn run(
 
 async fn setup_node(
     block_producer: Option<AccountSecretKey>,
-    seed_nodes_url: Option<String>,
+    seed_nodes_urls: Option<Vec<String>>,
+    seed_nodes_fixed: Option<Vec<String>>,
     genesis_config_url: Option<String>,
 ) -> mina_node_common::Node<NodeService> {
     let block_verifier_index = BlockVerifier::make().await;
@@ -119,17 +127,30 @@ async fn setup_node(
         .work_verifier_index(work_verifier_index.clone());
 
     // TODO(binier): refactor
-    if let Some(seed_nodes_url) = seed_nodes_url {
-        let peers = ::node::core::http::get_bytes(&seed_nodes_url)
-            .await
-            .expect("failed to fetch seed nodes");
-        node_builder.initial_peers(
-            String::from_utf8_lossy(&peers)
-                .split("\n")
-                .filter(|s| !s.trim().is_empty())
-                .map(|s| s.trim().parse().expect("failed to parse seed node addr")),
-        );
+    let mut all_raw_peers = seed_nodes_fixed.unwrap_or_default();
+    if let Some(seed_nodes_urls) = seed_nodes_urls {
+        for seed_nodes_url in seed_nodes_urls {
+            let peers = ::node::core::http::get_bytes(&seed_nodes_url).await;
+            match peers {
+                Ok(s) => {
+                    log::info!("Successfully fetched peers from {seed_nodes_url}");
+                    all_raw_peers.extend(String::from_utf8_lossy(&s).split("\n").map(String::from));
+                }
+                Err(e) => {
+                    log::error!("Failed to fetch peers from {seed_nodes_url}: {e}");
+                }
+            }
+        }
     }
+
+    node_builder.initial_peers(
+        all_raw_peers
+            .iter()
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .flat_map(|s| s.parse().ok())
+            .inspect(|p| log::debug!("Using peer: {p:?}")),
+    );
 
     if let Some(bp_key) = block_producer {
         thread::spawn(move || {

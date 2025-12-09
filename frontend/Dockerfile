@@ -27,6 +27,10 @@
 # REQUIRED ENVIRONMENT VARIABLES:
 # MINA_FRONTEND_ENVIRONMENT - Frontend configuration (local|webnode|production)
 #
+# OPTIONAL ENVIRONMENT VARIABLES:
+# MINA_WEBNODE_SEED_URLS - Comma separated list of HTTP(S) urls to fetch bootnodes from
+# MINA_WEBNODE_BOOTNODES - Comma separated list of multiaddrs to use as bootnodes
+#
 # USAGE:
 # # Generate .env.docker with current git information
 # ./generate-docker-env.sh

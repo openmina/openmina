@@ -161,13 +161,13 @@ export class WebNodeService {
             if (typeof this.webNodeNetwork === 'number') {
               const url = `${window.location.origin}/clusters/${this.webNodeNetwork}/`;
               return {
-                seeds: url + 'seeds',
+                seedUrls: [url + 'seeds'],
                 genesisConfig: url + 'genesis/config',
               };
             } else {
               return {
-                seeds:
-                  'https://bootnodes.minaprotocol.com/networks/devnet-webrtc.txt',
+                seedUrls: CONFIG.globalConfig.webNodeSeedUrls,
+                fixedSeeds: CONFIG.globalConfig.webNodeBootNodes,
               };
             }
           })();
@@ -184,7 +184,14 @@ export class WebNodeService {
             privateKey = null;
           }
 
-          return from(wasm.run(privateKey, urls.seeds, urls.genesisConfig));
+          return from(
+            wasm.run(
+              privateKey,
+              urls.seedUrls,
+              urls.fixedSeeds,
+              urls.genesisConfig,
+            ),
+          );
         }),
         tap((webnode: any) => {
           any(window).webnode = webnode;
