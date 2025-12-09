@@ -1,11 +1,12 @@
 # insertable-streams
 
 insertable-streams demonstrates how to use insertable streams with WebRTC.rs.
-This example modifies the video with a single-byte XOR cipher before sending, and then
-decrypts in Javascript.
+This example modifies the video with a single-byte XOR cipher before sending,
+and then decrypts in Javascript.
 
-insertable-streams allows the browser to process encoded video. You could implement
-E2E encryption, add metadata or insert a completely different video feed!
+insertable-streams allows the browser to process encoded video. You could
+implement E2E encryption, add metadata or insert a completely different video
+feed!
 
 ## Instructions
 
@@ -23,12 +24,16 @@ cargo build --example insertable-streams
 
 ### Open insertable-streams example page
 
-[jsfiddle.net](https://jsfiddle.net/uqr80Lak/) you should see two text-areas and a 'Start Session' button. You will also have a 'Decrypt' checkbox.
-When unchecked the browser will not decrypt the incoming video stream, so it will stop playing or display certificates.
+[jsfiddle.net](https://jsfiddle.net/uqr80Lak/) you should see two text-areas and
+a 'Start Session' button. You will also have a 'Decrypt' checkbox. When
+unchecked the browser will not decrypt the incoming video stream, so it will
+stop playing or display certificates.
 
 ### Run insertable-streams with your browsers SessionDescription as stdin
 
-The `output.ivf` you created should be in the same directory as `insertable-streams`. In the jsfiddle the top textarea is your browser, copy that and:
+The `output.ivf` you created should be in the same directory as
+`insertable-streams`. In the jsfiddle the top textarea is your browser, copy
+that and:
 
 #### Linux/macOS
 
@@ -41,12 +46,15 @@ Run `echo $BROWSER_SDP | ./target/debug/examples/insertable-streams`
 
 ### Input insertable-streams's SessionDescription into your browser
 
-Copy the text that `insertable-streams` just emitted and copy into second text area
+Copy the text that `insertable-streams` just emitted and copy into second text
+area
 
 ### Hit 'Start Session' in jsfiddle, enjoy your video!
 
-A video should start playing in your browser above the input boxes. `insertable-streams` will exit when the file reaches the end.
+A video should start playing in your browser above the input boxes.
+`insertable-streams` will exit when the file reaches the end.
 
-To stop decrypting the stream uncheck the box and the video will not be viewable.
+To stop decrypting the stream uncheck the box and the video will not be
+viewable.
 
 Congrats, you have used WebRTC.rs!

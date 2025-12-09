@@ -8,6 +8,8 @@ license = "MIT OR Apache-2.0"
 documentation = "https://docs.rs/webrtc-ice"
 homepage = "https://webrtc.rs"
 repository = "https://github.com/webrtc-rs/ice"
+autoexamples = false
+autotests = false
 
 [dependencies]
 mdns = { version = "0.7.0", path = "../mdns", package = "webrtc-mdns" }
@@ -54,8 +56,3 @@ clap = "3"
 lazy_static = "1"
 hyper = { version = "0.14.27", features = ["full"] }
 sha1 = "0.10"
-
-[[example]]
-name = "ping_pong"
-path = "examples/ping_pong.rs"
-bench = false

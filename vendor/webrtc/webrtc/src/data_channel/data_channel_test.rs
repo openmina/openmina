@@ -1293,7 +1293,7 @@ impl TestOrtcStack {
         let ice = Arc::new(api.new_ice_transport(Arc::clone(&gatherer)));
 
         // Construct the DTLS transport
-        let dtls = Arc::new(api.new_dtls_transport(Arc::clone(&ice), vec![])?);
+        let dtls = Arc::new(api.new_dtls_transport(Arc::clone(&ice), vec![], None)?);
 
         // Construct the SCTP transport
         let sctp = Arc::new(api.new_sctp_transport(Arc::clone(&dtls))?);

@@ -1,9 +1,10 @@
 # offer-answer
 
-offer-answer is an example of two webrtc-rs or pion instances communicating directly!
+offer-answer is an example of two webrtc-rs or pion instances communicating
+directly!
 
-The SDP offer and answer are exchanged automatically over HTTP.
-The `answer` side acts like a HTTP server and should therefore be ran first.
+The SDP offer and answer are exchanged automatically over HTTP. The `answer`
+side acts like a HTTP server and should therefore be ran first.
 
 ## Instructions
 

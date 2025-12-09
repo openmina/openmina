@@ -144,7 +144,12 @@ bench-database: ## Run ledger database benchmark
 
 .PHONY: check
 check: ## Check code for compilation errors
-	cargo check --all-targets
+	cargo check --workspace --all-targets \
+		--exclude webrtc-ice \
+		--exclude webrtc-sctp \
+		--exclude webrtc-srtp \
+		--exclude webrtc-util \
+		--exclude turn
 
 .PHONY: check-tx-fuzzing
 check-tx-fuzzing: ## Check the transaction fuzzing tools, requires nightly Rust

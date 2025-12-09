@@ -13,7 +13,7 @@ pub trait Fmtp: fmt::Debug {
     fn mime_type(&self) -> &str;
 
     /// match_fmtp compares two fmtp descriptions for
-    /// compatibility based on the mime_type    
+    /// compatibility based on the mime_type
     fn match_fmtp(&self, f: &(dyn Fmtp)) -> bool;
 
     /// parameter returns a value for the associated key

@@ -1,8 +1,10 @@
 # rtp-to-webrtc
 
-rtp-to-webrtc demonstrates how to consume a RTP stream video UDP, and then send to a WebRTC client.
+rtp-to-webrtc demonstrates how to consume a RTP stream video UDP, and then send
+to a WebRTC client.
 
-With this example we have pre-made GStreamer and ffmpeg pipelines, but you can use any tool you like!
+With this example we have pre-made GStreamer and ffmpeg pipelines, but you can
+use any tool you like!
 
 ## Instructions
 
@@ -14,11 +16,13 @@ cargo build --example rtp-to-webrtc
 
 ### Open jsfiddle example page
 
-[jsfiddle.net](https://jsfiddle.net/z7ms3u5r/) you should see two text-areas and a 'Start Session' button
+[jsfiddle.net](https://jsfiddle.net/z7ms3u5r/) you should see two text-areas and
+a 'Start Session' button
 
 ### Run rtp-to-webrtc with your browsers SessionDescription as stdin
 
-In the jsfiddle the top textarea is your browser's SessionDescription, copy that and:
+In the jsfiddle the top textarea is your browser's SessionDescription, copy that
+and:
 
 #### Linux/macOS
 
@@ -31,7 +35,8 @@ Run `echo $BROWSER_SDP | ./target/debug/examples/rtp-to-webrtc`
 
 ### Send RTP to listening socket
 
-You can use any software to send VP8 packets to port 5004. We also have the pre made examples below
+You can use any software to send VP8 packets to port 5004. We also have the pre
+made examples below
 
 #### GStreamer
 

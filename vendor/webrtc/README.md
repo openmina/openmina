@@ -68,9 +68,14 @@
 
 ## Overview
 
-WebRTC.rs is a pure Rust implementation of WebRTC stack, which rewrites <a href="https://github.com/pion/webrtc/releases/tag/v3.1.5">Pion</a> stack in Rust.
-This project is still in active and early development stage, please refer to the [Roadmap](https://github.com/webrtc-rs/webrtc/issues/1) to track the major milestones and releases.
-[Examples](https://github.com/webrtc-rs/webrtc/blob/master/examples/examples/README.md) provide code samples to show how to use webrtc-rs to build media and data channel applications.
+WebRTC.rs is a pure Rust implementation of WebRTC stack, which rewrites
+<a href="https://github.com/pion/webrtc/releases/tag/v3.1.5">Pion</a> stack in
+Rust. This project is still in active and early development stage, please refer
+to the [Roadmap](https://github.com/webrtc-rs/webrtc/issues/1) to track the
+major milestones and releases.
+[Examples](https://github.com/webrtc-rs/webrtc/blob/master/examples/examples/README.md)
+provide code samples to show how to use webrtc-rs to build media and data
+channel applications.
 
 ## Features
 
@@ -109,13 +114,18 @@ This project is still in active and early development stage, please refer to the
 
 **Minimum Supported Rust Version:** `1.65.0`
 
-Our minimum supported rust version(MSRV) policy is to support versions of the compiler released within the last six months. We don't eagerly bump the minimum version we support, instead the minimum will be bumped on a needed by needed basis, usually because downstream dependencies force us to.
+Our minimum supported rust version(MSRV) policy is to support versions of the
+compiler released within the last six months. We don't eagerly bump the minimum
+version we support, instead the minimum will be bumped on a needed by needed
+basis, usually because downstream dependencies force us to.
 
-**Note:** Changes to the minimum supported version are not consider breaking from a [semver](https://semver.org/) perspective.
+**Note:** Changes to the minimum supported version are not consider breaking
+from a [semver](https://semver.org/) perspective.
 
 ### Monorepo Setup
 
-All webrtc dependent crates and examples are included in this repository at the top level in a Cargo workspace.
+All webrtc dependent crates and examples are included in this repository at the
+top level in a Cargo workspace.
 
 To build all webrtc examples:
 
@@ -137,7 +147,12 @@ cargo build [or clippy or test or fmt]
 
 ## Open Source License
 
-Dual licensing under both MIT and Apache-2.0 is the currently accepted standard by the Rust language community and has been used for both the compiler and many public libraries since (see <https://doc.rust-lang.org/1.6.0/complement-project-faq.html#why-dual-mitasl2-license>). In order to match the community standards, webrtc-rs is using the dual MIT+Apache-2.0 license.
+Dual licensing under both MIT and Apache-2.0 is the currently accepted standard
+by the Rust language community and has been used for both the compiler and many
+public libraries since (see
+<https://doc.rust-lang.org/1.6.0/complement-project-faq.html#why-dual-mitasl2-license>).
+In order to match the community standards, webrtc-rs is using the dual
+MIT+Apache-2.0 license.
 
 ## Contributing
 

@@ -22,7 +22,7 @@ pub enum RTCSdpType {
     /// indicates that a description MUST be treated as an SDP
     /// final answer, and the offer-answer exchange MUST be considered complete.
     /// A description used as an SDP answer may be applied as a response to an
-    /// SDP offer or as an update to a previously sent SDP pranswer.    
+    /// SDP offer or as an update to a previously sent SDP pranswer.
     #[serde(rename = "answer")]
     Answer,
 

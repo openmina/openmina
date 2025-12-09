@@ -8,6 +8,7 @@ license = "MIT OR Apache-2.0"
 documentation = "https://docs.rs/stun"
 homepage = "https://webrtc.rs"
 repository = "https://github.com/webrtc-rs/stun"
+autoexamples = false
 
 [features]
 default = []
@@ -49,13 +50,3 @@ criterion = "0.5"
 [[bench]]
 name = "bench"
 harness = false
-
-[[example]]
-name = "stun_client"
-path = "examples/stun_client.rs"
-bench = false
-
-[[example]]
-name = "stun_decode"
-path = "examples/stun_decode.rs"
-bench = false

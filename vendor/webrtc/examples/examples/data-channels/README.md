@@ -1,6 +1,7 @@
 # data-channels
 
-data-channels is a WebRTC.rs application that shows how you can send/recv DataChannel messages from a web browser
+data-channels is a WebRTC.rs application that shows how you can send/recv
+DataChannel messages from a web browser
 
 ## Instructions
 
@@ -16,7 +17,8 @@ cargo build --example data-channels
 
 ### Run data-channels, with your browsers SessionDescription as stdin
 
-In the jsfiddle the top textarea is your browser's session description, copy that and:
+In the jsfiddle the top textarea is your browser's session description, copy
+that and:
 
 #### Linux/macOS
 
@@ -33,10 +35,13 @@ Copy the text that `data-channels` just emitted and copy into second text area
 
 ### Hit 'Start Session' in jsfiddle
 
-Under Start Session you should see 'Checking' as it starts connecting. If everything worked you should see `New DataChannel foo 1`
+Under Start Session you should see 'Checking' as it starts connecting. If
+everything worked you should see `New DataChannel foo 1`
 
-Now you can put whatever you want in the `Message` textarea, and when you hit `Send Message` it should appear in your terminal!
+Now you can put whatever you want in the `Message` textarea, and when you hit
+`Send Message` it should appear in your terminal!
 
-WebRTC.rs will send random messages every 5 seconds that will appear in your browser.
+WebRTC.rs will send random messages every 5 seconds that will appear in your
+browser.
 
 Congrats, you have used WebRTC.rs!

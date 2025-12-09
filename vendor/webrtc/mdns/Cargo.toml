@@ -8,6 +8,7 @@ license = "MIT OR Apache-2.0"
 documentation = "https://docs.rs/webrtc-mdns"
 homepage = "https://webrtc.rs"
 repository = "https://github.com/webrtc-rs/mdns"
+autoexamples = false
 
 [features]
 default = ["reuse_port"]
@@ -38,18 +39,3 @@ tokio = { version = "1.32.0", features = [
 env_logger = "0.10"
 chrono = "0.4.28"
 clap = "3"
-
-[[example]]
-name = "mdns_query"
-path = "examples/mdns_query.rs"
-bench = false
-
-[[example]]
-name = "mdns_server"
-path = "examples/mdns_server.rs"
-bench = false
-
-[[example]]
-name = "mdns_server_query"
-path = "examples/mdns_server_query.rs"
-bench = false

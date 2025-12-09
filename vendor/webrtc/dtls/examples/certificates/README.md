@@ -1,8 +1,11 @@
 # Certificates
 
-The certificates in for the examples are generated using the commands shown below.
+The certificates in for the examples are generated using the commands shown
+below.
 
-Note that this was run on OpenSSL 1.1.1d, of which the arguments can be found in the [OpenSSL Manpages](https://www.openssl.org/docs/man1.1.1/man1), and is not guaranteed to work on different OpenSSL versions.
+Note that this was run on OpenSSL 1.1.1d, of which the arguments can be found in
+the [OpenSSL Manpages](https://www.openssl.org/docs/man1.1.1/man1), and is not
+guaranteed to work on different OpenSSL versions.
 
 ```shell
 # Extensions required for certificate validation.

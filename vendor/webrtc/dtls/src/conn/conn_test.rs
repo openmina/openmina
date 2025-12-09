@@ -1616,7 +1616,7 @@ async fn test_cipher_suite_configuration() -> Result<()> {
                     assert!(cipher_suite.is_some(), "{name} expected some, but got none");
                     if let Some(cs) = &*cipher_suite {
                         assert_eq!(cs.id(), want_cs,
-                                   "test_cipher_suite_configuration: Server Selected Bad Cipher Suite '{}': expected({}) actual({})", 
+                                   "test_cipher_suite_configuration: Server Selected Bad Cipher Suite '{}': expected({}) actual({})",
                                    name, want_cs, cs.id());
                     }
                 }
@@ -1961,7 +1961,7 @@ async fn test_protocol_version_validation() -> Result<()> {
         random_bytes,
     };
 
-    let local_keypair = NamedCurve::X25519.generate_keypair()?;
+    let local_keypair = NamedCurve::X25519.generate_keypair(None)?;
 
     //|"Server"|
     {
