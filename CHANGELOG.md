@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changes
 
+- **Dependencies**: vendor webrtc into `vendor/webrtc` to centralize all code in
+  the monorepo ([#1812](https://github.com/o1-labs/mina-rust/issues/1812))
 - **Dependencies**: vendor alloc-test into `vendor/alloc-test` to centralize all
   code in the monorepo ([#1815](https://github.com/o1-labs/mina-rust/pull/1815))
 - **Dependencies**: vendor redux-rs into `vendor/redux` to centralize all code
