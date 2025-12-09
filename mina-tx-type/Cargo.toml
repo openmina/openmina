@@ -1,0 +1,10 @@
+[package]
+name = "mina-tx-type"
+version = "0.18.1"
+edition = "2021"
+license = "Apache-2.0"
+description = "Transaction types for the Mina Protocol"
+
+[dependencies]
+mina-signer = { workspace = true }
+serde = { workspace = true, features = ["derive"] }

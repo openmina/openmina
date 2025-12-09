@@ -5365,6 +5365,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "mina-tx-type"
+version = "0.18.1"
+dependencies = [
+ "mina-signer",
+ "serde",
+]
+
+[[package]]
 name = "minimal-lexical"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
