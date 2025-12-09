@@ -1567,8 +1567,10 @@ checksum = "8eaf5903dcbc0a39312feb77df2ff4c76387d591b9fc7b04a238dcf8bb62639a"
 dependencies = [
  "android-tzdata",
  "iana-time-zone",
+ "js-sys",
  "num-traits",
  "serde",
+ "wasm-bindgen",
  "windows-targets 0.52.6",
 ]
 
@@ -1640,9 +1642,24 @@ dependencies = [
  "atty",
  "bitflags 1.3.2",
  "strsim 0.8.0",
- "textwrap",
+ "textwrap 0.11.0",
  "unicode-width 0.1.11",
  "vec_map",
+]
+
+[[package]]
+name = "clap"
+version = "3.2.25"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ea181bf566f71cb9a5d17a59e1871af638180a18fb0035c92ae62b705207123"
+dependencies = [
+ "atty",
+ "bitflags 1.3.2",
+ "clap_lex 0.2.4",
+ "indexmap 1.9.3",
+ "strsim 0.10.0",
+ "termcolor",
+ "textwrap 0.16.2",
 ]
 
 [[package]]
@@ -1663,7 +1680,7 @@ checksum = "19bc80abd44e4bed93ca373a0704ccbd1b710dc5749406201bb018272808dc54"
 dependencies = [
  "anstream",
  "anstyle",
- "clap_lex",
+ "clap_lex 0.7.0",
  "strsim 0.11.0",
 ]
 
@@ -1677,6 +1694,15 @@ dependencies = [
  "proc-macro2 1.0.95",
  "quote 1.0.35",
  "syn 2.0.96",
+]
+
+[[package]]
+name = "clap_lex"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2850f2f5a82cbf437dd5af4d49848fbdfc27c157c3d010345776f952765261c5"
+dependencies = [
+ "os_str_bytes",
 ]
 
 [[package]]
@@ -1929,6 +1955,7 @@ dependencies = [
  "ciborium",
  "clap 4.5.20",
  "criterion-plot",
+ "futures",
  "is-terminal",
  "itertools 0.10.5",
  "num-traits",
@@ -2672,6 +2699,19 @@ checksum = "a009aa4810eb158359dda09d0c87378e4bbb89b5a801f016885a4707ba24f7ea"
 dependencies = [
  "log",
  "regex",
+]
+
+[[package]]
+name = "env_logger"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4cd405aab171cb85d6735e5c8d9db038c17d3ca007a4d2c25f337935c3d90580"
+dependencies = [
+ "humantime",
+ "is-terminal",
+ "log",
+ "regex",
+ "termcolor",
 ]
 
 [[package]]
@@ -4036,10 +4076,10 @@ dependencies = [
 [[package]]
 name = "interceptor"
 version = "0.12.0"
-source = "git+https://github.com/openmina/webrtc.git?rev=aeaa62682b97f6984627bedd6e6811fe17af18eb#aeaa62682b97f6984627bedd6e6811fe17af18eb"
 dependencies = [
  "async-trait",
  "bytes",
+ "chrono",
  "log",
  "portable-atomic",
  "rand",
@@ -4047,6 +4087,7 @@ dependencies = [
  "rtp",
  "thiserror 1.0.60",
  "tokio",
+ "tokio-test",
  "waitgroup",
  "webrtc-srtp",
  "webrtc-util",
@@ -4949,7 +4990,7 @@ dependencies = [
  "base64 0.22.1",
  "binprot",
  "bs58 0.4.0",
- "env_logger",
+ "env_logger 0.11.6",
  "libp2p",
  "libp2p-rpc-behaviour",
  "log",
@@ -5037,7 +5078,7 @@ name = "mina-gossipsub-sandbox"
 version = "0.18.1"
 dependencies = [
  "bs58 0.4.0",
- "env_logger",
+ "env_logger 0.11.6",
  "libp2p",
  "log",
  "mina-transport",
@@ -5588,6 +5629,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "nearly_eq"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a629868a433328c35d654e1e1fb4648a68a042e3c71de4e507a9bcf4602c5635"
+
+[[package]]
 name = "neli"
 version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6102,6 +6149,7 @@ checksum = "3812c071ba60da8b5677cc12bcb1d42989a65553772897a7e0355545a819838f"
 dependencies = [
  "cc",
  "libc",
+ "openssl-src",
  "pkg-config",
  "vcpkg",
 ]
@@ -6122,6 +6170,21 @@ name = "option-ext"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
+
+[[package]]
+name = "ordered-float"
+version = "4.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7bb71e1b3fa6ca1c61f383464aaf2bb0e2f8e772a1f01d486832464de363b951"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
+name = "os_str_bytes"
+version = "6.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e2355d85b9a3786f481747ced0e0ff2ba35213a1f9bd406ed906554d7af805a1"
 
 [[package]]
 name = "outref"
@@ -7443,7 +7506,6 @@ dependencies = [
 [[package]]
 name = "rtcp"
 version = "0.11.0"
-source = "git+https://github.com/openmina/webrtc.git?rev=aeaa62682b97f6984627bedd6e6811fe17af18eb#aeaa62682b97f6984627bedd6e6811fe17af18eb"
 dependencies = [
  "bytes",
  "thiserror 1.0.60",
@@ -7468,9 +7530,10 @@ dependencies = [
 [[package]]
 name = "rtp"
 version = "0.11.0"
-source = "git+https://github.com/openmina/webrtc.git?rev=aeaa62682b97f6984627bedd6e6811fe17af18eb#aeaa62682b97f6984627bedd6e6811fe17af18eb"
 dependencies = [
  "bytes",
+ "chrono",
+ "criterion",
  "portable-atomic",
  "rand",
  "serde",
@@ -7748,8 +7811,8 @@ dependencies = [
 [[package]]
 name = "sdp"
 version = "0.6.2"
-source = "git+https://github.com/openmina/webrtc.git?rev=aeaa62682b97f6984627bedd6e6811fe17af18eb#aeaa62682b97f6984627bedd6e6811fe17af18eb"
 dependencies = [
+ "criterion",
  "rand",
  "substring",
  "thiserror 1.0.60",
@@ -8284,10 +8347,11 @@ dependencies = [
 [[package]]
 name = "stun"
 version = "0.6.0"
-source = "git+https://github.com/openmina/webrtc.git?rev=aeaa62682b97f6984627bedd6e6811fe17af18eb#aeaa62682b97f6984627bedd6e6811fe17af18eb"
 dependencies = [
  "base64 0.21.7",
+ "clap 3.2.25",
  "crc",
+ "criterion",
  "lazy_static",
  "md-5",
  "rand",
@@ -8295,6 +8359,7 @@ dependencies = [
  "subtle",
  "thiserror 1.0.60",
  "tokio",
+ "tokio-test",
  "url",
  "webrtc-util",
 ]
@@ -8479,6 +8544,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "termcolor"
+version = "1.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "06794f8f6c5c898b3275aebefa6b8a1cb24cd2c6c79397ab15774837a0bc5755"
+dependencies = [
+ "winapi-util",
+]
+
+[[package]]
 name = "text-diff"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8496,6 +8570,12 @@ checksum = "d326610f408c7a4eb6f51c37c330e496b08506c9457c9d34287ecc38809fb060"
 dependencies = [
  "unicode-width 0.1.11",
 ]
+
+[[package]]
+name = "textwrap"
+version = "0.16.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c13547615a44dc9c452a8a534638acdf07120d4b6847c8178705da06306a3057"
 
 [[package]]
 name = "thiserror"
@@ -8704,6 +8784,19 @@ dependencies = [
  "futures-core",
  "pin-project-lite",
  "tokio",
+]
+
+[[package]]
+name = "tokio-test"
+version = "0.4.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2468baabc3311435b55dd935f702f42cd1b8abb7e754fb7dfb16bd36aa88f9f7"
+dependencies = [
+ "async-stream",
+ "bytes",
+ "futures-core",
+ "tokio",
+ "tokio-stream",
 ]
 
 [[package]]
@@ -9069,11 +9162,15 @@ checksum = "23d5919d7121237af683b7fa982450597b1eaa2643e597aec3b519e4e5ab3d62"
 [[package]]
 name = "turn"
 version = "0.8.0"
-source = "git+https://github.com/openmina/webrtc.git?rev=aeaa62682b97f6984627bedd6e6811fe17af18eb#aeaa62682b97f6984627bedd6e6811fe17af18eb"
 dependencies = [
  "async-trait",
  "base64 0.21.7",
+ "chrono",
+ "clap 3.2.25",
+ "criterion",
+ "env_logger 0.10.2",
  "futures",
+ "hex",
  "log",
  "md-5",
  "portable-atomic",
@@ -9082,6 +9179,7 @@ dependencies = [
  "stun",
  "thiserror 1.0.60",
  "tokio",
+ "tokio-test",
  "tokio-util",
  "webrtc-util",
 ]
@@ -9580,16 +9678,17 @@ dependencies = [
 [[package]]
 name = "webrtc"
 version = "0.11.0"
-source = "git+https://github.com/openmina/webrtc.git?rev=aeaa62682b97f6984627bedd6e6811fe17af18eb#aeaa62682b97f6984627bedd6e6811fe17af18eb"
 dependencies = [
  "arc-swap",
  "async-trait",
  "bytes",
  "cfg-if",
+ "env_logger 0.10.2",
  "hex",
  "interceptor",
  "lazy_static",
  "log",
+ "pem 3.0.4",
  "portable-atomic",
  "rand",
  "rcgen 0.13.1",
@@ -9607,6 +9706,7 @@ dependencies = [
  "thiserror 1.0.60",
  "time",
  "tokio",
+ "tokio-test",
  "turn",
  "url",
  "waitgroup",
@@ -9621,15 +9721,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "webrtc-constraints"
+version = "0.1.0"
+dependencies = [
+ "env_logger 0.10.2",
+ "indexmap 2.7.1",
+ "lazy_static",
+ "ordered-float",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.60",
+]
+
+[[package]]
 name = "webrtc-data"
 version = "0.9.0"
-source = "git+https://github.com/openmina/webrtc.git?rev=aeaa62682b97f6984627bedd6e6811fe17af18eb#aeaa62682b97f6984627bedd6e6811fe17af18eb"
 dependencies = [
  "bytes",
+ "chrono",
+ "env_logger 0.10.2",
  "log",
  "portable-atomic",
  "thiserror 1.0.60",
  "tokio",
+ "tokio-test",
  "webrtc-sctp",
  "webrtc-util",
 ]
@@ -9637,7 +9752,6 @@ dependencies = [
 [[package]]
 name = "webrtc-dtls"
 version = "0.10.0"
-source = "git+https://github.com/openmina/webrtc.git?rev=aeaa62682b97f6984627bedd6e6811fe17af18eb#aeaa62682b97f6984627bedd6e6811fe17af18eb"
 dependencies = [
  "aes 0.8.4",
  "aes-gcm 0.10.3",
@@ -9646,12 +9760,16 @@ dependencies = [
  "byteorder",
  "cbc",
  "ccm",
+ "chrono",
+ "clap 3.2.25",
  "der-parser 8.2.0",
+ "env_logger 0.10.2",
  "hkdf",
  "hmac",
  "log",
  "p256 0.13.2",
  "p384",
+ "pem 3.0.4",
  "portable-atomic",
  "rand",
  "rand_core",
@@ -9665,6 +9783,7 @@ dependencies = [
  "subtle",
  "thiserror 1.0.60",
  "tokio",
+ "tokio-test",
  "webrtc-util",
  "x25519-dalek",
  "x509-parser 0.16.0",
@@ -9673,19 +9792,27 @@ dependencies = [
 [[package]]
 name = "webrtc-ice"
 version = "0.11.0"
-source = "git+https://github.com/openmina/webrtc.git?rev=aeaa62682b97f6984627bedd6e6811fe17af18eb#aeaa62682b97f6984627bedd6e6811fe17af18eb"
 dependencies = [
  "arc-swap",
  "async-trait",
+ "chrono",
+ "clap 3.2.25",
  "crc",
+ "env_logger 0.10.2",
+ "hyper 0.14.27",
+ "ipnet",
+ "lazy_static",
  "log",
  "portable-atomic",
  "rand",
+ "regex",
  "serde",
  "serde_json",
+ "sha1",
  "stun",
  "thiserror 1.0.60",
  "tokio",
+ "tokio-test",
  "turn",
  "url",
  "uuid",
@@ -9697,8 +9824,10 @@ dependencies = [
 [[package]]
 name = "webrtc-mdns"
 version = "0.7.0"
-source = "git+https://github.com/openmina/webrtc.git?rev=aeaa62682b97f6984627bedd6e6811fe17af18eb#aeaa62682b97f6984627bedd6e6811fe17af18eb"
 dependencies = [
+ "chrono",
+ "clap 3.2.25",
+ "env_logger 0.10.2",
  "log",
  "socket2 0.5.5",
  "thiserror 1.0.60",
@@ -9709,10 +9838,11 @@ dependencies = [
 [[package]]
 name = "webrtc-media"
 version = "0.8.0"
-source = "git+https://github.com/openmina/webrtc.git?rev=aeaa62682b97f6984627bedd6e6811fe17af18eb#aeaa62682b97f6984627bedd6e6811fe17af18eb"
 dependencies = [
  "byteorder",
  "bytes",
+ "criterion",
+ "nearly_eq",
  "rand",
  "rtp",
  "thiserror 1.0.60",
@@ -9721,17 +9851,21 @@ dependencies = [
 [[package]]
 name = "webrtc-sctp"
 version = "0.10.0"
-source = "git+https://github.com/openmina/webrtc.git?rev=aeaa62682b97f6984627bedd6e6811fe17af18eb#aeaa62682b97f6984627bedd6e6811fe17af18eb"
 dependencies = [
  "arc-swap",
  "async-trait",
  "bytes",
+ "chrono",
+ "clap 3.2.25",
  "crc",
+ "env_logger 0.10.2",
+ "lazy_static",
  "log",
  "portable-atomic",
  "rand",
  "thiserror 1.0.60",
  "tokio",
+ "tokio-test",
  "webrtc-util",
 ]
 
@@ -9754,7 +9888,7 @@ dependencies = [
  "cbc",
  "clap 4.5.20",
  "ctrlc",
- "env_logger",
+ "env_logger 0.11.6",
  "etherparse",
  "hex",
  "hkdf",
@@ -9773,33 +9907,39 @@ dependencies = [
 [[package]]
 name = "webrtc-srtp"
 version = "0.13.0"
-source = "git+https://github.com/openmina/webrtc.git?rev=aeaa62682b97f6984627bedd6e6811fe17af18eb#aeaa62682b97f6984627bedd6e6811fe17af18eb"
 dependencies = [
  "aead 0.5.2",
  "aes 0.8.4",
  "aes-gcm 0.10.3",
  "byteorder",
  "bytes",
+ "criterion",
  "ctr 0.9.2",
  "hmac",
+ "lazy_static",
  "log",
+ "openssl",
  "rtcp",
  "rtp",
  "sha1",
  "subtle",
  "thiserror 1.0.60",
  "tokio",
+ "tokio-test",
  "webrtc-util",
 ]
 
 [[package]]
 name = "webrtc-util"
 version = "0.9.0"
-source = "git+https://github.com/openmina/webrtc.git?rev=aeaa62682b97f6984627bedd6e6811fe17af18eb#aeaa62682b97f6984627bedd6e6811fe17af18eb"
 dependencies = [
+ "async-global-executor",
  "async-trait",
  "bitflags 1.3.2",
  "bytes",
+ "chrono",
+ "criterion",
+ "env_logger 0.10.2",
  "ipnet",
  "lazy_static",
  "libc",
@@ -9809,6 +9949,7 @@ dependencies = [
  "rand",
  "thiserror 1.0.60",
  "tokio",
+ "tokio-test",
  "winapi 0.3.9",
 ]
 
@@ -9864,7 +10005,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
