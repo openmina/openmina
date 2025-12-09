@@ -7,7 +7,31 @@ sidebar_position: 7
 # Network Debugger
 
 This section is still a work in progress. It will cover nodes running with the
-network debugger for network analysis and troubleshooting. The network debugger
-data is used by the node dashboard for debugging purposes.
+network debugger for network analysis and troubleshooting.
+
+<!-- prettier-ignore-start -->
+
+:::info Network debugger usage in the dashboard
+
+The network debugger is a **separate sidecar service** that runs alongside your
+node. It captures and stores detailed network traffic data that the
+[Node Dashboard](/docs/developers/frontend/api-endpoints) uses for network
+analysis and troubleshooting.
+
+The dashboard consumes the network debugger's API to visualize:
+
+- Block propagation messages and timing analysis
+- Network message inspection with filtering
+- Connection management and monitoring
+- Message decryption statistics
+- Low-level protocol debugging (hex dumps)
+
+For API details, see the
+[Debugger API endpoints](/docs/developers/frontend/api-endpoints#debugger-api-endpoints)
+section in the API reference.
+
+:::
+
+<!-- prettier-ignore-stop -->
 
 Track progress: [Issue #1365](https://github.com/o1-labs/mina-rust/issues/1365)

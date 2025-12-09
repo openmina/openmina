@@ -7,7 +7,29 @@ sidebar_position: 6
 # Memory Profiler
 
 This section is still a work in progress. It will cover nodes running with a
-memory profiler for performance analysis and optimization. The memory profiler
-data is used by the node dashboard for debugging purposes.
+memory profiler for performance analysis and optimization.
+
+<!-- prettier-ignore-start -->
+
+:::info Memory profiler usage in the dashboard
+
+The memory profiler is a **separate sidecar service** that runs alongside your
+node. It provides memory allocation analysis data that the
+[Node Dashboard](/docs/developers/frontend/api-endpoints) uses for performance
+debugging.
+
+The dashboard consumes the memory profiler's API to visualize:
+
+- Hierarchical memory resource allocation (treemap visualization)
+- Memory usage by function and executable
+- Memory allocation call stacks
+
+For API details, see the
+[Memory profiler API endpoints](/docs/developers/frontend/api-endpoints#memory-profiler)
+section in the API reference.
+
+:::
+
+<!-- prettier-ignore-stop -->
 
 Track progress: [Issue #1207](https://github.com/o1-labs/mina-rust/issues/1207)

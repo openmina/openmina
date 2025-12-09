@@ -35,6 +35,30 @@ The frontend connects to multiple services with configurable endpoints:
 - **GraphQL endpoint**: External MinaScan API (e.g.
   `https://api.minascan.io/node/devnet/v1/graphql`)
 
+<!-- prettier-ignore-start -->
+
+:::caution Memory profiler and debugger are separate sidecar services
+
+The memory profiler and network debugger are **not part of the main node
+binary**. They are separate sidecar services that must be run alongside your
+node to enable these features in the dashboard.
+
+To use these features:
+
+- **Memory profiler**: See the
+  [memory profiler setup guide](/docs/node-operators/infrastructure/memory-profiler)
+  for instructions on running the memory profiler sidecar.
+- **Network debugger**: See the
+  [network debugger setup guide](/docs/node-operators/infrastructure/network-debugger)
+  for instructions on running the network debugger sidecar.
+
+Without these sidecars running, the corresponding dashboard features will not be
+available.
+
+:::
+
+<!-- prettier-ignore-stop -->
+
 #### Further, let's examine the used endpoints
 
 ### Node status and information
