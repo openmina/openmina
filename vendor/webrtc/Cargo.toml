@@ -1,0 +1,24 @@
+[workspace]
+members = [
+    "constraints",
+    "data",
+    "dtls",
+    "examples",
+    "ice",
+    "interceptor",
+    "mdns",
+    "media",
+    "rtcp",
+    "rtp",
+    "sctp",
+    "sdp",
+    "srtp",
+    "stun",
+    "turn",
+    "util",
+    "webrtc",
+]
+resolver = "2"
+
+[profile.dev]
+opt-level = 0
