@@ -27,6 +27,7 @@ members = [
   "tools/ledger-tool",
   "tools/transport",
   "tools/webrtc-sniffer",
+  "vendor/alloc-test",
   "vendor/redux",
   "vendor/salsa-simple",
   "vrf",
@@ -42,7 +43,7 @@ indexing_slicing = "warn"
 [workspace.dependencies]
 aes = "0.8"
 aes-gcm = "0.10.3"
-alloc-test = { git = "https://github.com/openmina/alloc-test.git" }
+alloc-test = { path = "vendor/alloc-test" }
 anyhow = "1.0.81"
 argon2 = { version = "0.5.3", features = ["std"] }
 ark-ec = { version = "0.5.0", features = ["std"] }
