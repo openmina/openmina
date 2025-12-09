@@ -294,6 +294,7 @@ jobs:
               --exclude mina-archive-breadcrumb-compare \
               --exclude webrtc-sniffer
               # --exclude mina-tree
+              # --exclude redux-rs
               # --exclude vrf
 
   account-tests:
