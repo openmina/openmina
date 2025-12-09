@@ -1,0 +1,18 @@
+[package]
+name = "mina-tx-type"
+version = "0.18.1"
+edition = "2021"
+description = "Transaction types for the Mina Protocol"
+license = "Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/o1-labs/mina-rust"
+keywords = ["mina", "blockchain", "cryptocurrency", "zkapp", "transaction"]
+categories = ["cryptography::cryptocurrencies"]
+
+[dependencies]
+ark-ff = { workspace = true }
+mina-curves = { workspace = true }
+mina-p2p-messages = { workspace = true }
+mina-signer = { workspace = true }
+rand = { workspace = true }
+serde = { workspace = true }

@@ -23,6 +23,7 @@ use crate::{
 use super::{
     constants::WrapMergeProof,
     field::{Boolean, CircuitVar, FieldWitness},
+    numbers::{SignedAmountToChecked, SignedFeeToChecked},
     public_input::plonk_checks::PlonkMinimal,
     step::{
         extract_recursion_challenges, InductiveRule, OptFlag, PreviousProofStatement, StepProof,

@@ -510,22 +510,6 @@ macro_rules! impl_currency {
             }
         }
 
-        impl $unchecked {
-            pub fn to_checked<F: FieldWitness>(&self) -> $name<F> {
-                $name::from_inner(*self)
-            }
-        }
-
-        impl Signed<$unchecked> {
-            pub fn to_checked<F: FieldWitness>(&self) -> CheckedSigned<F, $name<F>> {
-                CheckedSigned {
-                    magnitude: self.magnitude.to_checked(),
-                    sgn: CircuitVar::Var(self.sgn),
-                    value: Cell::new(None),
-                }
-            }
-        }
-
         impl<F: FieldWitness> ForZkappCheck<F> for $unchecked {
             type CheckedType = $name<F>;
             fn checked_from_field(field: F) -> Self::CheckedType {
@@ -543,3 +527,76 @@ impl_currency!(
     {CheckedFee, Fee},
     {CheckedBalance, Balance}
 );
+
+// Extension traits for to_checked conversion
+pub trait AmountToChecked {
+    fn to_checked<F: FieldWitness>(&self) -> CheckedAmount<F>;
+}
+
+impl AmountToChecked for Amount {
+    fn to_checked<F: FieldWitness>(&self) -> CheckedAmount<F> {
+        CheckedAmount::from_inner(*self)
+    }
+}
+
+pub trait FeeToChecked {
+    fn to_checked<F: FieldWitness>(&self) -> CheckedFee<F>;
+}
+
+impl FeeToChecked for Fee {
+    fn to_checked<F: FieldWitness>(&self) -> CheckedFee<F> {
+        CheckedFee::from_inner(*self)
+    }
+}
+
+pub trait BalanceToChecked {
+    fn to_checked<F: FieldWitness>(&self) -> CheckedBalance<F>;
+}
+
+impl BalanceToChecked for Balance {
+    fn to_checked<F: FieldWitness>(&self) -> CheckedBalance<F> {
+        CheckedBalance::from_inner(*self)
+    }
+}
+
+pub trait SignedAmountToChecked {
+    fn to_checked<F: FieldWitness>(&self) -> CheckedSigned<F, CheckedAmount<F>>;
+}
+
+impl SignedAmountToChecked for Signed<Amount> {
+    fn to_checked<F: FieldWitness>(&self) -> CheckedSigned<F, CheckedAmount<F>> {
+        CheckedSigned {
+            magnitude: AmountToChecked::to_checked::<F>(&self.magnitude),
+            sgn: CircuitVar::Var(self.sgn),
+            value: Cell::new(None),
+        }
+    }
+}
+
+pub trait SignedFeeToChecked {
+    fn to_checked<F: FieldWitness>(&self) -> CheckedSigned<F, CheckedFee<F>>;
+}
+
+impl SignedFeeToChecked for Signed<Fee> {
+    fn to_checked<F: FieldWitness>(&self) -> CheckedSigned<F, CheckedFee<F>> {
+        CheckedSigned {
+            magnitude: FeeToChecked::to_checked::<F>(&self.magnitude),
+            sgn: CircuitVar::Var(self.sgn),
+            value: Cell::new(None),
+        }
+    }
+}
+
+pub trait SignedBalanceToChecked {
+    fn to_checked<F: FieldWitness>(&self) -> CheckedSigned<F, CheckedBalance<F>>;
+}
+
+impl SignedBalanceToChecked for Signed<Balance> {
+    fn to_checked<F: FieldWitness>(&self) -> CheckedSigned<F, CheckedBalance<F>> {
+        CheckedSigned {
+            magnitude: BalanceToChecked::to_checked::<F>(&self.magnitude),
+            sgn: CircuitVar::Var(self.sgn),
+            value: Cell::new(None),
+        }
+    }
+}

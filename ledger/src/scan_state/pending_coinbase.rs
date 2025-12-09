@@ -40,6 +40,7 @@ use crate::{
         numbers::{
             currency::{CheckedAmount, CheckedCurrency},
             nat::{CheckedNat, CheckedSlot},
+            AmountToChecked,
         },
         transaction::transaction_snark::checked_hash,
         witness::Witness,

@@ -69,6 +69,7 @@ COPY genesis_ledgers ./genesis_ledgers
 COPY ledger ./ledger
 COPY macros ./macros
 COPY mina-p2p-messages ./mina-p2p-messages
+COPY mina-tx-type ./mina-tx-type
 COPY node ./node
 COPY p2p ./p2p
 COPY poseidon ./poseidon

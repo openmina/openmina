@@ -5335,6 +5335,7 @@ dependencies = [
  "mina-p2p-messages",
  "mina-poseidon",
  "mina-signer",
+ "mina-tx-type",
  "num-bigint",
  "o1-utils",
  "once_cell",
@@ -5362,6 +5363,18 @@ dependencies = [
  "wasm-bindgen-test",
  "web-sys",
  "zstd",
+]
+
+[[package]]
+name = "mina-tx-type"
+version = "0.18.1"
+dependencies = [
+ "ark-ff",
+ "mina-curves",
+ "mina-p2p-messages",
+ "mina-signer",
+ "rand",
+ "serde",
 ]
 
 [[package]]

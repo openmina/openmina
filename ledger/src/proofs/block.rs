@@ -28,7 +28,7 @@ use crate::{
         wrap::{wrap, WrapParams},
     },
     scan_state::{
-        currency,
+        currency::{self, Magnitude},
         fee_excess::{self, FeeExcess},
         pending_coinbase::{PendingCoinbase, PendingCoinbaseWitness, Stack},
         protocol_state::MinaHash,
@@ -47,6 +47,7 @@ use super::{
     numbers::{
         currency::CheckedAmount,
         nat::{CheckedBlockTime, CheckedBlockTimeSpan, CheckedLength},
+        AmountToChecked, LengthToChecked, SignedAmountToChecked,
     },
     step::{step, InductiveRule, OptFlag, PreviousProofStatement, StepParams, StepProof},
     to_field_elements::ToFieldElements,

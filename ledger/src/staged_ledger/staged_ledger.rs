@@ -2025,7 +2025,7 @@ mod tests_ocaml {
             user_command::sequence_zkapp_command_with_ledger, zkapp_command_builder, Failure,
         },
         scan_state::{
-            currency::{Balance, Fee, Nonce, SlotSpan},
+            currency::{Balance, Fee, Nonce, SlotRandExt, SlotSpan},
             scan_state::transaction_snark::SokDigest,
             transaction_logic::{
                 apply_transactions,
