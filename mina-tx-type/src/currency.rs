@@ -25,7 +25,11 @@ use std::cmp::Ordering::{Equal, Greater, Less};
 use ark_ff::BigInteger256;
 use serde::{Deserialize, Serialize};
 
-use crate::proofs::field::FieldWitness;
+use crate::proofs::{
+    field::FieldWitness,
+    to_field_elements::ToFieldElements,
+    witness::{Check, Witness},
+};
 
 /// Sign of a signed value.
 ///
@@ -382,6 +386,22 @@ macro_rules! impl_number {
         impl MinMax for $name {
             fn min() -> Self { Self(0) }
             fn max() -> Self { Self(<$inner>::MAX) }
+        }
+
+        impl<F: FieldWitness> ToFieldElements<F> for $name {
+            fn to_field_elements(&self, fields: &mut Vec<F>) {
+                fields.push(self.to_field());
+            }
+        }
+
+        impl<F: FieldWitness> Check<F> for $name {
+            fn check(&self, w: &mut Witness<F>) {
+                // Note: Full implementation requires to_field_checked_prime from
+                // the transaction module. For now, we just add the field element
+                // to the witness without range checking.
+                // TODO: Implement proper range checking when snarky-rs is available.
+                let _ = w.exists_no_check(self.to_field::<F>());
+            }
         }
 
         impl $name {
