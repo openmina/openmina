@@ -74,26 +74,6 @@ pub struct Params<F> {
     pub b: F,
 }
 
-// Implement ToFieldElements for Fp and Fq
-impl ToFieldElements<Fp> for Fp {
-    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
-        fields.push(*self);
-    }
-}
-
-impl ToFieldElements<Fq> for Fq {
-    fn to_field_elements(&self, fields: &mut Vec<Fq>) {
-        fields.push(*self);
-    }
-}
-
-// Implement ToFieldElements for arrays
-impl<F: FieldWitness, const N: usize> ToFieldElements<F> for [F; N] {
-    fn to_field_elements(&self, fields: &mut Vec<F>) {
-        fields.extend_from_slice(self);
-    }
-}
-
 // Implement Check for Fp and Fq
 impl Check<Fp> for Fp {
     fn check(&self, _w: &mut Witness<Fp>) {

@@ -1,3 +1,23 @@
+//! Field-related traits and types for proof circuits.
+//!
+//! # Refactoring Notes (mina-tx-type extraction)
+//!
+//! The following types in this module have been duplicated in `mina-tx-type`:
+//! - `FieldWitness` trait
+//! - `GroupAffine<F>` type alias
+//! - `Boolean` enum
+//! - `CircuitVar<T>` enum
+//! - `ShiftedValue<F>` struct (via `ShiftingValue` trait)
+//! - `Shift<F>`, `ShiftFq` types
+//! - `FromFpFq`, `IntoGeneric`, `ToBoolean`, `Params<F>` types
+//!
+//! To complete the migration to `mina-tx-type`:
+//! 1. Replace these local type definitions with imports from `mina_tx_type`
+//! 2. Update all usages throughout the ledger crate
+//! 3. This will then allow replacing `ToFieldElements` trait with import
+//!
+//! See: mina-tx-type/src/proofs/field.rs for the equivalent types
+
 use ark_ec::{short_weierstrass::Projective, AffineRepr, CurveGroup};
 use ark_ff::{BigInteger256, FftField, Field, PrimeField};
 use kimchi::curve::KimchiCurve;
@@ -19,9 +39,15 @@ use super::{
     BACKEND_TICK_ROUNDS_N, BACKEND_TOCK_ROUNDS_N,
 };
 
+/// Type alias for affine curve points parameterized by field witness.
+///
+/// **Note:** This type is duplicated in `mina_tx_type::GroupAffine`.
 pub type GroupAffine<F> = ark_ec::short_weierstrass::Affine<<F as FieldWitness>::Parameters>;
 
-/// All the generics we need during witness generation
+/// All the generics we need during witness generation.
+///
+/// **Note:** This trait is duplicated in `mina_tx_type::FieldWitness`.
+/// See module-level docs for the migration plan.
 pub trait FieldWitness
 where
     Self: Field
