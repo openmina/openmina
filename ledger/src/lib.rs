@@ -141,7 +141,6 @@ pub mod dummy;
 mod hash;
 pub mod mask;
 pub mod ondisk;
-mod port_ocaml;
 pub mod proofs;
 pub mod scan_state;
 pub mod sparse_ledger;
