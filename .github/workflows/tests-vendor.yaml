@@ -54,3 +54,22 @@ jobs:
 
       - name: Test alloc-test crate
         run: cargo test -p alloc-test
+
+  webrtc-tests:
+    timeout-minutes: 30
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v6
+
+      - name: Load versions
+        uses: ./.github/actions/load-versions
+
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          toolchain: ${{ env.RUST_STABLE_VERSION }}
+          cache-prefix: vendor-webrtc-${{ env.CACHE_VERSION }}
+
+      - name: Test webrtc crate
+        run: cargo test -p webrtc
