@@ -1,5 +1,0 @@
-node_modules/
-*.local
-coverage/
-lib/
-allowed_keys.txt
