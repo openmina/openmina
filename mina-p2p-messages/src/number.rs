@@ -205,6 +205,15 @@ binprot_number!(f64, f64);
 // type's range. We read as i64 first, then cast to handle out-of-range values
 // gracefully. Writing still uses the smaller type to maintain wire format
 // compatibility.
+//
+// Note: This introduces intentional asymmetry between read and write for the sake
+// of robustness. When reading, we accept any i64 value and cast using wrapping
+// semantics. When writing, we cast to the signed type (which may change the sign
+// bit for large values). This is acceptable because:
+// 1. The wire format is defined by the original OCaml implementation which uses
+//    signed integers for the binprot encoding
+// 2. Rust code reading these values will interpret them correctly via the cast
+// 3. This prevents connection drops from malformed or unexpected data
 impl binprot::BinProtRead for Number<u32> {
     fn binprot_read<R: std::io::Read + ?Sized>(r: &mut R) -> Result<Self, binprot::Error>
     where
@@ -212,6 +221,8 @@ impl binprot::BinProtRead for Number<u32> {
     {
         // Read the value as i64 first to avoid TryFromIntError when the value
         // is outside i32 range, then cast to u32 using wrapping semantics.
+        // This handles cases where the binprot stream contains values outside
+        // the i32 range (e.g., large nonce values).
         let value = i64::binprot_read(r)?;
         Ok(Self(value as u32))
     }
@@ -219,7 +230,9 @@ impl binprot::BinProtRead for Number<u32> {
 
 impl binprot::BinProtWrite for Number<u32> {
     fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
-        // Write as i32 to maintain wire format compatibility
+        // Write as i32 to maintain wire format compatibility with the OCaml
+        // implementation. For values > i32::MAX, the cast will reinterpret
+        // the bits as a negative i32, which is the expected behavior.
         (self.0 as i32).binprot_write(w)
     }
 }
@@ -230,7 +243,8 @@ impl binprot::BinProtRead for Number<u64> {
         Self: Sized,
     {
         // Read the value as i64 first to handle the full range without errors,
-        // then cast to u64 using wrapping semantics.
+        // then cast to u64 using wrapping semantics. This prevents TryFromIntError
+        // for negative i64 values or values outside u64::MIN..=i64::MAX.
         let value = i64::binprot_read(r)?;
         Ok(Self(value as u64))
     }
@@ -238,7 +252,9 @@ impl binprot::BinProtRead for Number<u64> {
 
 impl binprot::BinProtWrite for Number<u64> {
     fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
-        // Write as i64 to maintain wire format compatibility
+        // Write as i64 to maintain wire format compatibility. For values > i64::MAX,
+        // the cast will reinterpret the bits as a negative i64, matching the OCaml
+        // implementation's behavior.
         (self.0 as i64).binprot_write(w)
     }
 }
