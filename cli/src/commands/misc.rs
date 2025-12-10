@@ -1,4 +1,5 @@
 use libp2p_identity::PeerId;
+use mina_node_account::AccountPublicKey;
 use node::{account::AccountSecretKey, p2p::identity::SecretKey};
 use std::{fs::File, io::Write};
 
@@ -46,18 +47,44 @@ impl P2PKeyPair {
     }
 }
 
-#[derive(Debug, Clone, clap::Args)]
+#[derive(Debug, Clone, Default, clap::Args)]
 pub struct MinaKeyPair {
     #[arg(long, short = 's', env = "MINA_SEC_KEY")]
     secret_key: Option<AccountSecretKey>,
+
+    #[arg(long, help = "Format as a web-node-secrets.json")]
+    web_node_secrets: bool,
+}
+
+// TODO: This should really be the same type that the webnode
+// TODO: uses to parse web-node-secrets.json
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct GeneratedMinaKeyPair {
+    public_key: AccountPublicKey,
+    private_key: AccountSecretKey,
+}
+
+impl GeneratedMinaKeyPair {
+    fn print(&self) {
+        println!("secret key: {}", self.private_key);
+        println!("public key: {}", self.public_key);
+    }
 }
 
 impl MinaKeyPair {
     pub fn run(self) -> anyhow::Result<()> {
-        let secret_key = self.secret_key.unwrap_or_else(AccountSecretKey::rand);
-        let public_key = secret_key.public_key();
-        println!("secret key: {secret_key}");
-        println!("public key: {public_key}");
+        let private_key = self.secret_key.unwrap_or_else(AccountSecretKey::rand);
+        let public_key = private_key.public_key();
+        let keypair = GeneratedMinaKeyPair {
+            public_key,
+            private_key,
+        };
+        if self.web_node_secrets {
+            println!("{}", serde_json::to_string_pretty(&keypair)?);
+        } else {
+            keypair.print();
+        }
 
         Ok(())
     }
@@ -304,7 +331,7 @@ mod tests {
 
     #[test]
     fn test_mina_key_pair_generates_random_key() {
-        let cmd = MinaKeyPair { secret_key: None };
+        let cmd = MinaKeyPair::default();
 
         let result = cmd.run();
         assert!(result.is_ok());
@@ -315,6 +342,7 @@ mod tests {
         let secret_key = AccountSecretKey::rand();
         let cmd = MinaKeyPair {
             secret_key: Some(secret_key),
+            web_node_secrets: false,
         };
 
         let result = cmd.run();
