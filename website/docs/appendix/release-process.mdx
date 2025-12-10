@@ -354,8 +354,9 @@ After pushing the tag, verify:
 1. **Docker images are built and pushed**
 
    ```bash
-   # Verify multi-arch images are available
+   # Verify multi-arch images are available for both vMAJOR.MINOR.PATCH and vMAJOR.MINOR
    make release-docker-verify TAG=v1.5.0
+   make release-docker-verify TAG=v1.5
    ```
 
    <!-- prettier-ignore-start -->
@@ -633,6 +634,15 @@ git tag -d v1.5.0
 git push origin :refs/tags/v1.5.0
 # Then recreate tag
 ```
+
+:::important Verify `vMAJOR.MINOR` Docker tags
+
+If tag is recreated that looks like a valid semver, it will trigger a rebuild
+and push of the Docker images for that tag. For example, recreating tag `v1.5.0`
+will initiate a Docker build that will be pushed to Dockerhub as both `v1.5.0`
+and `v1.5`. As long as historical tags aren't recreated this shouldn't be a
+problem, but if the need arises to recreate tags, it's worth verifying that
+related images aren't adversely affected.
 
 ### CI Pipeline Issues
 
