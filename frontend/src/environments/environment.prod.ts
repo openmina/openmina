@@ -42,6 +42,18 @@ export const environment: Readonly<MinaEnv> = {
       name: 'o1Labs BP Node 2',
       url: 'https://mina-rust-bp-2.gcp.o1test.net/',
     },
+    {
+      name: 'o1Labs Seed Node 1',
+      url: 'https://mina-rust-seed-1.gcp.o1test.net/',
+    },
+    {
+      name: 'o1Labs Seed Node 2',
+      url: 'https://mina-rust-seed-2.gcp.o1test.net/',
+    },
+    {
+      name: 'o1Labs Seed Node 3',
+      url: 'https://mina-rust-seed-3.gcp.o1test.net/',
+    },
   ],
   sentry: undefined,
 };
