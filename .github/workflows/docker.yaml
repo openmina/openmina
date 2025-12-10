@@ -135,7 +135,7 @@ jobs:
   # Push frontend multi-arch manifest
   push-frontend-image:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/') || startsWith(github.ref, 'refs/heads/release')
+    if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     needs:
       - build-mina-frontend-image
     steps:
@@ -151,13 +151,19 @@ jobs:
             echo "GIT_COMMIT=${GITHUB_SHA:0:8}" >> $GITHUB_ENV
             echo "ADDITIONAL_TAGS=latest" >> $GITHUB_ENV
           elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
-            echo "GIT_COMMIT=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-            echo "ADDITIONAL_TAGS=" >> $GITHUB_ENV
-          elif [[ "${{ github.ref }}" == refs/heads/release/* ]]; then
-            BRANCH_NAME="${GITHUB_REF#refs/heads/}"
-            VERSION="${BRANCH_NAME#release/}"
-            echo "GIT_COMMIT=${VERSION}" >> $GITHUB_ENV
-            echo "ADDITIONAL_TAGS=" >> $GITHUB_ENV
+            FULL_TAG=${GITHUB_REF#refs/tags/}
+            MAJOR_MINOR=$(echo $FULL_TAG | sed -E 's/(v[0-9]+\.[0-9]+)\.[0-9]+/\1/')
+
+            echo "Will push Docker image with tag \"${FULL_TAG}\""
+            echo "GIT_COMMIT=${FULL_TAG}" >> $GITHUB_ENV
+
+            if [[ "$FULL_TAG" =~ [+-] ]]; then
+              echo "Found pre-release or build ID in version, will __NOT__ update Docker tag \"${MAJOR_MINOR}\""
+              echo "ADDITIONAL_TAGS=" >> $GITHUB_ENV
+            else
+              echo "Will additionally push Docker image with tag \"${MAJOR_MINOR}\""
+              echo "ADDITIONAL_TAGS=${MAJOR_MINOR}" >> $GITHUB_ENV
+            fi
           fi
 
       - name: Push frontend multi-arch manifest
@@ -173,7 +179,7 @@ jobs:
   # Push node multi-arch manifest (after node build completes)
   push-node-image:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/') || startsWith(github.ref, 'refs/heads/release')
+    if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     needs:
       - build-mina-node-image
     steps:
@@ -189,13 +195,19 @@ jobs:
             echo "GIT_COMMIT=${GITHUB_SHA:0:8}" >> $GITHUB_ENV
             echo "ADDITIONAL_TAGS=latest" >> $GITHUB_ENV
           elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
-            echo "GIT_COMMIT=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-            echo "ADDITIONAL_TAGS=" >> $GITHUB_ENV
-          elif [[ "${{ github.ref }}" == refs/heads/release/* ]]; then
-            BRANCH_NAME="${GITHUB_REF#refs/heads/}"
-            VERSION="${BRANCH_NAME#release/}"
-            echo "GIT_COMMIT=${VERSION}" >> $GITHUB_ENV
-            echo "ADDITIONAL_TAGS=" >> $GITHUB_ENV
+            FULL_TAG=${GITHUB_REF#refs/tags/}
+            MAJOR_MINOR=$(echo $FULL_TAG | sed -E 's/(v[0-9]+\.[0-9]+)\.[0-9]+/\1/')
+
+            echo "Will push Docker image with tag \"${FULL_TAG}\""
+            echo "GIT_COMMIT=${FULL_TAG}" >> $GITHUB_ENV
+
+            if [[ "$FULL_TAG" =~ [+-] ]]; then
+              echo "Found pre-release or build ID in version, will __NOT__ update Docker tag \"${MAJOR_MINOR}\""
+              echo "ADDITIONAL_TAGS=" >> $GITHUB_ENV
+            else
+              echo "Will additionally push Docker image with tag \"${MAJOR_MINOR}\""
+              echo "ADDITIONAL_TAGS=${MAJOR_MINOR}" >> $GITHUB_ENV
+            fi
           fi
 
       - name: Push node multi-arch manifest
