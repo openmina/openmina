@@ -14,4 +14,5 @@ mina-p2p-messages = { workspace = true }
 mina-poseidon = { workspace = true }
 mina-signer = { workspace = true }
 poseidon = { workspace = true }
+rand = { workspace = true }
 serde = { workspace = true, features = ["derive"] }

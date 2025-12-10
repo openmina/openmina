@@ -4,6 +4,7 @@ use crate::{
         numbers::{
             currency::{CheckedAmount, CheckedBalance},
             nat::{CheckedSlot, CheckedSlotSpan},
+            ToCheckedExt,
         },
         to_field_elements::ToFieldElements,
     },

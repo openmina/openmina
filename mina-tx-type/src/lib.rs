@@ -21,11 +21,12 @@
 //! - <https://mina-rust.o1labs.org/researchers/zkapp-signing>
 
 pub mod coinbase;
+mod conv;
 pub mod currency;
 pub mod proofs;
 
 pub use coinbase::{Coinbase, CoinbaseFeeTransfer};
-pub use currency::{Amount, Fee, Magnitude, MinMax, Sgn, Signed};
+pub use currency::{Amount, Fee, Magnitude, MagnitudeFieldExt, MinMax, Sgn, Signed};
 pub use proofs::{
     field_of_bits, field_to_bits, Boolean, Check, CircuitVar, FieldWitness, FromFpFq, GroupAffine,
     IntoGeneric, Params, Shift, ShiftedValue, ShiftingValue, ToBoolean, ToFieldElements, Witness,

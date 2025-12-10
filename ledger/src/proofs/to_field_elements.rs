@@ -49,7 +49,7 @@ use crate::{
         util::two_u64_to_field,
     },
     scan_state::{
-        currency::{self, Sgn},
+        currency::{self, Sgn, SgnExt},
         fee_excess::FeeExcess,
         pending_coinbase,
         scan_state::transaction_snark::{Registers, SokDigest, Statement},

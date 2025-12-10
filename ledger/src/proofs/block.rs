@@ -21,6 +21,7 @@ use crate::{
         numbers::{
             currency::CheckedSigned,
             nat::{CheckedNat, CheckedSlot},
+            SignedToCheckedExt, ToCheckedExt,
         },
         step::extract_recursion_challenges,
         to_field_elements::ToFieldElementsDebug,
@@ -621,7 +622,7 @@ mod vrf {
                 scale_non_constant, InnerCurve,
             },
         },
-        scan_state::currency::{Amount, Balance},
+        scan_state::currency::{Amount, AmountFeeFieldExt, Balance},
         sparse_ledger::SparseLedger,
         AccountIndex, Address, AppendToInputs,
     };
@@ -752,7 +753,7 @@ mod vrf {
         use floating_point::*;
 
         let top = SnarkyInteger::create(my_stake.to_field::<Fp>(), balance_upper_bound());
-        let bottom = SnarkyInteger::create(total_stake.to_field::<Fp>(), amount_upper_bound());
+        let bottom = SnarkyInteger::create(total_stake.to_field(), amount_upper_bound());
         let precision = PARAMS.per_term_precision;
 
         let point = floating_point::of_quotient(precision, top, bottom, w);

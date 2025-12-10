@@ -19,6 +19,7 @@ use crate::{
         numbers::{
             currency::{CheckedAmount, CheckedBalance, CheckedCurrency, CheckedSigned},
             nat::{CheckedIndex, CheckedNat, CheckedSlot},
+            SignedToCheckedExt, ToCheckedExt,
         },
         to_field_elements::ToFieldElements,
         transaction::{

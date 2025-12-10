@@ -127,12 +127,19 @@ where
     fn sub_flagged(&self, rhs: &Self) -> (Self, bool) {
         (self.wrapping_sub(rhs), self < rhs)
     }
+}
 
+/// Extension trait for converting magnitude types to/from field elements.
+///
+/// This trait is separate from [`Magnitude`] because the field witness
+/// type varies between crates. The ledger crate implements this trait
+/// for its own types using its local `FieldWitness` type.
+pub trait MagnitudeFieldExt<F> {
     /// Convert to a field element.
-    fn to_field<F: FieldWitness>(&self) -> F;
+    fn to_field(&self) -> F;
 
     /// Create from a field element.
-    fn of_field<F: FieldWitness>(field: F) -> Self;
+    fn of_field(field: F) -> Self;
 }
 
 /// Trait for types with minimum and maximum values.
@@ -310,10 +317,10 @@ impl Signed<Amount> {
 /// - Utility methods (`scale`, `of_mina_string_exn`)
 macro_rules! impl_number {
     (32: { $($name32:ident,)* }, 64: { $($name64:ident,)* },) => {
-        $(impl_number!({$name32, u32, as_u32, from_u32},);)*
-        $(impl_number!({$name64, u64, as_u64, from_u64},);)*
+        $(impl_number!({$name32, u32, as_u32, from_u32, next_u32},);)*
+        $(impl_number!({$name64, u64, as_u64, from_u64, next_u64},);)*
     };
-    ($({ $name:ident, $inner:ty, $as_name:ident, $from_name:ident },)*) => ($(
+    ($({ $name:ident, $inner:ty, $as_name:ident, $from_name:ident, $next_name:ident },)*) => ($(
         #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default,
                  Deserialize, Serialize)]
         pub struct $name(pub $inner);
@@ -370,13 +377,15 @@ macro_rules! impl_number {
             fn abs_diff(&self, rhs: &Self) -> Self {
                 Self(self.0.abs_diff(rhs.0))
             }
+        }
 
-            fn to_field<F: FieldWitness>(&self) -> F {
+        impl<F: FieldWitness> MagnitudeFieldExt<F> for $name {
+            fn to_field(&self) -> F {
                 let int = self.0 as u64;
                 F::from(int)
             }
 
-            fn of_field<F: FieldWitness>(field: F) -> Self {
+            fn of_field(field: F) -> Self {
                 let amount: BigInteger256 = field.into();
                 let amount: $inner = amount.0[0].try_into().unwrap();
                 Self::$from_name(amount)
@@ -390,7 +399,7 @@ macro_rules! impl_number {
 
         impl<F: FieldWitness> ToFieldElements<F> for $name {
             fn to_field_elements(&self, fields: &mut Vec<F>) {
-                fields.push(self.to_field());
+                fields.push(<Self as MagnitudeFieldExt<F>>::to_field(self));
             }
         }
 
@@ -400,7 +409,13 @@ macro_rules! impl_number {
                 // the transaction module. For now, we just add the field element
                 // to the witness without range checking.
                 // TODO: Implement proper range checking when snarky-rs is available.
-                let _ = w.exists_no_check(self.to_field::<F>());
+                let _ = w.exists_no_check(<Self as MagnitudeFieldExt<F>>::to_field(self));
+            }
+        }
+
+        impl rand::distributions::Distribution<$name> for rand::distributions::Standard {
+            fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> $name {
+                $name(rng.$next_name())
             }
         }
 
@@ -434,6 +449,20 @@ macro_rules! impl_number {
             /// Returns the maximum value.
             pub fn max() -> Self {
                 <Self as MinMax>::max()
+            }
+
+            /// Converts the value to a fixed-size bit array (little-endian).
+            ///
+            /// Returns an array of booleans representing each bit, with the
+            /// least significant bit first.
+            pub fn to_bits(&self) -> [bool; <$inner>::BITS as usize] {
+                let mut bits = [false; <$inner>::BITS as usize];
+                let mut value = self.0;
+                for bit in bits.iter_mut() {
+                    *bit = (value & 1) != 0;
+                    value >>= 1;
+                }
+                bits
             }
 
             /// Parses a MINA amount from a string.

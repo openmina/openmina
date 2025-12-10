@@ -10,7 +10,9 @@ use mina_curves::pasta::{Fp, Fq};
 use mina_p2p_messages::{bigint::InvalidBigInt, v2};
 
 use crate::{
-    proofs::transaction::transaction_snark::assert_equal_local_state,
+    proofs::{
+        numbers::SignedToCheckedExt, transaction::transaction_snark::assert_equal_local_state,
+    },
     scan_state::{
         fee_excess::FeeExcess,
         pending_coinbase,
@@ -61,8 +63,8 @@ fn merge_main(
     );
 
     let _supply_increase = {
-        let s1 = s1.supply_increase.to_checked::<Fp>();
-        let s2 = s2.supply_increase.to_checked::<Fp>();
+        let s1 = s1.supply_increase.to_checked();
+        let s2 = s2.supply_increase.to_checked();
         s1.add(&s2, w)
     };
 
@@ -82,12 +84,12 @@ fn merge_main(
             fee_excess_r,
             ..
         } = statement.fee_excess;
-        fee_excess_l.to_checked::<Fp>().value(w);
-        fee_excess_r.to_checked::<Fp>().value(w);
+        fee_excess_l.to_checked().value(w);
+        fee_excess_r.to_checked().value(w);
 
         // Only `Statement.supply_increase`, not `supply_increase`
         let supply_increase = statement.supply_increase;
-        supply_increase.to_checked::<Fp>().value(w);
+        supply_increase.to_checked().value(w);
     }
 
     Ok((s1, s2))

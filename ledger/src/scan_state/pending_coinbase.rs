@@ -40,6 +40,7 @@ use crate::{
         numbers::{
             currency::{CheckedAmount, CheckedCurrency},
             nat::{CheckedNat, CheckedSlot},
+            ToCheckedExt,
         },
         transaction::transaction_snark::checked_hash,
         witness::Witness,
@@ -754,8 +755,8 @@ impl PendingCoinbase {
                 let superchaged_coinbase = coinbase_amount
                     .scale(constraint_constants().supercharged_coinbase_factor)
                     .unwrap()
-                    .to_checked::<Fp>();
-                let coinbase_amount = coinbase_amount.to_checked::<Fp>();
+                    .to_checked();
+                let coinbase_amount = coinbase_amount.to_checked();
 
                 match supercharge_coinbase {
                     Boolean::True => superchaged_coinbase,

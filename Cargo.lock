@@ -5377,6 +5377,7 @@ dependencies = [
  "mina-poseidon",
  "mina-signer",
  "poseidon",
+ "rand",
  "serde",
 ]
 

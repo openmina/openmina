@@ -1,6 +1,8 @@
 use crate::{
     proofs::field::CircuitVar,
-    scan_state::currency::{self, Amount, Balance, Fee, Magnitude, MinMax, Sgn, Signed},
+    scan_state::currency::{
+        self, Amount, AmountFeeFieldExt, Balance, Fee, Magnitude, MinMax, Sgn, SgnExt, Signed,
+    },
 };
 use std::{cell::Cell, cmp::Ordering::Less};
 
@@ -261,16 +263,24 @@ pub trait CheckedCurrency<F: FieldWitness>:
     fn to_field(&self) -> F;
     fn from_field(field: F) -> Self;
 
+    /// Convert the inner type to a field element.
+    /// This is needed because Amount and Fee are now from mina-tx-type
+    /// and we can't add MagnitudeFieldExt<F> bounds due to different FieldWitness traits.
+    fn inner_to_field(inner: &Self::Inner) -> F;
+
+    /// Convert from a field element to the inner type.
+    fn inner_of_field(field: F) -> Self::Inner;
+
     fn zero() -> Self {
         Self::from_field(F::zero())
     }
 
     fn to_inner(&self) -> Self::Inner {
-        Self::Inner::of_field(self.to_field())
+        Self::inner_of_field(self.to_field())
     }
 
     fn from_inner(inner: Self::Inner) -> Self {
-        Self::from_field(inner.to_field())
+        Self::from_field(Self::inner_to_field(&inner))
     }
 
     fn min() -> Self {
@@ -480,25 +490,81 @@ impl<F: FieldWitness> CheckedSigned<F, CheckedAmount<F>> {
     }
 }
 
-macro_rules! impl_currency {
-    ($({$name:tt, $unchecked:tt}),*) => ($(
-        impl<F: FieldWitness> CheckedCurrency<F> for $name::<F> {
-            type Inner = $unchecked;
-            fn to_field(&self) -> F {
-                self.0
-            }
-            fn from_field(field: F) -> Self {
-                Self(field)
-            }
-        }
+/// Extension trait for converting currency types to their checked variants.
+///
+/// This trait is needed because `Amount` and `Fee` are now defined in `mina-tx-type`,
+/// so we can't add inherent methods to them from the ledger crate.
+pub trait ToCheckedExt<F: FieldWitness> {
+    type Checked: CheckedCurrency<F>;
+    fn to_checked(&self) -> Self::Checked;
+}
 
-        impl<F: FieldWitness> ToFieldElements<F> for $name::<F> {
+impl<F: FieldWitness> ToCheckedExt<F> for Amount {
+    type Checked = CheckedAmount<F>;
+    fn to_checked(&self) -> Self::Checked {
+        CheckedAmount::from_inner(*self)
+    }
+}
+
+impl<F: FieldWitness> ToCheckedExt<F> for Fee {
+    type Checked = CheckedFee<F>;
+    fn to_checked(&self) -> Self::Checked {
+        CheckedFee::from_inner(*self)
+    }
+}
+
+impl<F: FieldWitness> ToCheckedExt<F> for Balance {
+    type Checked = CheckedBalance<F>;
+    fn to_checked(&self) -> Self::Checked {
+        CheckedBalance::from_inner(*self)
+    }
+}
+
+/// Extension trait for converting signed currency types to their checked variants.
+pub trait SignedToCheckedExt<F: FieldWitness, T: CheckedCurrency<F>> {
+    fn to_checked(&self) -> CheckedSigned<F, T>;
+}
+
+impl<F: FieldWitness> SignedToCheckedExt<F, CheckedAmount<F>> for Signed<Amount> {
+    fn to_checked(&self) -> CheckedSigned<F, CheckedAmount<F>> {
+        CheckedSigned {
+            magnitude: <Amount as ToCheckedExt<F>>::to_checked(&self.magnitude),
+            sgn: CircuitVar::Var(self.sgn),
+            value: Cell::new(None),
+        }
+    }
+}
+
+impl<F: FieldWitness> SignedToCheckedExt<F, CheckedFee<F>> for Signed<Fee> {
+    fn to_checked(&self) -> CheckedSigned<F, CheckedFee<F>> {
+        CheckedSigned {
+            magnitude: <Fee as ToCheckedExt<F>>::to_checked(&self.magnitude),
+            sgn: CircuitVar::Var(self.sgn),
+            value: Cell::new(None),
+        }
+    }
+}
+
+impl<F: FieldWitness> SignedToCheckedExt<F, CheckedBalance<F>> for Signed<Balance> {
+    fn to_checked(&self) -> CheckedSigned<F, CheckedBalance<F>> {
+        CheckedSigned {
+            magnitude: <Balance as ToCheckedExt<F>>::to_checked(&self.magnitude),
+            sgn: CircuitVar::Var(self.sgn),
+            value: Cell::new(None),
+        }
+    }
+}
+
+/// Macro for shared implementations of CheckedCurrency types.
+macro_rules! impl_currency_common {
+    ($name:tt, $unchecked:tt) => {
+        impl<F: FieldWitness> ToFieldElements<F> for $name<F> {
             fn to_field_elements(&self, fields: &mut Vec<F>) {
                 self.0.to_field_elements(fields)
             }
         }
 
-        impl<F: FieldWitness> Check<F> for $name::<F> {
+        impl<F: FieldWitness> Check<F> for $name<F> {
             fn check(&self, w: &mut Witness<F>) {
                 range_check::<F, { CURRENCY_NBITS }>(self.0, w);
             }
@@ -509,37 +575,104 @@ macro_rules! impl_currency {
                 self.to_inner().to_inputs(inputs)
             }
         }
-
-        impl $unchecked {
-            pub fn to_checked<F: FieldWitness>(&self) -> $name<F> {
-                $name::from_inner(*self)
-            }
-        }
-
-        impl Signed<$unchecked> {
-            pub fn to_checked<F: FieldWitness>(&self) -> CheckedSigned<F, $name<F>> {
-                CheckedSigned {
-                    magnitude: self.magnitude.to_checked(),
-                    sgn: CircuitVar::Var(self.sgn),
-                    value: Cell::new(None),
-                }
-            }
-        }
-
-        impl<F: FieldWitness> ForZkappCheck<F> for $unchecked {
-            type CheckedType = $name<F>;
-            fn checked_from_field(field: F) -> Self::CheckedType {
-                Self::CheckedType::from_field(field)
-            }
-            fn lte(this: &Self::CheckedType, other: &Self::CheckedType, w: &mut Witness<F>) -> Boolean {
-                Self::CheckedType::lte(this, other, w)
-            }
-        }
-    )*)
+    };
 }
 
-impl_currency!(
-    {CheckedAmount, Amount},
-    {CheckedFee, Fee},
-    {CheckedBalance, Balance}
-);
+// Implement CheckedCurrency for Amount (uses AmountFeeFieldExt)
+impl<F: FieldWitness> CheckedCurrency<F> for CheckedAmount<F> {
+    type Inner = Amount;
+    fn to_field(&self) -> F {
+        self.0
+    }
+    fn from_field(field: F) -> Self {
+        Self(field)
+    }
+    fn inner_to_field(inner: &Self::Inner) -> F {
+        <Amount as AmountFeeFieldExt<F>>::to_field(inner)
+    }
+    fn inner_of_field(field: F) -> Self::Inner {
+        <Amount as AmountFeeFieldExt<F>>::of_field(field)
+    }
+}
+
+impl<F: FieldWitness> ForZkappCheck<F> for Amount {
+    type CheckedType = CheckedAmount<F>;
+    fn zkapp_to_field(&self) -> F {
+        <Amount as AmountFeeFieldExt<F>>::to_field(self)
+    }
+    fn checked_from_field(field: F) -> Self::CheckedType {
+        Self::CheckedType::from_field(field)
+    }
+    fn lte(this: &Self::CheckedType, other: &Self::CheckedType, w: &mut Witness<F>) -> Boolean {
+        Self::CheckedType::lte(this, other, w)
+    }
+}
+
+impl_currency_common!(CheckedAmount, Amount);
+
+// Implement CheckedCurrency for Fee (uses AmountFeeFieldExt)
+impl<F: FieldWitness> CheckedCurrency<F> for CheckedFee<F> {
+    type Inner = Fee;
+    fn to_field(&self) -> F {
+        self.0
+    }
+    fn from_field(field: F) -> Self {
+        Self(field)
+    }
+    fn inner_to_field(inner: &Self::Inner) -> F {
+        <Fee as AmountFeeFieldExt<F>>::to_field(inner)
+    }
+    fn inner_of_field(field: F) -> Self::Inner {
+        <Fee as AmountFeeFieldExt<F>>::of_field(field)
+    }
+}
+
+impl<F: FieldWitness> ForZkappCheck<F> for Fee {
+    type CheckedType = CheckedFee<F>;
+    fn zkapp_to_field(&self) -> F {
+        <Fee as AmountFeeFieldExt<F>>::to_field(self)
+    }
+    fn checked_from_field(field: F) -> Self::CheckedType {
+        Self::CheckedType::from_field(field)
+    }
+    fn lte(this: &Self::CheckedType, other: &Self::CheckedType, w: &mut Witness<F>) -> Boolean {
+        Self::CheckedType::lte(this, other, w)
+    }
+}
+
+impl_currency_common!(CheckedFee, Fee);
+
+// Implement CheckedCurrency for Balance (uses inherent to_field method)
+impl<F: FieldWitness> CheckedCurrency<F> for CheckedBalance<F> {
+    type Inner = Balance;
+    fn to_field(&self) -> F {
+        self.0
+    }
+    fn from_field(field: F) -> Self {
+        Self(field)
+    }
+    fn inner_to_field(inner: &Self::Inner) -> F {
+        Balance::to_field::<F>(inner)
+    }
+    fn inner_of_field(field: F) -> Self::Inner {
+        use ark_ff::BigInteger256;
+        let amount: BigInteger256 = field.into();
+        let amount: u64 = amount.0[0];
+        Balance::from_u64(amount)
+    }
+}
+
+impl<F: FieldWitness> ForZkappCheck<F> for Balance {
+    type CheckedType = CheckedBalance<F>;
+    fn zkapp_to_field(&self) -> F {
+        Balance::to_field::<F>(self)
+    }
+    fn checked_from_field(field: F) -> Self::CheckedType {
+        Self::CheckedType::from_field(field)
+    }
+    fn lte(this: &Self::CheckedType, other: &Self::CheckedType, w: &mut Witness<F>) -> Boolean {
+        Self::CheckedType::lte(this, other, w)
+    }
+}
+
+impl_currency_common!(CheckedBalance, Balance);
