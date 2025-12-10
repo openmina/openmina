@@ -10,8 +10,9 @@ use crate::{
 pub trait ForZkappCheck<F: FieldWitness>: Magnitude {
     type CheckedType;
 
+    fn zkapp_to_field(&self) -> F;
     fn to_checked(&self) -> Self::CheckedType {
-        Self::checked_from_field(self.to_field::<F>())
+        Self::checked_from_field(self.zkapp_to_field())
     }
     fn checked_from_field(field: F) -> Self::CheckedType;
     fn lte(this: &Self::CheckedType, other: &Self::CheckedType, w: &mut Witness<F>) -> Boolean;

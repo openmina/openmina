@@ -25,6 +25,12 @@ pub trait CheckedNat<F: FieldWitness, const NBITS: usize>:
     fn to_field(&self) -> F;
     fn from_field(field: F) -> Self;
 
+    /// Convert the inner type to a field element.
+    fn inner_to_field(inner: &Self::Inner) -> F;
+
+    /// Convert from a field element to the inner type.
+    fn inner_of_field(field: F) -> Self::Inner;
+
     fn zero() -> Self {
         Self::from_field(F::zero())
     }
@@ -34,11 +40,11 @@ pub trait CheckedNat<F: FieldWitness, const NBITS: usize>:
     }
 
     fn to_inner(&self) -> Self::Inner {
-        Self::Inner::of_field(self.to_field())
+        Self::inner_of_field(self.to_field())
     }
 
     fn from_inner(inner: Self::Inner) -> Self {
-        Self::from_field(inner.to_field())
+        Self::from_field(Self::inner_to_field(&inner))
     }
 
     /// >=
@@ -225,7 +231,8 @@ impl<F: FieldWitness> CheckedLength<F> {
     }
 }
 
-macro_rules! impl_nat {
+/// Macro for 32-bit nat types
+macro_rules! impl_nat_32 {
     ($({$name:tt, $unchecked:tt}),*) => ($(
 
         #[derive(Copy, Clone, Debug)]
@@ -238,6 +245,15 @@ macro_rules! impl_nat {
             }
             fn from_field(field: F) -> Self {
                 Self(field)
+            }
+            fn inner_to_field(inner: &Self::Inner) -> F {
+                $unchecked::to_field::<F>(inner)
+            }
+            fn inner_of_field(field: F) -> Self::Inner {
+                use ark_ff::BigInteger256;
+                let bigint: BigInteger256 = field.into();
+                let value: u32 = bigint.0[0] as u32;
+                $unchecked::from_u32(value)
             }
         }
 
@@ -268,6 +284,9 @@ macro_rules! impl_nat {
 
         impl<F: FieldWitness> ForZkappCheck<F> for $unchecked {
             type CheckedType = $name<F>;
+            fn zkapp_to_field(&self) -> F {
+                $unchecked::to_field::<F>(self)
+            }
             fn checked_from_field(field: F) -> Self::CheckedType {
                 Self::CheckedType::from_field(field)
             }
@@ -278,13 +297,82 @@ macro_rules! impl_nat {
     )*)
 }
 
-impl_nat!(
+/// Macro for 64-bit nat types
+macro_rules! impl_nat_64 {
+    ($({$name:tt, $unchecked:tt}),*) => ($(
+
+        #[derive(Copy, Clone, Debug)]
+        pub struct $name<F: FieldWitness>(F);
+
+        impl<F: FieldWitness> CheckedNat<F, 64> for $name::<F> {
+            type Inner = $unchecked;
+            fn to_field(&self) -> F {
+                self.0
+            }
+            fn from_field(field: F) -> Self {
+                Self(field)
+            }
+            fn inner_to_field(inner: &Self::Inner) -> F {
+                $unchecked::to_field::<F>(inner)
+            }
+            fn inner_of_field(field: F) -> Self::Inner {
+                use ark_ff::BigInteger256;
+                let bigint: BigInteger256 = field.into();
+                let value: u64 = bigint.0[0];
+                $unchecked::from_u64(value)
+            }
+        }
+
+        impl<F: FieldWitness> ToFieldElements<F> for $name::<F> {
+            fn to_field_elements(&self, fields: &mut Vec<F>) {
+                let Self(this) = self;
+                this.to_field_elements(fields)
+            }
+        }
+
+        impl<F: FieldWitness> Check<F> for $name::<F> {
+            fn check(&self, w: &mut Witness<F>) {
+                range_check::<F, { 64 }>(self.0, w);
+            }
+        }
+
+        impl<F: FieldWitness> ToInputs for $name<F> {
+            fn to_inputs(&self, inputs: &mut ::poseidon::hash::Inputs) {
+                self.to_inner().to_inputs(inputs)
+            }
+        }
+
+        impl $unchecked {
+            pub fn to_checked<F: FieldWitness>(&self) -> $name<F> {
+                $name::from_inner(*self)
+            }
+        }
+
+        impl<F: FieldWitness> ForZkappCheck<F> for $unchecked {
+            type CheckedType = $name<F>;
+            fn zkapp_to_field(&self) -> F {
+                $unchecked::to_field::<F>(self)
+            }
+            fn checked_from_field(field: F) -> Self::CheckedType {
+                Self::CheckedType::from_field(field)
+            }
+            fn lte(this: &Self::CheckedType, other: &Self::CheckedType, w: &mut Witness<F>) -> Boolean {
+                Self::CheckedType::lte(this, other, w)
+            }
+        }
+    )*)
+}
+
+impl_nat_32!(
     {CheckedTxnVersion, TxnVersion},
     {CheckedSlot, Slot},
     {CheckedSlotSpan, SlotSpan},
     {CheckedLength, Length},
     {CheckedNonce, Nonce},
-    {CheckedIndex, Index},
+    {CheckedIndex, Index}
+);
+
+impl_nat_64!(
     {CheckedBlockTime, BlockTime},
     {CheckedBlockTimeSpan, BlockTimeSpan}
 );
@@ -300,6 +388,15 @@ impl<F: FieldWitness> CheckedNat<F, 64> for CheckedN<F> {
     }
     fn from_field(field: F) -> Self {
         Self(field)
+    }
+    fn inner_to_field(inner: &Self::Inner) -> F {
+        crate::scan_state::currency::N::to_field::<F>(inner)
+    }
+    fn inner_of_field(field: F) -> Self::Inner {
+        use ark_ff::BigInteger256;
+        let bigint: BigInteger256 = field.into();
+        let value: u64 = bigint.0[0];
+        crate::scan_state::currency::N::from_u64(value)
     }
 }
 
@@ -327,6 +424,15 @@ impl<F: FieldWitness> CheckedNat<F, 32> for CheckedN32<F> {
     }
     fn from_field(field: F) -> Self {
         Self(field)
+    }
+    fn inner_to_field(inner: &Self::Inner) -> F {
+        crate::scan_state::currency::N::to_field::<F>(inner)
+    }
+    fn inner_of_field(field: F) -> Self::Inner {
+        use ark_ff::BigInteger256;
+        let bigint: BigInteger256 = field.into();
+        let value: u64 = bigint.0[0];
+        crate::scan_state::currency::N::from_u64(value)
     }
 }
 

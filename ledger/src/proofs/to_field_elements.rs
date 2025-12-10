@@ -1,3 +1,34 @@
+//! Field element conversion trait for proof inputs.
+//!
+//! # Refactoring Notes (mina-tx-type extraction)
+//!
+//! The `ToFieldElements` trait and many of its generic implementations have been
+//! duplicated in the `mina-tx-type` crate. The goal is to eventually replace this
+//! trait definition with an import from `mina-tx-type`.
+//!
+//! However, this replacement is currently blocked by Rust's orphan rules. To
+//! complete the migration, the following steps need to be done first:
+//!
+//! 1. **Replace local type definitions with imports from mina-tx-type:**
+//!    - `FieldWitness` trait and impls
+//!    - `CircuitVar<T>` enum
+//!    - `Boolean` enum
+//!    - `GroupAffine<F>` type alias
+//!    These are defined in `proofs/field.rs` and need to be imported from
+//!    `mina_tx_type::proofs::field` instead.
+//!
+//! 2. **Move remaining implementations to mina-tx-type:**
+//!    Once the types are shared, the following implementations can be moved:
+//!    - `impl ToFieldElements for OpeningProof<Vesta>` (requires poly-commitment dep)
+//!    - `impl ToFieldElements for ProverCommitments<Vesta>` (requires kimchi dep)
+//!    - Various tuple implementations like `(&SetOrKeep<T>, F)`
+//!
+//! 3. **Replace trait import:**
+//!    Finally, replace `pub trait ToFieldElements` with:
+//!    `pub use mina_tx_type::ToFieldElements;`
+//!
+//! See: mina-tx-type/src/proofs/to_field_elements.rs for the equivalent trait
+
 use std::borrow::Cow;
 
 use crate::{
@@ -18,7 +49,7 @@ use crate::{
         util::two_u64_to_field,
     },
     scan_state::{
-        currency::{self, Sgn},
+        currency::{self, Sgn, SgnExt},
         fee_excess::FeeExcess,
         pending_coinbase,
         scan_state::transaction_snark::{Registers, SokDigest, Statement},
@@ -45,6 +76,13 @@ pub trait ToFieldElementsDebug: ToFieldElements<Fp> + std::fmt::Debug {}
 
 impl<T: ToFieldElements<Fp> + std::fmt::Debug> ToFieldElementsDebug for T {}
 
+/// Trait for converting values to field elements.
+///
+/// This trait is used to serialize data structures into vectors of field
+/// elements, which are the inputs to Mina's zero-knowledge proof circuits.
+///
+/// **Note:** This trait is duplicated in `mina_tx_type::ToFieldElements`.
+/// See module-level docs for the migration plan.
 pub trait ToFieldElements<F: Field> {
     fn to_field_elements(&self, fields: &mut Vec<F>);
 

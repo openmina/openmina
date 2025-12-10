@@ -8,7 +8,7 @@ use super::{
 use crate::{
     proofs::{
         field::{field, Boolean, ToBoolean},
-        numbers::nat::CheckedNat,
+        numbers::{nat::CheckedNat, SignedToCheckedExt},
         to_field_elements::ToFieldElements,
         witness::Witness,
     },
@@ -532,16 +532,14 @@ impl LocalState {
                 other.full_transaction_commitment,
                 w,
             ),
-            excess
-                .to_checked::<Fp>()
-                .equal(&other.excess.to_checked(), w),
+            excess.to_checked().equal(&other.excess.to_checked(), w),
             supply_increase
-                .to_checked::<Fp>()
+                .to_checked()
                 .equal(&other.supply_increase.to_checked(), w),
             field::equal(*ledger, other.ledger, w),
             success.to_boolean().equal(&other.success.to_boolean(), w),
             account_update_index
-                .to_checked::<Fp>()
+                .to_checked()
                 .equal(&other.account_update_index.to_checked(), w),
             Boolean::True,
             will_succeed

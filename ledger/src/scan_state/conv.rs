@@ -13,9 +13,8 @@ use mina_p2p_messages::{
         self, BlockTimeTimeStableV1,
         ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
         ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
-        CurrencyAmountStableV1, CurrencyBalanceStableV1, CurrencyFeeStableV1,
-        DataHashLibStateHashStableV1, EpochSeed, LedgerProofProdStableV2,
-        MinaBaseAccountIdDigestStableV1, MinaBaseAccountIdStableV2,
+        CurrencyAmountStableV1, CurrencyBalanceStableV1, DataHashLibStateHashStableV1, EpochSeed,
+        LedgerProofProdStableV2, MinaBaseAccountIdDigestStableV1, MinaBaseAccountIdStableV2,
         MinaBaseAccountUpdateBodyEventsStableV1, MinaBaseAccountUpdateBodyFeePayerStableV1,
         MinaBaseAccountUpdateBodyStableV1, MinaBaseAccountUpdateFeePayerStableV1,
         MinaBaseAccountUpdateMayUseTokenStableV1, MinaBaseAccountUpdatePreconditionsStableV1,
@@ -56,8 +55,7 @@ use mina_p2p_messages::{
         MinaNumbersGlobalSlotSpanStableV1,
         MinaStateBlockchainStateValueStableV2LedgerProofStatement,
         MinaStateBlockchainStateValueStableV2LedgerProofStatementSource,
-        MinaStateBlockchainStateValueStableV2SignedAmount, MinaStateSnarkedLedgerStateStableV2,
-        MinaStateSnarkedLedgerStateWithSokStableV2,
+        MinaStateSnarkedLedgerStateStableV2, MinaStateSnarkedLedgerStateWithSokStableV2,
         MinaTransactionLogicTransactionAppliedCoinbaseAppliedStableV2,
         MinaTransactionLogicTransactionAppliedCoinbaseAppliedStableV2Coinbase,
         MinaTransactionLogicTransactionAppliedCommandAppliedStableV2,
@@ -73,7 +71,7 @@ use mina_p2p_messages::{
         MinaTransactionLogicTransactionAppliedZkappCommandAppliedStableV1Command,
         MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1,
         MinaTransactionTransactionStableV2, ParallelScanJobStatusStableV1,
-        ParallelScanSequenceNumberStableV1, ParallelScanWeightStableV1, SgnStableV1, SignedAmount,
+        ParallelScanSequenceNumberStableV1, ParallelScanWeightStableV1, SignedAmount,
         StagedLedgerDiffDiffDiffStableV2, StagedLedgerDiffDiffFtStableV1,
         StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2,
         StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase,
@@ -116,7 +114,7 @@ use crate::{
 };
 
 use super::{
-    currency::{Amount, Balance, Fee, Index, Length, Nonce, Sgn, Signed, Slot, SlotSpan},
+    currency::{Amount, Balance, Fee, Index, Length, Nonce, Signed, Slot, SlotSpan},
     fee_excess::FeeExcess,
     parallel_scan::{self, JobStatus, ParallelScan, SequenceNumber},
     pending_coinbase::{self, PendingCoinbase},
@@ -142,11 +140,7 @@ use super::{
     },
 };
 
-impl From<CurrencyAmountStableV1> for Amount {
-    fn from(value: CurrencyAmountStableV1) -> Self {
-        Self(value.as_u64())
-    }
-}
+// Note: From<CurrencyAmountStableV1> for Amount is now in mina-tx-type
 
 impl From<CurrencyAmountStableV1> for Balance {
     fn from(value: CurrencyAmountStableV1) -> Self {
@@ -154,13 +148,7 @@ impl From<CurrencyAmountStableV1> for Balance {
     }
 }
 
-impl From<Amount> for CurrencyAmountStableV1 {
-    fn from(value: Amount) -> Self {
-        Self(UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
-            value.as_u64().into(),
-        ))
-    }
-}
+// Note: From<Amount> for CurrencyAmountStableV1 is now in mina-tx-type
 
 impl From<&Balance> for CurrencyBalanceStableV1 {
     fn from(value: &Balance) -> Self {
@@ -176,51 +164,13 @@ impl From<Balance> for CurrencyAmountStableV1 {
     }
 }
 
-impl From<&SignedAmount> for Signed<Amount> {
-    fn from(value: &SignedAmount) -> Self {
-        Self {
-            magnitude: Amount(value.magnitude.clone().as_u64()),
-            sgn: value.sgn.clone().into(),
-        }
-    }
-}
-
-impl From<&Amount> for CurrencyAmountStableV1 {
-    fn from(value: &Amount) -> Self {
-        CurrencyAmountStableV1(UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
-            value.as_u64().into(),
-        ))
-    }
-}
-
-impl From<&Amount> for CurrencyFeeStableV1 {
-    fn from(value: &Amount) -> Self {
-        CurrencyFeeStableV1(UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
-            value.as_u64().into(),
-        ))
-    }
-}
-
-impl From<&Signed<Amount>> for SignedAmount {
-    fn from(value: &Signed<Amount>) -> Self {
-        Self {
-            magnitude: (&value.magnitude).into(),
-            sgn: (&value.sgn).into(),
-        }
-    }
-}
-
-impl From<&CurrencyFeeStableV1> for Fee {
-    fn from(value: &CurrencyFeeStableV1) -> Self {
-        Self(value.as_u64())
-    }
-}
-
-impl From<&CurrencyAmountStableV1> for Fee {
-    fn from(value: &CurrencyAmountStableV1) -> Self {
-        Self(value.as_u64())
-    }
-}
+// Note: Multiple Amount/Fee/Signed conversions are now in mina-tx-type:
+// - From<&SignedAmount> for Signed<Amount>
+// - From<&Amount> for CurrencyAmountStableV1
+// - From<&Amount> for CurrencyFeeStableV1
+// - From<&Signed<Amount>> for SignedAmount
+// - From<&CurrencyFeeStableV1> for Fee
+// - From<&CurrencyAmountStableV1> for Fee
 
 impl From<&Nonce> for mina_p2p_messages::v2::UnsignedExtendedUInt32StableV1 {
     fn from(value: &Nonce) -> Self {
@@ -258,57 +208,13 @@ impl From<&Length> for mina_p2p_messages::v2::UnsignedExtendedUInt32StableV1 {
     }
 }
 
-impl From<SgnStableV1> for Sgn {
-    fn from(value: SgnStableV1) -> Self {
-        match value {
-            SgnStableV1::Pos => Self::Pos,
-            SgnStableV1::Neg => Self::Neg,
-        }
-    }
-}
-
-impl From<&SignedAmount> for Signed<Fee> {
-    fn from(value: &SignedAmount) -> Self {
-        Self {
-            magnitude: (&value.magnitude).into(),
-            sgn: value.sgn.clone().into(),
-        }
-    }
-}
-
-impl From<&Sgn> for SgnStableV1 {
-    fn from(value: &Sgn) -> Self {
-        match value {
-            Sgn::Pos => Self::Pos,
-            Sgn::Neg => Self::Neg,
-        }
-    }
-}
-
-impl From<&Fee> for CurrencyFeeStableV1 {
-    fn from(value: &Fee) -> Self {
-        Self(UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
-            value.as_u64().into(),
-        ))
-    }
-}
-
-impl From<&Fee> for CurrencyAmountStableV1 {
-    fn from(value: &Fee) -> Self {
-        Self(UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
-            value.as_u64().into(),
-        ))
-    }
-}
-
-impl From<&Signed<Fee>> for SignedAmount {
-    fn from(value: &Signed<Fee>) -> Self {
-        Self {
-            magnitude: (&value.magnitude).into(),
-            sgn: (&value.sgn).into(),
-        }
-    }
-}
+// Note: Sgn and Fee conversions are now in mina-tx-type:
+// - From<SgnStableV1> for Sgn
+// - From<&SignedAmount> for Signed<Fee>
+// - From<&Sgn> for SgnStableV1
+// - From<&Fee> for CurrencyFeeStableV1
+// - From<&Fee> for CurrencyAmountStableV1
+// - From<&Signed<Fee>> for SignedAmount
 
 impl TryFrom<&MinaBaseFeeExcessStableV1> for FeeExcess {
     type Error = InvalidBigInt;
@@ -552,27 +458,9 @@ impl TryFrom<&MinaStateBlockchainStateValueStableV2LedgerProofStatementSource> f
     }
 }
 
-impl From<&MinaStateBlockchainStateValueStableV2SignedAmount> for Signed<Amount> {
-    fn from(value: &MinaStateBlockchainStateValueStableV2SignedAmount) -> Self {
-        let MinaStateBlockchainStateValueStableV2SignedAmount { magnitude, sgn } = value;
-
-        Self {
-            magnitude: (magnitude.clone()).into(),
-            sgn: (sgn.clone()).into(),
-        }
-    }
-}
-
-impl From<&Signed<Amount>> for MinaStateBlockchainStateValueStableV2SignedAmount {
-    fn from(value: &Signed<Amount>) -> Self {
-        let Signed::<Amount> { magnitude, sgn } = value;
-
-        Self {
-            magnitude: (*magnitude).into(),
-            sgn: sgn.into(),
-        }
-    }
-}
+// Note: From<&MinaStateBlockchainStateValueStableV2SignedAmount> for Signed<Amount>
+// and From<&Signed<Amount>> for MinaStateBlockchainStateValueStableV2SignedAmount
+// are now in mina-tx-type
 
 impl TryFrom<&MinaStateBlockchainStateValueStableV2LedgerProofStatement> for Statement<()> {
     type Error = InvalidBigInt;

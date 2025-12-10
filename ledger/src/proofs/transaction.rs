@@ -39,7 +39,7 @@ use crate::{
         wrap::{self, WrapParams},
     },
     scan_state::{
-        currency::{self, Sgn},
+        currency::{self, Amount, Fee, Sgn, Signed},
         fee_excess::FeeExcess,
         pending_coinbase,
         scan_state::transaction_snark::{Registers, SokDigest, SokMessage, Statement},
@@ -52,6 +52,7 @@ use crate::{
 use super::{
     constants::ProofConstants,
     field::{field, Boolean, CircuitVar, FieldWitness, GroupAffine, ToBoolean},
+    numbers::{SignedToCheckedExt, ToCheckedExt},
     public_input::messages::{dummy_ipa_step_sg, MessagesForNextWrapProof},
     step,
     step::{InductiveRule, OptFlag, StepProof},
@@ -3598,11 +3599,11 @@ pub mod transaction_snark {
         t2: &LocalState,
         w: &mut Witness<F>,
     ) {
-        t1.excess.to_checked::<F>().value(w);
-        t2.excess.to_checked::<F>().value(w);
+        t1.excess.to_checked().value(w);
+        t2.excess.to_checked().value(w);
 
-        t1.supply_increase.to_checked::<F>().value(w);
-        t2.supply_increase.to_checked::<F>().value(w);
+        t1.supply_increase.to_checked().value(w);
+        t2.supply_increase.to_checked().value(w);
     }
 
     pub fn main(
@@ -3666,7 +3667,10 @@ pub mod transaction_snark {
         // Checked.all_unit
         {
             let supply_increase = statement_with_sok.supply_increase;
-            w.exists_no_check(supply_increase.to_checked::<Fp>().force_value());
+            w.exists_no_check(
+                <Signed<Amount> as SignedToCheckedExt<Fp, _>>::to_checked(&supply_increase)
+                    .force_value(),
+            );
 
             let FeeExcess {
                 fee_token_l: _,
@@ -3675,8 +3679,12 @@ pub mod transaction_snark {
                 fee_excess_r,
             } = statement_with_sok.fee_excess;
 
-            w.exists_no_check(fee_excess_l.to_checked::<Fp>().force_value());
-            w.exists_no_check(fee_excess_r.to_checked::<Fp>().force_value());
+            w.exists_no_check(
+                <Signed<Fee> as SignedToCheckedExt<Fp, _>>::to_checked(&fee_excess_l).force_value(),
+            );
+            w.exists_no_check(
+                <Signed<Fee> as SignedToCheckedExt<Fp, _>>::to_checked(&fee_excess_r).force_value(),
+            );
         }
 
         Ok(())

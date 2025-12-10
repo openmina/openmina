@@ -1,25 +1,5 @@
-//! Field-related traits and types for proof circuits.
-//!
-//! # Refactoring Notes (mina-tx-type extraction)
-//!
-//! The following types in this module have been duplicated in `mina-tx-type`:
-//! - `FieldWitness` trait
-//! - `GroupAffine<F>` type alias
-//! - `Boolean` enum
-//! - `CircuitVar<T>` enum
-//! - `ShiftedValue<F>` struct (via `ShiftingValue` trait)
-//! - `Shift<F>`, `ShiftFq` types
-//! - `FromFpFq`, `IntoGeneric`, `ToBoolean`, `Params<F>` types
-//!
-//! To complete the migration to `mina-tx-type`:
-//! 1. Replace these local type definitions with imports from `mina_tx_type`
-//! 2. Update all usages throughout the ledger crate
-//! 3. This will then allow replacing `ToFieldElements` trait with import
-//!
-//! See: mina-tx-type/src/proofs/field.rs for the equivalent types
-
 use ark_ec::{short_weierstrass::Projective, AffineRepr, CurveGroup};
-use ark_ff::{BigInteger256, FftField, Field, PrimeField};
+use ark_ff::{BigInteger256, FftField, Field, One, PrimeField};
 use kimchi::curve::KimchiCurve;
 use mina_curves::pasta::{
     fields::fft::FpParameters as _, Fp, Fq, PallasParameters, ProjectivePallas, ProjectiveVesta,
@@ -29,25 +9,17 @@ use mina_poseidon::{constants::PlonkSpongeConstantsKimchi, sponge::DefaultFqSpon
 
 use poseidon::SpongeParamsForField;
 
-use crate::proofs;
-
 use super::{
-    public_input::plonk_checks::{self, ShiftedValue},
     to_field_elements::ToFieldElements,
-    transaction::Check,
-    witness::Witness,
-    BACKEND_TICK_ROUNDS_N, BACKEND_TOCK_ROUNDS_N,
+    witness::{Check, Witness},
 };
 
-/// Type alias for affine curve points parameterized by field witness.
-///
-/// **Note:** This type is duplicated in `mina_tx_type::GroupAffine`.
+pub const BACKEND_TICK_ROUNDS_N: usize = 16;
+pub const BACKEND_TOCK_ROUNDS_N: usize = 17;
+
 pub type GroupAffine<F> = ark_ec::short_weierstrass::Affine<<F as FieldWitness>::Parameters>;
 
-/// All the generics we need during witness generation.
-///
-/// **Note:** This trait is duplicated in `mina_tx_type::FieldWitness`.
-/// See module-level docs for the migration plan.
+/// All the generics we need during witness generation
 pub trait FieldWitness
 where
     Self: Field
@@ -71,32 +43,25 @@ where
     type Affine: AffineRepr<
             Group = Self::Projective,
             BaseField = Self,
-            ScalarField = <Self as proofs::field::FieldWitness>::Scalar,
+            ScalarField = <Self as FieldWitness>::Scalar,
         > + Into<GroupAffine<Self>>
         + KimchiCurve
         + std::fmt::Debug;
     type Projective: CurveGroup<
             Affine = Self::Affine,
             BaseField = Self,
-            ScalarField = <Self as proofs::field::FieldWitness>::Scalar,
+            ScalarField = <Self as FieldWitness>::Scalar,
         > + From<Projective<Self::Parameters>>
         + std::fmt::Debug;
     type Parameters: ark_ec::short_weierstrass::SWCurveConfig<
             BaseField = Self,
-            ScalarField = <Self as proofs::field::FieldWitness>::Scalar,
+            ScalarField = <Self as FieldWitness>::Scalar,
         > + Clone
         + std::fmt::Debug;
-    type Shifting: plonk_checks::ShiftingValue<Self> + Clone + std::fmt::Debug;
-    type OtherCurve: KimchiCurve<
-        ScalarField = Self,
-        BaseField = <Self as proofs::field::FieldWitness>::Scalar,
-    >;
+    type Shifting: ShiftingValue<Self> + Clone + std::fmt::Debug;
+    type OtherCurve: KimchiCurve<ScalarField = Self, BaseField = <Self as FieldWitness>::Scalar>;
     type FqSponge: Clone
-        + mina_poseidon::FqSponge<
-            <Self as proofs::field::FieldWitness>::Scalar,
-            Self::OtherCurve,
-            Self,
-        >;
+        + mina_poseidon::FqSponge<<Self as FieldWitness>::Scalar, Self::OtherCurve, Self>;
 
     const PARAMS: Params<Self>;
     const SIZE: BigInteger256;
@@ -107,6 +72,26 @@ where
 pub struct Params<F> {
     pub a: F,
     pub b: F,
+}
+
+// Implement Check for Fp and Fq
+impl Check<Fp> for Fp {
+    fn check(&self, _w: &mut Witness<Fp>) {
+        // Does not modify the witness
+    }
+}
+
+impl Check<Fq> for Fq {
+    fn check(&self, _w: &mut Witness<Fq>) {
+        // Does not modify the witness
+    }
+}
+
+// Implement Check for arrays
+impl<F: FieldWitness, const N: usize> Check<F> for [F; N] {
+    fn check(&self, _w: &mut Witness<F>) {
+        // Does not modify the witness
+    }
 }
 
 impl FieldWitness for Fp {
@@ -195,8 +180,6 @@ impl<F: FieldWitness> IntoGeneric<F> for Fq {
 
 #[allow(clippy::module_inception)]
 pub mod field {
-    use crate::proofs::transaction::field_to_bits2;
-
     use super::*;
 
     // <https://github.com/o1-labs/snarky/blob/7edf13628872081fd7cad154de257dad8b9ba621/src/base/utils.ml#L99>
@@ -282,31 +265,9 @@ pub mod field {
         boolean
     }
 
-    pub fn compare<F: FieldWitness>(
-        bit_length: u64,
-        a: F,
-        b: F,
-        w: &mut Witness<F>,
-    ) -> (Boolean, Boolean) {
-        let two_to_the = |n: usize| (0..n).fold(F::one(), |acc, _| acc.double());
-
-        let bit_length = bit_length as usize;
-        let alpha_packed = { two_to_the(bit_length) + b - a };
-        let alpha = w.exists(field_to_bits2(alpha_packed, bit_length + 1));
-        let (less_or_equal, prefix) = alpha.split_last().unwrap();
-
-        let less_or_equal = less_or_equal.to_boolean();
-        let prefix = prefix.iter().map(|b| b.to_boolean()).collect::<Vec<_>>();
-
-        let not_all_zeros = Boolean::any(&prefix, w);
-        let less = less_or_equal.and(&not_all_zeros, w);
-
-        (less, less_or_equal)
-    }
-
-    pub fn assert_lt<F: FieldWitness>(bit_length: u64, x: F, y: F, w: &mut Witness<F>) {
-        compare(bit_length, x, y, w);
-    }
+    // Note: compare and assert_lt functions are not included here as they
+    // depend on field_to_bits2 from the transaction module. They remain
+    // in the ledger crate.
 }
 
 pub trait ToBoolean {
@@ -711,5 +672,129 @@ impl CircuitVar<Boolean> {
             }
         });
         Boolean::assert_non_zero::<F>(F::from(num_true), w)
+    }
+}
+
+// ShiftingValue trait and related types
+
+pub trait ShiftingValue<F: Field> {
+    type MyShift;
+    fn shift() -> Self::MyShift;
+    fn of_field(field: F) -> Self;
+    fn shifted_to_field(&self) -> F;
+    fn shifted_raw(&self) -> F;
+    fn of_raw(shifted: F) -> Self;
+}
+
+#[derive(Clone, Debug)]
+pub struct Shift<F: Field> {
+    pub c: F,
+    pub scale: F,
+}
+
+impl<F> Shift<F>
+where
+    F: Field + From<i32>,
+{
+    /// <https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles_types/shifted_value.ml#L121>
+    pub fn create() -> Self {
+        let c = (0..255).fold(F::one(), |accum, _| accum + accum) + F::one();
+
+        let scale: F = 2.into();
+        let scale = scale.inverse().unwrap();
+
+        Self { c, scale } // TODO: This can be a constant
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct ShiftedValue<F: Field> {
+    pub shifted: F,
+}
+
+impl<F: FieldWitness, F2: FieldWitness + ToFieldElements<F>> ToFieldElements<F>
+    for ShiftedValue<F2>
+{
+    fn to_field_elements(&self, fields: &mut Vec<F>) {
+        let Self { shifted } = self;
+        shifted.to_field_elements(fields);
+    }
+}
+
+impl<F> ShiftedValue<F>
+where
+    F: Field,
+{
+    /// Creates without shifting
+    pub fn new(field: F) -> Self {
+        Self { shifted: field }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct ShiftFq {
+    pub shift: Fq,
+}
+
+impl ShiftingValue<Fp> for ShiftedValue<Fp> {
+    type MyShift = Shift<Fp>;
+
+    fn shift() -> Self::MyShift {
+        let c = (0..255).fold(Fp::one(), |accum, _| accum + accum) + Fp::one();
+
+        let scale: Fp = 2.into();
+        let scale = scale.inverse().unwrap();
+
+        Shift { c, scale }
+    }
+
+    fn of_field(field: Fp) -> Self {
+        let shift = Self::shift();
+        Self {
+            shifted: (field - shift.c) * shift.scale,
+        }
+    }
+
+    fn shifted_to_field(&self) -> Fp {
+        let shift = Self::shift();
+        self.shifted + self.shifted + shift.c
+    }
+
+    fn shifted_raw(&self) -> Fp {
+        self.shifted
+    }
+
+    fn of_raw(shifted: Fp) -> Self {
+        Self { shifted }
+    }
+}
+
+impl ShiftingValue<Fq> for ShiftedValue<Fq> {
+    type MyShift = ShiftFq;
+
+    fn shift() -> Self::MyShift {
+        ShiftFq {
+            shift: (0..255).fold(Fq::one(), |accum, _| accum + accum),
+        }
+    }
+
+    fn of_field(field: Fq) -> Self {
+        let shift = Self::shift();
+        Self {
+            shifted: field - shift.shift,
+        }
+    }
+
+    fn shifted_to_field(&self) -> Fq {
+        let shift = Self::shift();
+        self.shifted + shift.shift
+    }
+
+    fn shifted_raw(&self) -> Fq {
+        self.shifted
+    }
+
+    fn of_raw(shifted: Fq) -> Self {
+        Self { shifted }
     }
 }

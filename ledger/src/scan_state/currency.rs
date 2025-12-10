@@ -1,5 +1,3 @@
-use std::cmp::Ordering::{Equal, Greater, Less};
-
 use ark_ff::{BigInteger256, Field};
 use mina_p2p_messages::v2::BlockTimeTimeStableV1;
 use rand::Rng;
@@ -8,28 +6,104 @@ use crate::proofs::{
     field::FieldWitness, to_field_elements::ToFieldElements, transaction::Check, witness::Witness,
 };
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum Sgn {
-    Pos,
-    Neg,
+// Re-export Amount, Fee, Signed, Magnitude, MinMax, and Sgn from mina-tx-type
+pub use mina_tx_type::currency::{Amount, Fee, Magnitude, MagnitudeFieldExt, MinMax, Sgn, Signed};
+
+/// Extension trait to provide `to_field` for Amount and Fee in the ledger crate.
+///
+/// This is needed because we can't implement `MagnitudeFieldExt<F>` directly due to
+/// orphan rules - both the trait and the types are defined in mina-tx-type.
+pub trait AmountFeeFieldExt<F: FieldWitness> {
+    fn to_field(&self) -> F;
+    fn of_field(field: F) -> Self;
 }
 
-impl Sgn {
-    pub fn is_pos(&self) -> bool {
-        match self {
-            Sgn::Pos => true,
-            Sgn::Neg => false,
-        }
+impl<F: FieldWitness> AmountFeeFieldExt<F> for Amount {
+    fn to_field(&self) -> F {
+        let int = self.as_u64();
+        F::from(int)
     }
 
-    pub fn negate(&self) -> Self {
-        match self {
-            Sgn::Pos => Sgn::Neg,
-            Sgn::Neg => Sgn::Pos,
-        }
+    fn of_field(field: F) -> Self {
+        let amount: BigInteger256 = field.into();
+        let amount: u64 = amount.0[0];
+        Self::from_u64(amount)
+    }
+}
+
+impl<F: FieldWitness> AmountFeeFieldExt<F> for Fee {
+    fn to_field(&self) -> F {
+        let int = self.as_u64();
+        F::from(int)
     }
 
-    pub fn to_field<F: FieldWitness>(&self) -> F {
+    fn of_field(field: F) -> Self {
+        let amount: BigInteger256 = field.into();
+        let amount: u64 = amount.0[0];
+        Self::from_u64(amount)
+    }
+}
+
+// Ledger-specific trait implementations for Amount and Fee
+impl crate::ToInputs for Amount {
+    fn to_inputs(&self, inputs: &mut poseidon::hash::Inputs) {
+        inputs.append_u64(self.0);
+    }
+}
+
+impl crate::ToInputs for Fee {
+    fn to_inputs(&self, inputs: &mut poseidon::hash::Inputs) {
+        inputs.append_u64(self.0);
+    }
+}
+
+impl<F: FieldWitness> ToFieldElements<F> for Amount {
+    fn to_field_elements(&self, fields: &mut Vec<F>) {
+        fields.push(<Amount as AmountFeeFieldExt<F>>::to_field(self));
+    }
+}
+
+impl<F: FieldWitness> ToFieldElements<F> for Fee {
+    fn to_field_elements(&self, fields: &mut Vec<F>) {
+        fields.push(<Fee as AmountFeeFieldExt<F>>::to_field(self));
+    }
+}
+
+impl<F: FieldWitness> Check<F> for Amount {
+    fn check(&self, witnesses: &mut Witness<F>) {
+        use crate::proofs::transaction::scalar_challenge::to_field_checked_prime;
+
+        const NBITS: usize = u64::BITS as usize;
+
+        let number: u64 = self.as_u64();
+        assert_eq!(NBITS, std::mem::size_of_val(&number) * 8);
+
+        let number: F = number.into();
+        to_field_checked_prime::<F, NBITS>(number, witnesses);
+    }
+}
+
+impl<F: FieldWitness> Check<F> for Fee {
+    fn check(&self, witnesses: &mut Witness<F>) {
+        use crate::proofs::transaction::scalar_challenge::to_field_checked_prime;
+
+        const NBITS: usize = u64::BITS as usize;
+
+        let number: u64 = self.as_u64();
+        assert_eq!(NBITS, std::mem::size_of_val(&number) * 8);
+
+        let number: F = number.into();
+        to_field_checked_prime::<F, NBITS>(number, witnesses);
+    }
+}
+
+// Extension trait for Sgn with ledger-specific field conversion
+pub trait SgnExt {
+    fn to_field<F: FieldWitness>(&self) -> F;
+}
+
+impl SgnExt for Sgn {
+    fn to_field<F: FieldWitness>(&self) -> F {
         match self {
             Sgn::Pos => F::one(),
             Sgn::Neg => F::one().neg(),
@@ -37,203 +111,25 @@ impl Sgn {
     }
 }
 
-pub trait Magnitude
+/// Extension trait for Signed with ledger-specific random generation.
+pub trait SignedExt<T: Magnitude> {
+    fn gen() -> Self;
+}
+
+impl<T> SignedExt<T> for Signed<T>
 where
-    Self: Sized + PartialOrd + Copy,
-{
-    const NBITS: usize;
-
-    fn abs_diff(&self, rhs: &Self) -> Self;
-    fn wrapping_add(&self, rhs: &Self) -> Self;
-    fn wrapping_mul(&self, rhs: &Self) -> Self;
-    fn wrapping_sub(&self, rhs: &Self) -> Self;
-    fn checked_add(&self, rhs: &Self) -> Option<Self>;
-    fn checked_mul(&self, rhs: &Self) -> Option<Self>;
-    fn checked_sub(&self, rhs: &Self) -> Option<Self>;
-    fn checked_div(&self, rhs: &Self) -> Option<Self>;
-    fn checked_rem(&self, rhs: &Self) -> Option<Self>;
-
-    fn is_zero(&self) -> bool;
-    fn zero() -> Self;
-
-    fn add_flagged(&self, rhs: &Self) -> (Self, bool) {
-        let z = self.wrapping_add(rhs);
-        (z, z < *self)
-    }
-
-    fn sub_flagged(&self, rhs: &Self) -> (Self, bool) {
-        (self.wrapping_sub(rhs), self < rhs)
-    }
-
-    fn to_field<F: FieldWitness>(&self) -> F;
-    fn of_field<F: FieldWitness>(field: F) -> Self;
-}
-
-/// Trait used for default values with `ClosedInterval`
-pub trait MinMax {
-    fn min() -> Self;
-    fn max() -> Self;
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct Signed<T: Magnitude> {
-    pub magnitude: T,
-    pub sgn: Sgn,
-}
-
-impl<T> Signed<T>
-where
-    T: Magnitude + PartialOrd + Ord + Clone,
-{
-    const NBITS: usize = T::NBITS;
-
-    pub fn create(magnitude: T, sgn: Sgn) -> Self {
-        Self {
-            magnitude,
-            sgn: if magnitude.is_zero() { Sgn::Pos } else { sgn },
-        }
-    }
-
-    pub fn of_unsigned(magnitude: T) -> Self {
-        Self::create(magnitude, Sgn::Pos)
-    }
-
-    pub fn negate(&self) -> Self {
-        if self.magnitude.is_zero() {
-            Self::zero()
-        } else {
-            Self {
-                magnitude: self.magnitude,
-                sgn: self.sgn.negate(),
-            }
-        }
-    }
-
-    pub fn is_pos(&self) -> bool {
-        matches!(self.sgn, Sgn::Pos)
-    }
-
-    /// <https://github.com/MinaProtocol/mina/blob/42d2005d04b59d14aacf4eef5ccee353e9a531b7/src/lib/transaction_logic/mina_transaction_logic.ml#L1615>
-    pub fn is_non_neg(&self) -> bool {
-        matches!(self.sgn, Sgn::Pos)
-    }
-
-    pub fn is_neg(&self) -> bool {
-        matches!(self.sgn, Sgn::Neg)
-    }
-
-    /// <https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/currency/currency.ml#L441>
-    pub fn zero() -> Self {
-        Self {
-            magnitude: T::zero(),
-            sgn: Sgn::Pos,
-        }
-    }
-
-    pub fn is_zero(&self) -> bool {
-        self.magnitude.is_zero() //&& matches!(self.sgn, Sgn::Pos)
-    }
-
-    /// <https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/currency/currency.ml#L460>
-    pub fn add(&self, rhs: &Self) -> Option<Self> {
-        let (magnitude, sgn) = if self.sgn == rhs.sgn {
-            let magnitude = self.magnitude.checked_add(&rhs.magnitude)?;
-            let sgn = self.sgn;
-
-            (magnitude, sgn)
-        } else {
-            let sgn = match self.magnitude.cmp(&rhs.magnitude) {
-                Less => rhs.sgn,
-                Greater => self.sgn,
-                Equal => return Some(Self::zero()),
-            };
-            let magnitude = self.magnitude.abs_diff(&rhs.magnitude);
-
-            (magnitude, sgn)
-        };
-
-        Some(Self::create(magnitude, sgn))
-    }
-
-    pub fn add_flagged(&self, rhs: Self) -> (Self, bool) {
-        match (self.sgn, rhs.sgn) {
-            (Sgn::Neg, sgn @ Sgn::Neg) | (Sgn::Pos, sgn @ Sgn::Pos) => {
-                let (magnitude, overflow) = self.magnitude.add_flagged(&rhs.magnitude);
-                (Self { magnitude, sgn }, overflow)
-            }
-            (Sgn::Pos, Sgn::Neg) | (Sgn::Neg, Sgn::Pos) => {
-                let sgn = match self.magnitude.cmp(&rhs.magnitude) {
-                    Less => rhs.sgn,
-                    Greater => self.sgn,
-                    Equal => Sgn::Pos,
-                };
-                let magnitude = self.magnitude.abs_diff(&rhs.magnitude);
-                (Self { magnitude, sgn }, false)
-            }
-        }
-    }
-}
-
-impl Signed<Amount> {
-    pub fn to_fee(self) -> Signed<Fee> {
-        let Self { magnitude, sgn } = self;
-
-        Signed {
-            magnitude: Fee(magnitude.0),
-            sgn,
-        }
-    }
-}
-
-impl<T> Signed<T>
-where
-    T: Magnitude + PartialOrd + Ord + Clone,
+    T: Magnitude,
     rand::distributions::Standard: rand::distributions::Distribution<T>,
 {
-    pub fn gen() -> Self {
-        let mut rng = rand::thread_rng();
-
-        let magnitude: T = rng.gen();
-        let sgn = if rng.gen::<bool>() {
-            Sgn::Pos
-        } else {
-            Sgn::Neg
-        };
-
-        Self::create(magnitude, sgn)
-    }
-}
-
-impl Amount {
-    /// The number of nanounits in a unit. User for unit transformations.
-    const UNIT_TO_NANO: u64 = 1_000_000_000;
-
-    pub fn of_fee(fee: &Fee) -> Self {
-        Self(fee.0)
-    }
-
-    pub fn add_signed_flagged(&self, rhs: Signed<Self>) -> (Self, bool) {
-        if let Sgn::Pos = rhs.sgn {
-            self.add_flagged(&rhs.magnitude)
-        } else {
-            self.sub_flagged(&rhs.magnitude)
+    fn gen() -> Self {
+        Self {
+            magnitude: rand::random(),
+            sgn: if rand::random::<bool>() {
+                Sgn::Pos
+            } else {
+                Sgn::Neg
+            },
         }
-    }
-
-    pub fn to_nanomina_int(&self) -> Self {
-        *self
-    }
-
-    pub fn to_mina_int(&self) -> Self {
-        Self(self.0.checked_div(Self::UNIT_TO_NANO).unwrap())
-    }
-
-    pub fn of_mina_int_exn(int: u64) -> Self {
-        Self::from_u64(int).scale(Self::UNIT_TO_NANO).unwrap()
-    }
-
-    pub fn of_nanomina_int_exn(int: u64) -> Self {
-        Self::from_u64(int)
     }
 }
 
@@ -277,12 +173,6 @@ impl Balance {
     }
 
     pub fn of_nanomina_int_exn(int: u64) -> Self {
-        Self::from_u64(int)
-    }
-}
-
-impl Fee {
-    pub const fn of_nanomina_int_exn(int: u64) -> Self {
         Self::from_u64(int)
     }
 }
@@ -440,12 +330,14 @@ macro_rules! impl_number {
             fn abs_diff(&self, rhs: &Self) -> Self {
                 Self(self.0.abs_diff(rhs.0))
             }
+        }
 
-            fn to_field<F: FieldWitness>(&self) -> F {
-                self.to_field()
+        impl<F: FieldWitness> MagnitudeFieldExt<F> for $name {
+            fn to_field(&self) -> F {
+                <$name>::to_field::<F>(self)
             }
 
-            fn of_field<F: FieldWitness>(field: F) -> Self {
+            fn of_field(field: F) -> Self {
                 let amount: BigInteger256 = field.into();
                 let amount: $inner = amount.0[0].try_into().unwrap();
 
@@ -574,5 +466,5 @@ macro_rules! impl_number {
 
 impl_number!(
     32: { Length, Slot, Nonce, Index, SlotSpan, TxnVersion, Epoch, },
-    64: { Amount, Balance, Fee, BlockTime, BlockTimeSpan, N, },
+    64: { Balance, BlockTime, BlockTimeSpan, N, },
 );

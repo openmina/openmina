@@ -43,6 +43,7 @@ mina-macros = { workspace = true }
 mina-p2p-messages = { workspace = true }
 mina-poseidon = { workspace = true }
 mina-signer = { workspace = true }
+mina-tx-type = { workspace = true }
 num-bigint = { workspace = true }
 o1-utils = { workspace = true }
 once_cell = { workspace = true }
