@@ -228,6 +228,9 @@ jobs:
       - name: Test OCaml-specific GraphQL endpoints
         run: ./.github/scripts/test-ocaml-specific-endpoints.sh
 
+      - name: Test mina misc mina-key-pair command
+        run: ./.github/scripts/test-misc-mina-key-pair.sh
+
       - name: Upload binaries
         uses: actions/upload-artifact@v5
         with:
