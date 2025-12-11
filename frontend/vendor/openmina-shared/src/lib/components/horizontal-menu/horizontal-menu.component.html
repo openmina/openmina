@@ -1,0 +1,29 @@
+<nav class="flex-row w-100 h-100 p-relative"
+     [ngClass]="clz">
+
+  <div class="flex-row w-100">
+    <div #hScroll
+         class="fx-row-vert-cent w-100 overflow-hidden"
+         minaHorizontalMenu
+         (arrows)="listenToItemsScroll($event)">
+      <ng-container *ngTemplateOutlet="template"></ng-container>
+    </div>
+  </div>
+
+  <ng-container *ngIf="showNav">
+    <div *ngIf="showLeftArrow"
+         class="control left p-absolute bg-surface flex-row h-100 pointer user-none"
+         (click)="scrollLeft()">
+      <div class="bg-container-hover fx-row-full-cent w-100 h-100">
+        <span class="mina-icon icon-200">chevron_left</span>
+      </div>
+    </div>
+    <div *ngIf="showRightArrow"
+         (click)="scrollRight()"
+         class="control right p-absolute bg-surface flex-row h-100 pointer user-none">
+      <div class="bg-container-hover fx-row-full-cent w-100 h-100">
+        <span class="mina-icon icon-200">chevron_right</span>
+      </div>
+    </div>
+  </ng-container>
+</nav>

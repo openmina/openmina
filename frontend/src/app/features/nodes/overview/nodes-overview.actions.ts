@@ -29,8 +29,7 @@ export const NODES_OVERVIEW_SET_ACTIVE_NODE =
 export const NODES_OVERVIEW_CLOSE =
   NodesOverviewActionTypes.NODES_OVERVIEW_CLOSE;
 
-export interface NodesOverviewAction
-  extends FeatureAction<NodesOverviewActionTypes> {
+export interface NodesOverviewAction extends FeatureAction<NodesOverviewActionTypes> {
   readonly type: NodesOverviewActionTypes;
 }
 

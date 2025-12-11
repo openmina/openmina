@@ -25,8 +25,7 @@ export const NETWORK_NODE_DHT_SET_ACTIVE_PEER =
 export const NETWORK_NODE_DHT_SIDE_PANEL_RESIZE =
   NetworkNodeDhtActionTypes.NETWORK_NODE_DHT_SIDE_PANEL_RESIZE;
 
-export interface NetworkNodeDhtAction
-  extends FeatureAction<NetworkNodeDhtActionTypes> {
+export interface NetworkNodeDhtAction extends FeatureAction<NetworkNodeDhtActionTypes> {
   readonly type: NetworkNodeDhtActionTypes;
 }
 

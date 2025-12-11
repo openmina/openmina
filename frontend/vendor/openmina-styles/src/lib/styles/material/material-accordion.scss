@@ -1,0 +1,55 @@
+body .mat-expansion-panel-content,
+body .mat-expansion-panel-header {
+	font-size: 12px;
+}
+
+mat-expansion-panel.table-filter {
+	box-shadow: none !important;
+	background: unset;
+	color: inherit;
+	border-radius: 0;
+
+	.mat-expansion-panel-header {
+		padding: 0;
+		height: auto;
+		background: unset !important;
+
+		.mat-content {
+			display: flex;
+			flex-direction: column;
+		}
+	}
+
+	.mat-expansion-panel-body {
+		padding: 0;
+	}
+
+	.mat-content.mat-content-hide-toggle {
+		margin-right: 0;
+	}
+}
+
+mat-expansion-panel.tracing-details {
+	box-shadow: none !important;
+	background: unset;
+	color: inherit;
+	border-radius: 0;
+
+	.mat-expansion-panel-header {
+		padding: 0;
+		height: auto;
+
+		.mat-content {
+			display: flex;
+			flex-direction: column;
+		}
+	}
+
+	.mat-expansion-panel-body {
+		padding: 0;
+	}
+
+	.mat-content.mat-content-hide-toggle {
+		margin-right: 0;
+	}
+}

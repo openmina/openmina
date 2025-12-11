@@ -1,0 +1,63 @@
+<div #graph class="mina-graph border border-rad-6 flex-column p-8"
+     [class.graph-condensed]="condensedView"
+     [class.visible]="visible"
+     (click)="expandCondensedGraph(graph, $event)"
+     (clickOutside)="onOutsideClick()">
+  <div class="title mb-5 f-600 truncate"
+       [tooltip]="$any(checkpoint)['fullTitle'] || checkpoint.title"
+       [maxWidth]="500"
+       [showDelay]="500">{{ checkpoint.title }}</div>
+  <div class="big-graph flex-column">
+    <div class="mb-16 mt-5">{{ checkpoint.totalTime | secDuration }} <span class="divider">|</span> {{ checkpoint.totalCount | thousand }} calls</div>
+    <span class="secondary f-small">Total time</span>
+    <div class="graph-body flex-row">
+      <div class="y-steps flex-column f-small tertiary">
+        <div *ngFor="let step of ySteps; trackBy: trackSteps">{{ step }}</div>
+      </div>
+      <div class="cols-wrap flex-row"
+           (mouseenter)="attachGraphTooltip(xStepsRef)"
+           (mouseleave)="detachOverlay()">
+        <div *ngFor="let col of checkpoint.columns; let i=index; trackBy: trackSteps"
+             (mouseenter)="onColumnHover(col)"
+             class="gr-col flex-column-reverse">
+          <div *ngFor="let square of [].constructor(col.squareCount); let j=index"
+               [class.b-right]="j > checkpoint.columns[i + 1]?.squareCount - 1"
+               [class.b-left]="j > checkpoint.columns[i - 1]?.squareCount - 1"
+               [class.yellow-red-grey]="j > 9 - i - 2"
+               [class.yellow-red-0]="j > 9 - i - 1"
+               [class.yellow-red-1]="j > 9 - i"
+               [class.yellow-red-2]="j > 9 - i + 1"
+               [class.yellow-red-3]="j > 9 - i + 2"
+               [class.yellow-red-4]="j > 9 - i + 3"
+               [class.yellow-red-5]="j > 9 - i + 4"
+               class="square">
+            <div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="flex-row tertiary">
+      <div>
+        <span class="mina-icon f-20">arrow_forward</span>
+        <div class="secondary f-small">Duration</div>
+      </div>
+      <div #xStepsRef class="x-steps f-small flex-row text-capitalize">
+        <div *ngFor="let step of xSteps; trackBy: trackSteps">{{ step }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="flames flex-row flex-center">
+    <div class="condensed-square"
+         *ngFor="let column of checkpoint.columns; let i=index"
+         [class.severity-0]="column.squareCount === 0"
+         [class.severity-1]="column.squareCount + i < 9"
+         [class.severity-2]="column.squareCount + i === 9"
+         [class.severity-3]="column.squareCount + i === 10"
+         [class.severity-4]="column.squareCount + i === 11"
+         [class.severity-5]="column.squareCount + i === 12"
+         [class.severity-6]="column.squareCount + i === 13"
+         [class.severity-7]="column.squareCount + i === 14"
+         [class.severity-8]="column.squareCount + i > 14"
+    ></div>
+  </div>
+</div>

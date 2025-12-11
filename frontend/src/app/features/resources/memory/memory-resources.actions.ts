@@ -24,8 +24,7 @@ export const MEMORY_RESOURCES_SET_TREEMAP_VIEW =
 export const MEMORY_RESOURCES_CLOSE =
   MemoryResourcesActionTypes.MEMORY_RESOURCES_CLOSE;
 
-export interface MemoryResourcesAction
-  extends FeatureAction<MemoryResourcesActionTypes> {
+export interface MemoryResourcesAction extends FeatureAction<MemoryResourcesActionTypes> {
   readonly type: MemoryResourcesActionTypes;
 }
 

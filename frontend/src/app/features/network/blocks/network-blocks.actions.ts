@@ -34,8 +34,7 @@ export const NETWORK_BLOCKS_GET_EARLIEST_BLOCK =
 export const NETWORK_BLOCKS_SET_EARLIEST_BLOCK =
   NetworkBlocksActionTypes.NETWORK_BLOCKS_SET_EARLIEST_BLOCK;
 
-export interface NetworkBlocksAction
-  extends FeatureAction<NetworkBlocksActionTypes> {
+export interface NetworkBlocksAction extends FeatureAction<NetworkBlocksActionTypes> {
   readonly type: NetworkBlocksActionTypes;
 }
 

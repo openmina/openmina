@@ -36,8 +36,7 @@ export const DASHBOARD_SPLITS_SORT_PEERS =
 export const DASHBOARD_SPLITS_TOGGLE_SIDE_PANEL =
   DashboardSplitsActionTypes.DASHBOARD_SPLITS_TOGGLE_SIDE_PANEL;
 
-export interface DashboardSplitsAction
-  extends FeatureAction<DashboardSplitsActionTypes> {
+export interface DashboardSplitsAction extends FeatureAction<DashboardSplitsActionTypes> {
   readonly type: DashboardSplitsActionTypes;
 }
 

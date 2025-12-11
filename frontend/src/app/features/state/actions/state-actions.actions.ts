@@ -28,8 +28,7 @@ export const STATE_ACTIONS_SORT = StateActionsActionTypes.STATE_ACTIONS_SORT;
 export const STATE_ACTIONS_SEARCH =
   StateActionsActionTypes.STATE_ACTIONS_SEARCH;
 
-export interface StateActionsAction
-  extends FeatureAction<StateActionsActionTypes> {
+export interface StateActionsAction extends FeatureAction<StateActionsActionTypes> {
   readonly type: StateActionsActionTypes;
 }
 

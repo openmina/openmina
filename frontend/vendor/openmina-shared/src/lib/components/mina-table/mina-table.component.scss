@@ -1,0 +1,74 @@
+@use 'mina-rust' as *;
+
+.mina-table {
+  .row {
+    color: $base-tertiary;
+
+    &:not(.head) {
+      cursor: pointer;
+    }
+
+    &.sorting.p-relative:last-child {
+      overflow: hidden;
+    }
+  }
+
+  .cdk-virtual-scroll-viewport {
+    overflow-x: hidden;
+    @media (max-width: 768px) {
+      padding-bottom: 80px;
+    }
+  }
+}
+
+.to-top {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .to-top {
+    display: block;
+    position: fixed;
+    rotate: -90deg;
+    color: $base-secondary;
+    left: -1000px;
+
+    &.hide {
+      animation: bounceHide 0.5s cubic-bezier(0.5, 0.1, 0.5, 1.25) forwards;
+    }
+
+    &:not(.hide) {
+      animation: bounceShow 0.5s cubic-bezier(0.17, 0.67, 0.83, 0.67) forwards;
+    }
+  }
+}
+
+@keyframes bounceHide {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  30% {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-500px);
+  }
+}
+
+@keyframes bounceShow {
+  0% {
+    opacity: 0;
+    transform: translateX(-500px);
+  }
+  70% {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}

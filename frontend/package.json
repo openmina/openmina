@@ -1,6 +1,6 @@
 {
   "name": "frontend",
-  "version": "1.0.184",
+  "version": "1.0.185",
   "scripts": {
     "build": "make build",
     "build:local": "make build-local",
@@ -21,7 +21,8 @@
     "start:production": "make start-production",
     "start:webnode": "make start-webnode",
     "tests": "make test",
-    "tests:headless": "make test-headless"
+    "tests:headless": "make test-headless",
+    "vendor:styles": "cd vendor/openmina-styles && npm run update:styles"
   },
   "private": true,
   "engines": {
@@ -46,7 +47,7 @@
     "@ngrx/operators": "^19.2.1",
     "@ngrx/router-store": "^19.2.1",
     "@ngrx/store": "^19.2.1",
-    "@openmina/shared": "^0.126.0",
+    "@openmina/shared": "file:./vendor/openmina-shared",
     "@sentry/angular": "^8.35.0",
     "@sentry/cli": "^2.38.2",
     "@sentry/tracing": "^7.114.0",

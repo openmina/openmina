@@ -1,0 +1,37 @@
+@use 'mina-rust' as *;
+
+
+$transition: 400ms cubic-bezier(0.22, 1, 0.36, 1);
+
+main {
+  transition: width $transition;
+}
+
+aside {
+  transition: right $transition;
+  z-index: $side-panel-z-index;
+
+  .bar {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 8px;
+    border-left-width: 1px;
+    border-left-style: solid;
+    border-left-color: $base-divider;
+    transition: 200ms;
+    cursor: ew-resize;
+
+    &:hover {
+      border-left-width: 3px;
+      border-left-color: $base-tertiary;
+    }
+  }
+}
+
+
+@media (max-width: 700px) {
+  main, aside {
+    width: 100% !important;
+  }
+}

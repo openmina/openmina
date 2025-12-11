@@ -26,8 +26,7 @@ export const NETWORK_CONNECTIONS_GO_LIVE =
 export const NETWORK_CONNECTIONS_PAUSE =
   NetworkConnectionsActionTypes.NETWORK_CONNECTIONS_PAUSE;
 
-export interface NetworkConnectionsAction
-  extends FeatureAction<NetworkConnectionsActionTypes> {
+export interface NetworkConnectionsAction extends FeatureAction<NetworkConnectionsActionTypes> {
   readonly type: NetworkConnectionsActionTypes;
 }
 
@@ -39,23 +38,17 @@ export class NetworkConnectionsClose implements NetworkConnectionsAction {
   readonly type = NETWORK_CONNECTIONS_CLOSE;
 }
 
-export class NetworkConnectionsGetConnections
-  implements NetworkConnectionsAction
-{
+export class NetworkConnectionsGetConnections implements NetworkConnectionsAction {
   readonly type = NETWORK_CONNECTIONS_GET_CONNECTIONS;
 }
 
-export class NetworkConnectionsGetConnectionsSuccess
-  implements NetworkConnectionsAction
-{
+export class NetworkConnectionsGetConnectionsSuccess implements NetworkConnectionsAction {
   readonly type = NETWORK_CONNECTIONS_GET_CONNECTIONS_SUCCESS;
 
   constructor(public payload: NetworkConnection[]) {}
 }
 
-export class NetworkConnectionsSelectConnection
-  implements NetworkConnectionsAction
-{
+export class NetworkConnectionsSelectConnection implements NetworkConnectionsAction {
   readonly type = NETWORK_CONNECTIONS_SELECT_CONNECTION;
 
   constructor(public payload: NetworkConnection) {}

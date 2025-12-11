@@ -1,0 +1,33 @@
+@use 'mina-rust' as *;
+
+
+:host.no-hide {
+  .cpy {
+    margin-left: 0 !important;
+  }
+
+  .mina-icon {
+    margin-right: -11px;
+  }
+}
+
+.p-relative {
+  display: inline-flex;
+  align-items: center;
+
+  .cpy {
+    @include flexRowFullCenter();
+    cursor: pointer;
+    height: 26px;
+    width: 26px;
+
+    .mina-icon {
+      color: $base-tertiary !important;
+      font-size: 22px;
+    }
+
+    &:hover .mina-icon {
+      color: $base-primary !important;
+    }
+  }
+}

@@ -1,0 +1,146 @@
+@import 'variables';
+
+.primary {
+  color: $base-primary !important;
+}
+
+.secondary {
+  color: $base-secondary !important;
+}
+
+.tertiary {
+  color: $base-tertiary !important;
+}
+
+.tertiary2 {
+  color: $base-tertiary2 !important;
+}
+
+.container {
+  color: $base-container !important;
+}
+
+.divider {
+  color: $base-divider !important;
+}
+
+.selected-primary {
+  color: $selected-primary !important;
+}
+
+.selected-secondary {
+  color: $selected-secondary !important;
+}
+
+.success-primary {
+  color: $success-primary !important;
+}
+
+.success-secondary {
+  color: $success-secondary !important;
+}
+
+.warn-primary {
+  color: $warn-primary !important;
+}
+
+.warn-secondary {
+  color: $warn-secondary !important;
+}
+
+.aware-primary {
+  color: $aware-primary !important;
+}
+
+.aware-secondary {
+  color: $aware-secondary !important;
+}
+
+.cta-primary {
+  color: $cta-primary !important;
+}
+
+.cta-secondary {
+  color: $cta-secondary !important;
+}
+
+.primary-hover:hover {
+  color: $base-primary !important;
+}
+
+.secondary-hover:hover {
+  color: $base-secondary !important;
+}
+
+.tertiary-hover:hover {
+  color: $base-tertiary !important;
+}
+
+.tertiary2-hover:hover {
+  color: $base-tertiary2 !important;
+}
+
+.special-alt-1-primary {
+  color: $special-selected-alt-1-primary !important;
+}
+
+.special-alt-1-secondary {
+  color: $special-selected-alt-1-secondary !important;
+}
+
+.special-alt-1-tertiary {
+  color: $special-selected-alt-1-tertiary !important;
+}
+
+.special-alt-2-primary {
+  color: $special-selected-alt-2-primary !important;
+}
+
+.special-alt-2-secondary {
+  color: $special-selected-alt-2-secondary !important;
+}
+
+.special-alt-2-tertiary {
+  color: $special-selected-alt-2-tertiary !important;
+}
+
+.special-alt-3-primary {
+  color: $special-selected-alt-3-primary !important;
+}
+
+.special-alt-3-secondary {
+  color: $special-selected-alt-3-secondary !important;
+}
+
+.special-alt-3-tertiary {
+  color: $special-selected-alt-3-tertiary !important;
+}
+
+.error {
+  color: $warn-primary !important;
+  fill: $warn-primary !important;
+}
+
+.orange {
+  opacity: 0.85;
+  color: $chart-yellow-red-2 !important;
+  fill: $chart-yellow-red-2 !important;
+}
+
+.warn {
+  opacity: 0.7;
+  color: $chart-yellow-red-1 !important;
+  fill: $chart-yellow-red-1 !important;
+}
+
+.code-teal {
+  color: $code-teal !important;
+}
+
+.code-purple {
+  color: $code-purple !important;
+}
+
+.code-magenta {
+  color: $code-magenta !important;
+}

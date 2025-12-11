@@ -36,8 +36,7 @@ export const SNARKS_WORK_POOL_TOGGLE_FILTER =
 export const SNARKS_WORK_POOL_CLOSE =
   SnarksWorkPoolTypes.SNARKS_WORK_POOL_CLOSE;
 
-export interface SnarksWorkPoolAction
-  extends FeatureAction<SnarksWorkPoolTypes> {
+export interface SnarksWorkPoolAction extends FeatureAction<SnarksWorkPoolTypes> {
   readonly type: SnarksWorkPoolTypes;
 }
 
@@ -75,9 +74,7 @@ export class SnarksWorkPoolGetWorkPoolDetail implements SnarksWorkPoolAction {
   constructor(public payload: { id: string }) {}
 }
 
-export class SnarksWorkPoolGetWorkPoolDetailSuccess
-  implements SnarksWorkPoolAction
-{
+export class SnarksWorkPoolGetWorkPoolDetailSuccess implements SnarksWorkPoolAction {
   readonly type = SNARKS_WORK_POOL_GET_WORK_POOL_DETAIL_SUCCESS;
 
   constructor(public payload: [WorkPoolSpecs, WorkPoolDetail]) {}

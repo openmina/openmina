@@ -1,0 +1,74 @@
+@use 'mina-rust' as *;
+
+.ngx-json-viewer {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+  font-family: 'IBM Plex Mono', monospace;
+  line-height: 24px;
+
+  .ml {
+    margin-left: 18px;
+  }
+
+  .segment {
+    .segment-main {
+      word-wrap: break-word;
+
+      .toggler {
+        position: absolute;
+        margin-left: -15px;
+        margin-top: 4px;
+        font-size: 16px;
+        color: $base-tertiary;
+        transition: transform 0.1s ease-in;
+      }
+
+      .segment-key {
+        color: $base-tertiary;
+      }
+
+      .segment-separator {
+        color: $base-tertiary;
+        margin-right: 3px;
+      }
+    }
+  }
+
+
+  .segment-type-string > .segment-main > .segment-value {
+    color: $code-magenta;
+  }
+
+  .segment-type-number > .segment-main > .segment-value,
+  .segment-type-boolean > .segment-main > .segment-value {
+    color: $code-green;
+  }
+
+  .segment-type-object > .segment-main > .segment-value,
+  .segment-type-array > .segment-main > .segment-value {
+    color: $base-secondary;
+  }
+
+  .segment-type-null > .segment-main,
+  .segment-type-undefined > .segment-main {
+    & > .segment-value {
+      color: $base-tertiary;
+    }
+  }
+
+  .segment-type-object > .segment-main,
+  .segment-type-array > .segment-main {
+    white-space: nowrap;
+  }
+
+  .expanded > .toggler {
+    transform: rotate(90deg);
+  }
+
+  .expandable,
+  .expandable > .toggler {
+    cursor: pointer;
+  }
+}
