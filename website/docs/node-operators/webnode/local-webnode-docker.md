@@ -54,8 +54,45 @@ update the port accordingly.
 The Dockerized WebNode can be configured with additional environment variables
 to customize behavior.
 
-| Environment Variable        | Required? | Description                                                            |
-| :-------------------------- | :-------: | :--------------------------------------------------------------------- |
-| `MINA_FRONTEND_ENVIRONMENT` |    Yes    | Must be set to `webnode` to run the frontend in webnode mode           |
-| `MINA_WEBNODE_SEED_URLS`    |    No     | A comma-separated list of http(s) URLs to fetch initial P2P Seeds from |
-| `MINA_WEBNODE_BOOTNODES`    |    No     | A comma-separated list of initial peers in WebRTC-Multiaddrish format  |
+### `MINA_FRONTEND_ENVIRONMENT`
+
+This is required to launch the frontend in general. To serve a webnode, it must
+be set to the value `webnode`.
+
+Example:
+
+```
+-e MINA_FRONTEND_ENVIRONMENT=webnode
+```
+
+### `MINA_WEBNODE_SEED_URLS`
+
+A comma-separated list of http(s) URLs to fetch initial P2P seeds from. This is
+similar to the `--peer-list-url` flag in the native node, but can take multiple
+comma-separated values to fetch peer lists from multiple sources. Each peer list
+file must contain peer addresses in
+[WebRTC-Multiaddrish format](../../developers/webrtc.md#address-format-differences),
+separated by a newline.
+
+Example:
+
+```
+-e MINA_WEBNODE_SEED_URLS=https://bootnodes.minaprotocol.com/networks/devnet-webrtc.txt
+-e MINA_WEBNODE_SEED_URLS=https://example.com/extra-peers.txt,https://bootnodes.minaprotocol.com/networks/devnet-webrtc.txt,
+```
+
+### `MINA_WEBNODE_BOOTNODES`
+
+A comma separated list of
+[WebRTC-Multiaddrish](../../developers/webrtc.md#address-format-differences)
+peer addresses, to attempt to connect to in conjunction to any downloaded from
+`MINA_WEBNODE_SEED_URLS`. This is akin to the `--peers` flag in the native node,
+but instead of specifying the flag multiple times, each peer is simply
+comma-separated
+
+Example:
+
+```
+-e MINA_WEBNODE_BOOTNODES=/peer_id1/https/signaling.example.com/443
+-e MINA_WEBNODE_BOOTNODES=/peer_id1/https/signaling.example.com/443,/peer_id2/p2p/peer_id1
+```

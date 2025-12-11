@@ -181,6 +181,71 @@ The Web Node represents a significant advancement in blockchain accessibility,
 enabling truly decentralized participation without requiring users to install
 native applications or manage complex network configurations.
 
+## Address Format Differences
+
+The Mina Rust Node uses a custom Multiaddr-like format for WebRTC peer addresses
+that differs from normal Multiaddrs. These addresses are specifically designed
+to encode signaling server information rather than direct network addresses,
+reflecting the different connection model of WebRTC versus direct TCP/UDP
+connections.
+
+The address parsing logic is implemented in
+[`p2p/src/connection/outgoing/mod.rs`](https://github.com/o1-labs/mina-rust/blob/develop/p2p/src/connection/outgoing/mod.rs)
+through the `FromStr` implementation for `P2pConnectionOutgoingInitOpts`. The
+parser distinguishes between libp2p addresses (starting with `/ip` or `/dns`)
+and WebRTC addresses (all other formats).
+
+### WebRTC peer address format
+
+WebRTC peer addresses follow this structure:
+
+```
+/{peer_id}/{signaling_method}
+```
+
+Where `{peer_id}` is the base58-encoded peer ID and `{signaling_method}`
+specifies how to reach the signaling server.
+
+### Signaling method formats
+
+The signaling method component can take several forms:
+
+**HTTP signaling:**
+
+```
+/http/{host}/{port}
+```
+
+Example:
+`/12D3KooWRTzN7HfmjoUBHokyRZuKdyohVVSGqKBMF24ZC3tGK74R/http/localhost/8080`
+
+**HTTPS signaling:**
+
+```
+/https/{host}/{port}
+```
+
+Example:
+`/12D3KooWRTzN7HfmjoUBHokyRZuKdyohVVSGqKBMF24ZC3tGK74R/https/signal.example.com/443`
+
+**HTTPS proxy signaling:**
+
+```
+/https_proxy/{cluster_id}/{host}/{port}
+```
+
+Example:
+`/12D3KooWRTzN7HfmjoUBHokyRZuKdyohVVSGqKBMF24ZC3tGK74R/https_proxy/123/proxy.example.com/443`
+
+**P2P relay signaling:**
+
+```
+/p2p/{relay_peer_id}
+```
+
+Example:
+`/12D3KooWRTzN7HfmjoUBHokyRZuKdyohVVSGqKBMF24ZC3tGK74R/p2p/12D3KooWABC...`
+
 ## Future Considerations
 
 While the current OCaml implementation doesn't use WebRTC, the Rust

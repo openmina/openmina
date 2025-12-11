@@ -74,11 +74,57 @@ fn parse_bp_key(key: JsValue) -> Option<AccountSecretKey> {
     )
 }
 
+/// Starts a Mina node in a WASM environment and returns an RPC interface.
+///
+/// This is the main entry point for running a Mina node from JavaScript/WASM.
+/// It spawns the node in a separate thread, sets up all necessary components,
+/// and returns an RPC sender that can be used to communicate with the running
+/// node.
+///
+/// # Arguments
+///
+/// * `block_producer` - Block producer configuration as a JavaScript value.
+///   Can be one of:
+///   - `null`/`undefined`: No block production
+///   - `string`: Plain text secret key
+///   - `[encrypted_key, password]`: Array with encrypted key and password
+/// * `seed_nodes_urls` - Optional list of URLs to fetch peer lists from.
+///   Each URL should return newline-separated peer addresses. This is similar
+///   to the `--peer-list-url` flag in the native node, but allows multiple URLs
+///   to be supplied.
+/// * `seed_nodes_addresses` - Optional list of peer addresses to connect to
+///   directly, in [WebRTC Multiaddr-ish format](https://o1-labs.github.io/mina-rust/docs/developers/webrtc#address-format-differences)
+///   This is directly comparable to the `--peers` flag in the native node.
+/// * `genesis_config_url` - Optional URL to fetch genesis configuration from.
+///   Genesis config must be in bin_prot format. If not provided, uses the default
+///   devnet configuration.
+///
+/// # Returns
+///
+/// An `RpcSender` that can be used to send RPC commands to the running node.
+///
+/// # Panics
+///
+/// Panics if:
+/// - Block producer key parsing fails
+/// - Node setup or build fails
+/// - Genesis configuration cannot be fetched
+///
+/// # Example
+///
+/// ```javascript
+/// const rpc = await run(
+///   null,  // No block production
+///   ["https://bootnodes.minaprotocol.com/networks/devnet-webrtc.txt"],
+///   ["/PEER_ID/https/webrtc-peer-signaling.example.com/443"],
+///   null, // Use the default devnet configuration
+/// );
+/// ```
 #[wasm_bindgen]
 pub async fn run(
     block_producer: JsValue,
     seed_nodes_urls: Option<Vec<String>>,
-    seed_nodes_fixed: Option<Vec<String>>,
+    seed_nodes_addresses: Option<Vec<String>>,
     genesis_config_url: Option<String>,
 ) -> RpcSender {
     let block_producer = parse_bp_key(block_producer);
@@ -89,7 +135,7 @@ pub async fn run(
             let mut node = setup_node(
                 block_producer,
                 seed_nodes_urls,
-                seed_nodes_fixed,
+                seed_nodes_addresses,
                 genesis_config_url,
             )
             .await;
@@ -106,7 +152,7 @@ pub async fn run(
 async fn setup_node(
     block_producer: Option<AccountSecretKey>,
     seed_nodes_urls: Option<Vec<String>>,
-    seed_nodes_fixed: Option<Vec<String>>,
+    seed_nodes_addresses: Option<Vec<String>>,
     genesis_config_url: Option<String>,
 ) -> mina_node_common::Node<NodeService> {
     let block_verifier_index = BlockVerifier::make().await;
@@ -127,7 +173,8 @@ async fn setup_node(
         .work_verifier_index(work_verifier_index.clone());
 
     // TODO(binier): refactor
-    let mut all_raw_peers = seed_nodes_fixed.unwrap_or_default();
+    let mut all_raw_peers = seed_nodes_addresses.unwrap_or_default();
+
     if let Some(seed_nodes_urls) = seed_nodes_urls {
         for seed_nodes_url in seed_nodes_urls {
             let peers = ::node::core::http::get_bytes(&seed_nodes_url).await;
