@@ -103,12 +103,8 @@ make build-webnode
 The frontend uses environment-specific configuration files located in
 `src/assets/environments/`:
 
-- [`fuzzing.js`](https://github.com/o1-labs/mina-rust/blob/develop/frontend/src/assets/environments/fuzzing.js) -
-  Fuzzing tests
 - [`local.js`](https://github.com/o1-labs/mina-rust/blob/develop/frontend/src/assets/environments/local.js) -
   Local development
-- [`producer.js`](https://github.com/o1-labs/mina-rust/blob/develop/frontend/src/assets/environments/producer.js) -
-  Block producer interface
 - [`production.js`](https://github.com/o1-labs/mina-rust/blob/develop/frontend/src/assets/environments/production.js) -
   Production deployment
 - [`webnode.js`](https://github.com/o1-labs/mina-rust/blob/develop/frontend/src/assets/environments/webnode.js) -
@@ -151,9 +147,6 @@ Create an optimized production build:
 # Build with version update
 make prebuild
 make build-production
-
-# Build with Sentry sourcemaps
-make build-production-sentry
 ```
 
 ### Serving production builds
@@ -178,18 +171,11 @@ and configured:
 - **`local`** - Local development environment connecting to localhost:3085.
   Optimized for development with a local node instance.
 
-- **`fuzzing`** - Fuzzing test environment for stress testing. Development build
-  with enhanced debugging for testing scenarios.
-
 - **`production`** - Production environment with full optimization. Connects to
   production network endpoints with minification and performance optimizations.
 
-- **`producer`** - Specialized configuration for block producers. Includes
-  additional monitoring and producer-specific features.
-
-- **`webnodelocal`** - WebNode configuration for browser-based Mina node
-  operation. Enables WASM integration and WebRTC networking for in-browser
-  execution.
+- **`webnode`** - WebNode configuration for browser-based Mina node operation.
+  Enables WASM integration and WebRTC networking for in-browser execution.
 
 ### Build Docker image
 
@@ -212,12 +198,6 @@ docker run -p 4200:80 -e MINA_FRONTEND_ENVIRONMENT=production mina-frontend
 
 # Run Node Dashboard with webnode configuration (browser-based node operation)
 docker run -p 4200:80 -e MINA_FRONTEND_ENVIRONMENT=webnode mina-frontend
-
-# Run Node Dashboard with producer configuration (block producer features)
-docker run -p 4200:80 -e MINA_FRONTEND_ENVIRONMENT=producer mina-frontend
-
-# Run Node Dashboard with fuzzing configuration (stress testing)
-docker run -p 4200:80 -e MINA_FRONTEND_ENVIRONMENT=fuzzing mina-frontend
 ```
 
 <!-- prettier-ignore-start -->

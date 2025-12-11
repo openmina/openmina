@@ -61,6 +61,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Frontend**: add production seed nodes for the production environment
+  ([#1837](https://github.com/o1-labs/mina-rust/issues/1837)
 - **Website**: Update Docusaurus to version 3.9.2 from 3.9.1 for latest
   features and bug fixes
   ([#1583](https://github.com/o1-labs/mina-rust/pull/1583))
