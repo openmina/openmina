@@ -1075,10 +1075,6 @@ impl AccountId {
         Self::new(public_key, token_id)
     }
 
-    pub fn ocaml_hash(&self) -> u32 {
-        crate::port_ocaml::account_id_ocaml_hash(self)
-    }
-
     pub fn rand() -> Self {
         let mut rng = rand::thread_rng();
 
