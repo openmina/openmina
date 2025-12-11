@@ -47,6 +47,20 @@ impl P2PKeyPair {
     }
 }
 
+/// Generates an unencrypted Mina key pair.
+///
+/// Note: When `--web-node-secrets` is set we output a
+/// JSON file with the structure below. The webnode
+/// needs a key in this format to initialize, even if
+/// no block production is intended. This flag will be
+/// removed when the webnode no longer needs it, and exists
+/// mainly to simplify the setup process of a webnode.
+/// ```json
+/// {
+///   "publicKey": "{the public key derived from secret_key}",
+///   "privateKey": "{secret_key}",
+/// }
+/// ```
 #[derive(Debug, Clone, Default, clap::Args)]
 pub struct MinaKeyPair {
     #[arg(long, short = 's', env = "MINA_SEC_KEY")]
@@ -56,8 +70,6 @@ pub struct MinaKeyPair {
     web_node_secrets: bool,
 }
 
-// TODO: This should really be the same type that the webnode
-// TODO: uses to parse web-node-secrets.json
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 struct GeneratedMinaKeyPair {
