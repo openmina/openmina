@@ -109,15 +109,6 @@
                 }
               ],
               "outputHashing": "all"
-            },
-            "fuzzing": {
-              "fileReplacements": [
-                {
-                  "replace": "src/environments/environment.ts",
-                  "with": "src/environments/environment.fuzzing.ts"
-                }
-              ],
-              "outputHashing": "all"
             }
           },
           "defaultConfiguration": "production"
@@ -136,9 +127,6 @@
             },
             "local": {
               "buildTarget": "frontend:build:local"
-            },
-            "fuzzing": {
-              "buildTarget": "frontend:build:fuzzing"
             }
           },
           "options": {
