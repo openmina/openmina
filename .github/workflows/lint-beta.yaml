@@ -1,0 +1,47 @@
+name: Lint (Beta Channel)
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+  schedule:
+    # Run weekly on Mondays at 00:00 UTC
+    - cron: '0 0 * * 1'
+
+jobs:
+  lint-beta:
+    timeout-minutes: 15
+    name: Lint (Beta) - ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    # Allow this job to fail without failing the entire workflow
+    continue-on-error: true
+    strategy:
+      matrix:
+        os: [ubuntu-24.04]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Load versions
+        uses: ./.github/actions/load-versions
+
+      - name: Setup build dependencies
+        uses: ./.github/actions/setup-build-deps
+
+      - name: Use shared OCaml setting up steps
+        uses: ./.github/actions/setup-ocaml
+        with:
+          ocaml_version: ${{ env.OCAML_VERSION }}
+
+      - name: Setup Rust (Beta)
+        uses: ./.github/actions/setup-rust
+        with:
+          toolchain: ${{ env.RUST_BETA_VERSION }}
+          components: clippy, rustfmt
+          cache-prefix: lint-beta-${{ env.RUST_BETA_VERSION }}-v0
+
+      - name: Run make check-beta
+        run: make check-beta
+
+      - name: Run make lint-beta
+        run: make lint-beta
+
