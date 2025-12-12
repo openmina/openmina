@@ -246,7 +246,9 @@ impl Default for TokenPermissions {
 // <https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_base/permissions.mli#L10>
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, strum_macros::Display)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum AuthRequired {
+    #[default]
     None,
     Either,
     Proof,
@@ -255,11 +257,6 @@ pub enum AuthRequired {
     Both, // Legacy only
 }
 
-impl Default for AuthRequired {
-    fn default() -> Self {
-        Self::None
-    }
-}
 
 impl From<ControlTag> for AuthRequired {
     /// <https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/permissions.ml#L68>

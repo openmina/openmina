@@ -85,7 +85,9 @@ impl P2pRpcKind {
 }
 
 #[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Default)]
 pub enum P2pRpcRequest {
+    #[default]
     BestTipWithProof,
     LedgerQuery(LedgerHash, MinaLedgerSyncLedgerQueryStableV1),
     StagedLedgerAuxAndPendingCoinbasesAtBlock(StateHash),
@@ -111,11 +113,6 @@ impl P2pRpcRequest {
     }
 }
 
-impl Default for P2pRpcRequest {
-    fn default() -> Self {
-        Self::BestTipWithProof
-    }
-}
 
 fn addr_to_str(
     MerkleAddressBinableArgStableV1(mina_p2p_messages::number::Number(length), byte_string): &MerkleAddressBinableArgStableV1,

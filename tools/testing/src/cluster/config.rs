@@ -17,18 +17,14 @@ pub struct ClusterConfig {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Default)]
 pub enum ProofKind {
+    #[default]
     Dummy,
     ConstraintsChecked,
     Full,
 }
 
-impl Default for ProofKind {
-    fn default() -> Self {
-        // once it's working, change to Self::ConstraintsChecked
-        Self::Dummy
-    }
-}
 
 impl ClusterConfig {
     pub fn new(ocaml_node_executable: Option<OcamlNodeExecutable>) -> anyhow::Result<Self> {

@@ -15,7 +15,9 @@ use super::{RecordedActionWithMeta, RecordedInitialState};
 static ACTIONS_F: Mutex<Vec<Option<fs::File>>> = Mutex::new(Vec::new());
 
 /// Panics: if all the `Recorder` instances aren't in the same thread.
+#[derive(Default)]
 pub enum Recorder {
+    #[default]
     None,
     OnlyInputActions {
         recorder_i: usize,
@@ -135,11 +137,6 @@ impl Recorder {
     }
 }
 
-impl Default for Recorder {
-    fn default() -> Self {
-        Self::None
-    }
-}
 
 impl Drop for Recorder {
     fn drop(&mut self) {

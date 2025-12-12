@@ -31,6 +31,7 @@ use poseidon::hash::{hash_with_kimchi, params::MINA_ACCOUNT_UPDATE_STACK_FRAME, 
 use std::{cell::RefCell, collections::BTreeMap, rc::Rc};
 
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct StackFrame {
     pub caller: TokenId,
     pub caller_caller: TokenId,
@@ -63,17 +64,14 @@ impl ToFieldElements<Fp> for StackFrameCheckedFrame {
     }
 }
 
+#[derive(Default)]
 enum LazyValueInner<T, D> {
     Value(T),
     Fun(Box<dyn FnOnce(&mut D) -> T>),
+    #[default]
     None,
 }
 
-impl<T, D> Default for LazyValueInner<T, D> {
-    fn default() -> Self {
-        Self::None
-    }
-}
 
 pub struct LazyValue<T, D> {
     value: Rc<RefCell<LazyValueInner<T, D>>>,
@@ -187,15 +185,6 @@ impl<T> ToFieldElements<Fp> for WithLazyHash<T> {
 // <https://github.com/MinaProtocol/mina/blob/78535ae3a73e0e90c5f66155365a934a15535779/src/lib/transaction_snark/transaction_snark.ml#L1083>
 pub type StackFrameChecked = WithLazyHash<StackFrameCheckedFrame>;
 
-impl Default for StackFrame {
-    fn default() -> Self {
-        StackFrame {
-            caller: TokenId::default(),
-            caller_caller: TokenId::default(),
-            calls: CallForest::new(),
-        }
-    }
-}
 
 impl StackFrame {
     pub fn empty() -> Self {
