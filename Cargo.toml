@@ -132,7 +132,7 @@ libp2p-identity = { version = "=0.2.7", features = ["peerid"] }
 linkme = "0.3.22"
 local-ip-address = "0.6.1"
 log = "0.4.25"
-md5 = "0.7.0"
+md5 = "0.8.0"
 mina-bootstrap-sandbox = { path = "tools/bootstrap-sandbox" }
 mina-core = { path = "core" }
 mina-curves = { git = "https://github.com/o1-labs/proof-systems", tag = "0.2.0" }
