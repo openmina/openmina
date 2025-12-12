@@ -37,10 +37,10 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierGenesisAction 
         let genesis_state = &state.transition_frontier.genesis;
         match self {
             TransitionFrontierGenesisAction::LedgerLoadInit => {
-                matches!(genesis_state, TransitionFrontierGenesisState::Idle { .. })
+                matches!(genesis_state, TransitionFrontierGenesisState::Idle)
             }
             TransitionFrontierGenesisAction::LedgerLoadPending => {
-                matches!(genesis_state, TransitionFrontierGenesisState::Idle { .. })
+                matches!(genesis_state, TransitionFrontierGenesisState::Idle)
             }
             TransitionFrontierGenesisAction::LedgerLoadSuccess { .. } => {
                 matches!(

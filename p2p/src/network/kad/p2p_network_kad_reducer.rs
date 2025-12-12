@@ -127,7 +127,7 @@ impl super::P2pNetworkKadState {
             }
             (
                 P2pNetworkKadStatus::Bootstrapping(bootstrap_state),
-                P2pNetworkKademliaAction::BootstrapFinished {},
+                P2pNetworkKademliaAction::BootstrapFinished,
             ) => {
                 state.status = P2pNetworkKadStatus::Bootstrapped {
                     time: meta.time(),

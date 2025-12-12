@@ -104,7 +104,7 @@ impl EnablingCondition<P2pState> for P2pNetworkKademliaAction {
             P2pNetworkKademliaAction::StartBootstrap { .. } => discovery_state
                 .status
                 .can_bootstrap(time, &state.config.timeouts),
-            P2pNetworkKademliaAction::BootstrapFinished { .. } => {
+            P2pNetworkKademliaAction::BootstrapFinished => {
                 // TODO: also can run bootstrap on timely basis.
                 matches!(
                     discovery_state.status,

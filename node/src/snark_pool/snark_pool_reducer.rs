@@ -207,7 +207,7 @@ impl SnarkPoolState {
                     is_local: *is_sender_local,
                 });
             }
-            SnarkPoolAction::P2pSendAll { .. } => {
+            SnarkPoolAction::P2pSendAll => {
                 let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
                 for peer_id in global_state.p2p.ready_peers() {
                     dispatcher.push(SnarkPoolAction::P2pSend { peer_id });

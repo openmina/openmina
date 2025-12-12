@@ -103,7 +103,7 @@ impl redux::EnablingCondition<crate::State> for BlockProducerAction {
             BlockProducerAction::WonSlotWait => state
                 .block_producer
                 .with(false, |this| this.current.won_slot_should_wait(time)),
-            BlockProducerAction::WonSlotProduceInit { .. } => {
+            BlockProducerAction::WonSlotProduceInit => {
                 state.block_producer.with(false, |this| {
                     let has_genesis_proven_if_needed = || {
                         state.transition_frontier.best_tip().is_some_and(|tip| {

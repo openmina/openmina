@@ -173,7 +173,7 @@ impl P2pNetworkSelectState {
 
                     let incoming = matches!(
                         &select_state.inner,
-                        P2pNetworkSelectStateInner::Responder { .. }
+                        P2pNetworkSelectStateInner::Responder
                     );
                     dispatcher.push(P2pNetworkSchedulerAction::SelectDone {
                         addr,
