@@ -35,7 +35,7 @@ jobs:
       - name: Setup build dependencies
         run: |
           sudo apt update
-          sudo apt install -y protobuf-compiler ocaml
+          sudo apt install -y protobuf-compiler
 
       - name: Install documentation dependencies
         run: make docs-install
