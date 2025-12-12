@@ -42,6 +42,17 @@ CIRCUITS_REPO ?= https://github.com/o1-labs/circuit-blobs.git
 CIRCUITS_REV ?= main
 CIRCUITS_NETWORKS ?= 3.0.0mainnet berkeley-devnet
 
+# Detect GNU sed (macOS requires gsed from Homebrew gnu-sed)
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+    SED := $(shell command -v gsed 2>/dev/null)
+    ifeq ($(SED),)
+        $(error GNU sed (gsed) not found on macOS. Install with: brew install gnu-sed)
+    endif
+else
+    SED := sed
+endif
+
 # Documentation server port
 DOCS_PORT ?= 3000
 
@@ -186,7 +197,7 @@ fix-trailing-whitespace: ## Remove trailing whitespaces from all files
 		-not -path "./website/static/api-docs/*" \
 		-not -path "./website/.docusaurus/*" \
 		-not -path "./.git/*" \
-		-exec sh -c 'echo "Processing: $$1"; sed -i'\'''\'' -e "s/[[:space:]]*$$//" "$$1"' _ {} \; && \
+		-exec sh -c 'echo "Processing: $$1"; $(SED) -i -e "s/[[:space:]]*$$//" "$$1"' _ {} \; && \
 		echo "Trailing whitespaces removed."
 
 .PHONY: check-trailing-whitespace
