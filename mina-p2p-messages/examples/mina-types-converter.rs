@@ -181,7 +181,7 @@ impl FileFormat {
         Ok(())
     }
 }
-type Handler = Box<(dyn Fn(&Cli, &Option<PathBuf>) -> Result<()>)>;
+type Handler = Box<dyn Fn(&Cli, &Option<PathBuf>) -> Result<()>>;
 
 struct Formatter {
     in_type: &'static str,
