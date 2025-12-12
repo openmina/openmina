@@ -190,8 +190,10 @@ fix-trailing-whitespace: ## Remove trailing whitespaces from all files
 		-o -name "*.js" -o -name "*.jsx" -o -name "*.sh" \) \
 		-not -path "./target/*" \
 		-not -path "./node_modules/*" \
+		-not -path "./frontend/.angular/*" \
 		-not -path "./frontend/node_modules/*" \
 		-not -path "./frontend/dist/*" \
+		-not -path "./pkg/*" \
 		-not -path "./website/node_modules/*" \
 		-not -path "./website/build/*" \
 		-not -path "./website/static/api-docs/*" \
@@ -209,8 +211,10 @@ check-trailing-whitespace: ## Check for trailing whitespaces in source files
 		-o -name "*.js" -o -name "*.jsx" -o -name "*.sh" \) \
 		-not -path "./target/*" \
 		-not -path "./node_modules/*" \
+		-not -path "./frontend/.angular/*" \
 		-not -path "./frontend/node_modules/*" \
 		-not -path "./frontend/dist/*" \
+		-not -path "./pkg/*" \
 		-not -path "./website/node_modules/*" \
 		-not -path "./website/build/*" \
 		-not -path "./website/static/api-docs/*" \
