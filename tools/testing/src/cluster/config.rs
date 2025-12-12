@@ -60,7 +60,9 @@ impl ClusterConfig {
     }
 
     pub fn set_all_rust_to_rust_use_webrtc(&mut self) -> &mut Self {
-        assert!(cfg!(feature = "p2p-webrtc"));
+        if !cfg!(feature = "p2p-webrtc") {
+            unreachable!();
+        }
         self.all_rust_to_rust_use_webrtc = true;
         self
     }

@@ -3850,6 +3850,10 @@ pub fn compute_witness<C: ProofConstants, F: FieldWitness>(
     let mut res: [_; COLUMNS] = std::array::from_fn(|_| vec![F::zero(); num_rows]);
 
     // public input
+    #[allow(
+        clippy::needless_range_loop,
+        reason = "Clippy incorrectly assumes we're indexing res with `i`, but we're actually not!"
+    )]
     for i in 0..public_input_size {
         res[0][i] = external_values(i);
     }

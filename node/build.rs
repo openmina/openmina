@@ -192,7 +192,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                         let action_name_base =
                             action_name[..(action_name.len().saturating_sub(6))].to_string();
                         let mut variant_lines = vec![];
-                        while let Some(line) = lines.next() {
+                        for line in lines.by_ref() {
                             let line = line.unwrap();
                             if line.ends_with('}') {
                                 break;

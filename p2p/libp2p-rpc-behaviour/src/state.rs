@@ -182,7 +182,7 @@ impl Inner {
         let h_id = u64::from_le_bytes(*b"RPC\x00\x00\x00\x00\x00");
         while let Some(v) = self.buffer.try_cut() {
             // TODO: proper error type
-            let (header, bytes) = v.map_err(|err| io::Error::other(err))?;
+            let (header, bytes) = v.map_err(io::Error::other)?;
             match header {
                 MessageHeader::Heartbeat => {
                     // TODO: handle heartbeat properly
@@ -195,7 +195,7 @@ impl Inner {
                     let mut bytes_slice = bytes.as_slice();
                     type P = ResponsePayload<<VersionedRpcMenuV1 as RpcMethod>::Response>;
                     let menu = P::binprot_read(&mut bytes_slice)
-                        .map_err(|err| io::Error::other(err))?
+                        .map_err(io::Error::other)?
                         .0
                         .ok()
                         .map(|NeedsLength(x)| x)

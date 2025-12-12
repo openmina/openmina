@@ -58,8 +58,8 @@ impl RecordedActionWithMeta<'_> {
     }
 
     pub fn as_action_with_meta(self) -> Result<ActionWithMeta, Self> {
-        if self.action.is_some() {
-            let action = self.action.unwrap().into_owned();
+        if let Some(action) = self.action {
+            let action = action.into_owned();
             Ok(self.meta.with_action(action))
         } else {
             Err(self)
