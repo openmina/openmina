@@ -151,6 +151,10 @@ bench-database: ## Run ledger database benchmark
 check: ## Check code for compilation errors
 	cargo check --all-targets
 
+.PHONY: check-beta
+check-beta: ## Check code for compilation errors using beta Rust
+	cargo +beta check --all-targets
+
 .PHONY: check-tx-fuzzing
 check-tx-fuzzing: ## Check the transaction fuzzing tools, requires nightly Rust
 	@cd tools/fuzzing && cargo +$(NIGHTLY_RUST_VERSION) check
@@ -243,6 +247,10 @@ format-md: ## Format all markdown and MDX files to wrap at 80 characters
 .PHONY: lint
 lint: ## Run linter (clippy)
 	cargo clippy --all-targets -- -D warnings --allow clippy::mutable_key_type
+
+.PHONY: lint-beta
+lint-beta: ## Run linter (clippy) using beta Rust
+	cargo +beta clippy --all-targets -- -D warnings --allow clippy::mutable_key_type
 
 .PHONY: lint-bash
 lint-bash: ## Check all shell scripts using shellcheck
