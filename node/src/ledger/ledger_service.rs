@@ -1274,9 +1274,7 @@ impl LedgerCtx {
                 let mut iter = jobs.iter().peekable();
                 let mut res = Vec::with_capacity(jobs.len());
 
-                loop {
-                    let Some(job) = iter.next() else { break };
-
+                while let Some(job) = iter.next() {
                     let (stmt, seq_no, job_kind, is_done) = match &job.job {
                         JobValue::Leaf(JobValueBase::Empty)
                         | JobValue::Node(JobValueMerge::Empty)

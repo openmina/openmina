@@ -171,8 +171,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let mut lines = reader.lines();
         let mut action_defs: Vec<String> = vec![];
 
-        loop {
-            let Some(line) = lines.next() else { break };
+        while let Some(line) = lines.next() {
             let line = line.unwrap();
 
             let Some(matches) = action_def_re.captures(&line) else {
@@ -193,8 +192,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                         let action_name_base =
                             action_name[..(action_name.len().saturating_sub(6))].to_string();
                         let mut variant_lines = vec![];
-                        loop {
-                            let Some(line) = lines.next() else { break };
+                        while let Some(line) = lines.next() {
                             let line = line.unwrap();
                             if line.ends_with('}') {
                                 break;
