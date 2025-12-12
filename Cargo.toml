@@ -237,10 +237,10 @@ vergen = { version = "8.2.4", features = [
 ] }
 vrf = { path = "vrf" }
 warp = "0.3"
-wasm-bindgen = "0.2"
-wasm-bindgen-futures = "0.4"
-wasm-bindgen-test = "0.3.33"
-wasm_thread = { version = "0.3", features = ["es_modules"] }
+wasm-bindgen = "^0.2.106"
+wasm-bindgen-futures = "^0.4.56"
+wasm-bindgen-test = "^0.3.56"
+wasm_thread = { version = "^0.3.3", features = ["es_modules"] }
 web-sys = { version = "0.3.64" }
 webrtc = { git = "https://github.com/openmina/webrtc.git", rev = "aeaa62682b97f6984627bedd6e6811fe17af18eb" }
 x25519-dalek = { version = "2.0.1", features = ["static_secrets"] }

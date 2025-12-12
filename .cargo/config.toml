@@ -3,3 +3,25 @@ rustflags = []
 
 [target.aarch64-apple-darwin]
 rustflags = ["-C", "link-args=-Wl,-undefined,dynamic_lookup"]
+
+[target.wasm32-unknown-unknown]
+rustflags = [
+  "-C",
+  "target-feature=+atomics,+bulk-memory",
+  "-C",
+  "link-args=--shared-memory",
+  "-C",
+  "link-args=--import-memory",
+  "-C",
+  "link-args=--export-memory",
+  "-C",
+  "link-args=--max-memory=4294967296",
+  "-C",
+  "link-args=--export=__wasm_init_tls",
+  "-C",
+  "link-args=--export=__tls_size",
+  "-C",
+  "link-args=--export=__tls_align",
+  "-C",
+  "link-args=--export=__tls_base",
+]

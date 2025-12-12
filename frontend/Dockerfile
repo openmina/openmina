@@ -27,6 +27,10 @@
 # REQUIRED ENVIRONMENT VARIABLES:
 # MINA_FRONTEND_ENVIRONMENT - Frontend configuration (local|webnode|production)
 #
+# OPTIONAL ENVIRONMENT VARIABLES:
+# MINA_WEBNODE_SEED_URLS - Comma separated list of HTTP(S) urls to fetch bootnodes from
+# MINA_WEBNODE_BOOTNODES - Comma separated list of multiaddrs to use as bootnodes
+#
 # USAGE:
 # # Generate .env.docker with current git information
 # ./generate-docker-env.sh
@@ -62,6 +66,7 @@ RUN make setup-wasm
 
 # Copy source code required for WASM build
 COPY Cargo.toml Cargo.lock ./
+COPY .cargo/config.toml ./.cargo/config.toml
 COPY cli ./cli
 COPY core ./core
 COPY fuzzer ./fuzzer
@@ -137,11 +142,11 @@ COPY Makefile ./
 COPY frontend/httpd.conf /usr/local/apache2/conf/httpd.conf
 
 # Copy WASM files from build stage
-COPY --from=wasm_files . /usr/local/apache2/htdocs/assets/webnode/pkg/
+COPY --from=wasm_files . /usr/local/apache2/htdocs/assets/webnode/
 
 # Copy circuit blobs for devnet and mainnet from local directory
-COPY circuit-blobs/3.0.1devnet /usr/local/apache2/htdocs/assets/webnode/circuit-blobs/3.0.1devnet
 COPY circuit-blobs/3.0.0mainnet /usr/local/apache2/htdocs/assets/webnode/circuit-blobs/3.0.0mainnet
+COPY circuit-blobs/berkeley-devnet /usr/local/apache2/htdocs/assets/webnode/circuit-blobs/berkeley-devnet
 
 # Create startup script and setup directories
 COPY ./frontend/docker/startup.sh /usr/local/bin/startup.sh

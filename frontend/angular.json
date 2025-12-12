@@ -62,7 +62,11 @@
             },
             "scripts": [
               "node_modules/aos/dist/aos.js"
-            ]
+            ],
+            "define": {
+              "MINA_WEBNODE_BOOTNODES": "\"\"",
+              "MINA_WEBNODE_SEED_URLS": "\"\""
+            }
           },
           "configurations": {
             "production": {

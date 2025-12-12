@@ -56,6 +56,7 @@ export function getFirstFeature(
   console.log('getFirstFeature called with config:', {
     config,
     'CONFIG.configs': CONFIG.configs,
+    globalConfig: CONFIG.globalConfig,
   });
 
   if (Array.isArray(config?.features)) {

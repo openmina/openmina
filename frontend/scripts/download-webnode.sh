@@ -1,12 +1,12 @@
 #!/bin/bash
 
 # Set the base URL for OpenMina
-MINA_BASE_URL="https://github.com/openmina"
+MINA_BASE_URL="https://github.com/o1-labs"
 
 # Function to download circuit files
 download_circuit_files() {
     CIRCUITS_BASE_URL="$MINA_BASE_URL/circuit-blobs/releases/download"
-    CIRCUITS_VERSION="3.0.1devnet"
+    CIRCUITS_VERSION="berkeley-devnet"
 
     DEVNET_CIRCUIT_FILES=(
         "block_verifier_index.postcard"

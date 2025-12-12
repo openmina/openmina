@@ -10,7 +10,7 @@ NIGHTLY_RUST_VERSION = "nightly"
 NODE_VERSION := $(shell cat .nvmrc)
 
 # WebAssembly
-WASM_BINDGEN_CLI_VERSION = "0.2.99"
+WASM_BINDGEN_CLI_VERSION = "0.2.106"
 
 # TOML formatter
 TAPLO_CLI_VERSION = "0.9.3"
@@ -36,6 +36,11 @@ MINA_LIBP2P_PORT ?= 8302
 NETWORK ?= devnet
 VERBOSITY ?= info
 GIT_COMMIT := $(shell git rev-parse --short=8 HEAD)
+
+# Circuit Blobs
+CIRCUITS_REPO ?= https://github.com/o1-labs/circuit-blobs.git
+CIRCUITS_REV ?= main
+CIRCUITS_NETWORKS ?= 3.0.0mainnet berkeley-devnet
 
 # Documentation server port
 DOCS_PORT ?= 3000
@@ -214,9 +219,12 @@ clean: ## Clean build artifacts
 .PHONY: download-circuits
 download-circuits: ## Download the circuits used by Mina from GitHub
 	@if [ ! -d "circuit-blobs" ]; then \
-	  git clone --depth 1 https://github.com/o1-labs/circuit-blobs.git -b dw/add-berkeley-687bf44e97328e1cc0e85291663009410f64bd99; \
-	  ln -s "$$PWD"/circuit-blobs/3.0.0mainnet ledger/; \
-	  ln -s "$$PWD"/circuit-blobs/berkeley-devnet ledger/; \
+	  git clone --depth 1 $(CIRCUITS_REPO) -b $(CIRCUITS_REV); \
+	  for network in $(CIRCUITS_NETWORKS); do \
+	    echo "Including circuits for $$network"; \
+	    rm -f "$$PWD"/ledger/"$$network"; \
+	    ln -s "$$PWD"/circuit-blobs/"$$network" ledger/"$$network"; \
+	  done; \
 	else \
 	  echo "circuit-blobs already exists, skipping download."; \
 	fi

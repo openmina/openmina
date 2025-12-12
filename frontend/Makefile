@@ -1,5 +1,9 @@
 # Frontend Makefile
 
+# These are threaded from the outside env into build-webnode
+MINA_WEBNODE_SEED_URLS ?= 
+MINA_WEBNODE_BOOTNODES ?= 
+
 .PHONY: help
 help: ## Display this help message
 	@echo "Frontend Makefile - Available targets:"
@@ -38,7 +42,10 @@ build-production: ## Build the frontend with production configuration
 
 .PHONY: build-webnode
 build-webnode: ## Build the frontend with webnode configuration
-	npx ng build --configuration webnode-local
+	npx ng build \
+	  --define MINA_WEBNODE_SEED_URLS="\"$(MINA_WEBNODE_SEED_URLS)\"" \
+	  --define MINA_WEBNODE_BOOTNODES="\"$(MINA_WEBNODE_BOOTNODES)\"" \
+	  --configuration webnode-local
 	cp dist/frontend/browser/assets/environments/webnode.js \
 		dist/frontend/browser/assets/environments/env.js
 
