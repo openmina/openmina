@@ -1,0 +1,7 @@
+Version:       0341fff
+Build time:    2025-09-10T18:11:40.953050700Z
+Commit SHA:    0341fffedba4900371504ad4b30853674960a209
+Commit time:   2025-09-10T19:30:31.000000000+02:00
+Commit branch: release/v0.17.0
+Rustc channel: stable
+Rustc version: 1.84.1
