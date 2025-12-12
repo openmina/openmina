@@ -11,7 +11,7 @@ pub struct AnyAction(pub Box<dyn std::any::Any>);
 #[distributed_slice]
 pub static CALLBACKS: [(&str, fn(&str, Box<dyn std::any::Any>) -> AnyAction)];
 
-#[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Callback<T> {
     #[serde(skip, default = "default_fun_ptr")]
     fun_ptr: Option<fn(T) -> AnyAction>,
