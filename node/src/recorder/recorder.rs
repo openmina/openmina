@@ -137,7 +137,6 @@ impl Recorder {
     }
 }
 
-
 impl Drop for Recorder {
     fn drop(&mut self) {
         match self {

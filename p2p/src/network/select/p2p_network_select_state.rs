@@ -112,13 +112,15 @@ impl P2pNetworkSelectState {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, MallocSizeOf)]
-#[derive(Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, MallocSizeOf, Default)]
 pub enum P2pNetworkSelectStateInner {
     Error(String),
-    Initiator { proposing: token::Protocol },
-    Uncertain { proposing: token::Protocol },
+    Initiator {
+        proposing: token::Protocol,
+    },
+    Uncertain {
+        proposing: token::Protocol,
+    },
     #[default]
     Responder,
 }
-

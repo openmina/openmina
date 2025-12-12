@@ -257,7 +257,6 @@ pub enum AuthRequired {
     Both, // Legacy only
 }
 
-
 impl From<ControlTag> for AuthRequired {
     /// <https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/permissions.ml#L68>
     fn from(value: ControlTag) -> Self {

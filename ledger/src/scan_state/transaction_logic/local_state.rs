@@ -30,8 +30,7 @@ use mina_curves::pasta::Fp;
 use poseidon::hash::{hash_with_kimchi, params::MINA_ACCOUNT_UPDATE_STACK_FRAME, Inputs};
 use std::{cell::RefCell, collections::BTreeMap, rc::Rc};
 
-#[derive(Debug, Clone)]
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 pub struct StackFrame {
     pub caller: TokenId,
     pub caller_caller: TokenId,
@@ -71,7 +70,6 @@ enum LazyValueInner<T, D> {
     #[default]
     None,
 }
-
 
 pub struct LazyValue<T, D> {
     value: Rc<RefCell<LazyValueInner<T, D>>>,
@@ -184,7 +182,6 @@ impl<T> ToFieldElements<Fp> for WithLazyHash<T> {
 
 // <https://github.com/MinaProtocol/mina/blob/78535ae3a73e0e90c5f66155365a934a15535779/src/lib/transaction_snark/transaction_snark.ml#L1083>
 pub type StackFrameChecked = WithLazyHash<StackFrameCheckedFrame>;
-
 
 impl StackFrame {
     pub fn empty() -> Self {

@@ -31,8 +31,7 @@ pub enum RpcRequestStatus {
     },
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[derive(Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub enum RpcRequestExtraData {
     #[default]
     None,
@@ -96,4 +95,3 @@ impl RpcState {
         })
     }
 }
-

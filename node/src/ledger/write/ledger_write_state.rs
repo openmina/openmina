@@ -2,8 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{LedgerWriteRequest, LedgerWriteResponse};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[derive(Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub enum LedgerWriteState {
     #[default]
     Idle,
@@ -46,4 +45,3 @@ impl LedgerWriteState {
         self.pending_requests().peekable().peek().is_some()
     }
 }
-

@@ -84,8 +84,7 @@ impl P2pRpcKind {
     }
 }
 
-#[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, PartialEq, Clone)]
-#[derive(Default)]
+#[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub enum P2pRpcRequest {
     #[default]
     BestTipWithProof,
@@ -112,7 +111,6 @@ impl P2pRpcRequest {
         }
     }
 }
-
 
 fn addr_to_str(
     MerkleAddressBinableArgStableV1(mina_p2p_messages::number::Number(length), byte_string): &MerkleAddressBinableArgStableV1,

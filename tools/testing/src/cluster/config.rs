@@ -16,15 +16,13 @@ pub struct ClusterConfig {
     ocaml_node_executable: Option<OcamlNodeExecutable>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
-#[derive(Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Default)]
 pub enum ProofKind {
     #[default]
     Dummy,
     ConstraintsChecked,
     Full,
 }
-
 
 impl ClusterConfig {
     pub fn new(ocaml_node_executable: Option<OcamlNodeExecutable>) -> anyhow::Result<Self> {
