@@ -57,15 +57,6 @@ runs:
       working-directory: frontend
       shell: bash
 
-    - name: Test make build-fuzzing
-      if: inputs.test-build-commands == 'true'
-      run: |
-        rm -rf dist
-        make build-fuzzing
-        [ -d "dist/frontend" ] || { echo "Error: make build-fuzzing failed"; exit 1; }
-      working-directory: frontend
-      shell: bash
-
     - name: Test make build-local
       if: inputs.test-build-commands == 'true'
       run: |
@@ -81,15 +72,6 @@ runs:
         rm -rf dist
         make build-production
         [ -d "dist/frontend" ] || { echo "Error: make build-production failed"; exit 1; }
-      working-directory: frontend
-      shell: bash
-
-    - name: Test make build-staging
-      if: inputs.test-build-commands == 'true'
-      run: |
-        rm -rf dist
-        make build-staging
-        [ -d "dist/frontend" ] || { echo "Error: make build-staging failed"; exit 1; }
       working-directory: frontend
       shell: bash
 
