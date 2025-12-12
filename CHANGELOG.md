@@ -30,6 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Ledger**: remove FFI codebase and `port_ocaml` module, fix
   [#1235](https://github.com/o1-labs/mina-rust/issues/1235)
+- **Build**: remove unused Docker files from `tools/testing/docker` and
+  corresponding Makefile targets
 - **Frontend**: remove outdated `frontend/functions` directory containing unused
   Firebase Cloud Functions
 - **CI**: remove network debugger from CI

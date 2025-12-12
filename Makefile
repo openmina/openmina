@@ -354,21 +354,14 @@ nextest-ledger: build-ledger ## Run ledger tests with cargo-nextest, requires ni
 # Docker build targets
 
 .PHONY: docker-build-all
-docker-build-all: docker-build-bootstrap-sandbox docker-build-debugger \
+docker-build-all: docker-build-bootstrap-sandbox \
 	docker-build-frontend docker-build-fuzzing \
-	docker-build-light docker-build-light-focal docker-build-mina \
-	docker-build-mina-testing \
-	docker-build-test ## Build all Docker images
+	docker-build-mina ## Build all Docker images
 
 .PHONY: docker-build-bootstrap-sandbox
 docker-build-bootstrap-sandbox: ## Build bootstrap sandbox Docker image
 	docker build -t $(DOCKER_ORG)/mina-rust-bootstrap-sandbox:$(GIT_COMMIT) \
 		tools/bootstrap-sandbox/
-
-.PHONY: docker-build-debugger
-docker-build-debugger: ## Build debugger Docker image
-	docker build -t $(DOCKER_ORG)/mina-rust-debugger:$(GIT_COMMIT) \
-		-f tools/testing/docker/Dockerfile.debugger tools/testing/docker/
 
 .PHONY: docker-build-frontend
 docker-build-frontend: ## Build frontend Docker image
@@ -392,16 +385,6 @@ docker-build-frontend: ## Build frontend Docker image
 docker-build-fuzzing: ## Build fuzzing Docker image
 	docker build -t $(DOCKER_ORG)/mina-rust-fuzzing:$(GIT_COMMIT) tools/fuzzing/
 
-.PHONY: docker-build-light
-docker-build-light: ## Build light Docker image
-	docker build -t $(DOCKER_ORG)/mina-rust-light:$(GIT_COMMIT) \
-		-f tools/testing/docker/Dockerfile.light tools/testing/docker/
-
-.PHONY: docker-build-light-focal
-docker-build-light-focal: ## Build light focal Docker image
-	docker build -t $(DOCKER_ORG)/mina-rust-light-focal:$(GIT_COMMIT) \
-		-f tools/testing/docker/Dockerfile.light.focal tools/testing/docker/
-
 .PHONY: docker-build-mina
 docker-build-mina: ## Build main Mina Docker image
 	@ARCH=$$(uname -m); \
@@ -415,16 +398,6 @@ docker-build-mina: ## Build main Mina Docker image
 		--platform $$PLATFORM \
 		--tag $(DOCKER_ORG)/mina-rust:$(GIT_COMMIT) \
 		.
-
-.PHONY: docker-build-mina-testing
-docker-build-mina-testing: ## Build Mina testing Docker image
-	docker build -t $(DOCKER_ORG)/mina-rust-testing:$(GIT_COMMIT) \
-		-f tools/testing/docker/Dockerfile.mina tools/testing/docker/
-
-.PHONY: docker-build-test
-docker-build-test: ## Build test Docker image
-	docker build -t $(DOCKER_ORG)/mina-rust-test:$(GIT_COMMIT) \
-		-f tools/testing/docker/Dockerfile.test tools/testing/docker/
 
 # Docker push targets
 
