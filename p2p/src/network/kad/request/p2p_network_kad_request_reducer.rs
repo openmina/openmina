@@ -220,9 +220,7 @@ impl P2pNetworkKadRequestState {
                     .and_then(|bootstrap_state| bootstrap_state.request(&peer_id))
                     .is_some();
 
-                let closest_peers = bootstrap_request
-                    .then(|| state.latest_request_peers.clone())
-                    .unwrap_or_default();
+                let closest_peers = if bootstrap_request { state.latest_request_peers.clone() } else { Default::default() };
 
                 let dispatcher = state_context.into_dispatcher();
 
