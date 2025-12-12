@@ -391,7 +391,7 @@ impl<const NBYTES: usize> Address<NBYTES> {
             .for_each(|(index, byte)| {
                 let byte = *byte as u64;
 
-                if index == 0 && self.length % 8 != 0 {
+                if index == 0 && !self.length.is_multiple_of(8) {
                     let nunused = self.length % 8;
                     account_index |= byte >> (8 - nunused);
                     shift += nunused;

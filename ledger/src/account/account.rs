@@ -555,9 +555,9 @@ impl VerificationKey {
             max_proofs_verified: {
                 let n: u64 = rng.gen();
 
-                if n % 3 == 0 {
+                if n.is_multiple_of(3) {
                     ProofVerified::N2
-                } else if n % 2 == 0 {
+                } else if n.is_multiple_of(2) {
                     ProofVerified::N1
                 } else {
                     ProofVerified::N0
@@ -568,9 +568,9 @@ impl VerificationKey {
             actual_wrap_domain_size: {
                 let n: u64 = rng.gen();
 
-                if n % 3 == 0 {
+                if n.is_multiple_of(3) {
                     ProofVerified::N2
-                } else if n % 2 == 0 {
+                } else if n.is_multiple_of(2) {
                     ProofVerified::N1
                 } else {
                     ProofVerified::N0
@@ -1648,13 +1648,13 @@ impl Account {
 
         let gen_perm = |rng: &mut ThreadRng| {
             let n: u64 = rng.gen();
-            if n % 5 == 0 {
+            if n.is_multiple_of(5) {
                 AuthRequired::Either
-            } else if n % 4 == 0 {
+            } else if n.is_multiple_of(4) {
                 AuthRequired::Impossible
-            } else if n % 3 == 0 {
+            } else if n.is_multiple_of(3) {
                 AuthRequired::None
-            } else if n % 2 == 0 {
+            } else if n.is_multiple_of(2) {
                 AuthRequired::Proof
             } else {
                 AuthRequired::Signature

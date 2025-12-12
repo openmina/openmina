@@ -14,7 +14,6 @@ use mina_core::{
     block::{ArcBlockWithHash, BlockWithHash},
     consensus::ConsensusConstants,
     constants::constraint_constants,
-    error,
     requests::RpcId,
     snark::{Snark, SnarkInfo, SnarkJobCommitment},
     ChainId,

@@ -195,7 +195,7 @@ impl Ports {
     }
 
     fn round(u: u16) -> u16 {
-        ((u + 99) / 100) * 100
+        u.div_ceil(100) * 100
     }
 
     pub async fn take(&self, len: u16) -> Result<Range<u16>> {

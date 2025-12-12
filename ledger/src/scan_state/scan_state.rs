@@ -1995,7 +1995,7 @@ impl ScanState {
     }
 
     pub fn partition_if_overflowing(&self) -> SpacePartition {
-        let bundle_count = |work_count: u64| (work_count + 1) / 2;
+        let bundle_count = |work_count: u64| work_count.div_ceil(2);
 
         // slots: current tree space
         // job_count: work count on current tree

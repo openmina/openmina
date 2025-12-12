@@ -2044,7 +2044,7 @@ pub fn scale_known<F: FieldWitness, const N: usize>(
 ) -> GroupAffine<F> {
     let sigma = InnerCurve::of_affine(t);
     let n = bits.len();
-    let sigma_count = (n + 1) / 2;
+    let sigma_count = n.div_ceil(2);
 
     let to_term = |two_to_the_i: InnerCurve<F>,
                    two_to_the_i_plus_1: InnerCurve<F>,

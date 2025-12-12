@@ -151,7 +151,7 @@ impl SnarkedLedger {
                 _ => panic!(),
             }
         } else {
-            let b = ((depth as usize + 7) / 8).min(4);
+            let b = (depth as usize).div_ceil(8).min(4);
             let p = if depth > 0 {
                 pos * (1 << (32 - depth))
             } else {

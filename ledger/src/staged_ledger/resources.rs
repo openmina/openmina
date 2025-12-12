@@ -476,7 +476,7 @@ impl Resources {
 
         let total_fee_transfer_pks = other_provers + fee_for_self;
 
-        self.commands_rev.len() as u64 + ((total_fee_transfer_pks + 1) / 2) + self.coinbase_added()
+        self.commands_rev.len() as u64 + total_fee_transfer_pks.div_ceil(2) + self.coinbase_added()
     }
 
     #[allow(clippy::bool_to_int_with_if)]
@@ -500,7 +500,7 @@ impl Resources {
 
         let total_fee_transfer_pks = other_provers + fee_for_self;
 
-        self.commands_rev.len() as u64 + ((total_fee_transfer_pks + 1) / 2) + self.coinbase_added()
+        self.commands_rev.len() as u64 + total_fee_transfer_pks.div_ceil(2) + self.coinbase_added()
     }
 
     /// <https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L1430>

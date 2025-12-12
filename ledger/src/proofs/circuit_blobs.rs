@@ -137,8 +137,7 @@ pub fn fetch_blocking(filename: &impl AsRef<Path>) -> std::io::Result<Vec<u8>> {
     }
 
     fn to_io_err(err: impl std::fmt::Display) -> std::io::Error {
-        std::io::Error::new(
-            std::io::ErrorKind::Other,
+        std::io::Error::other(
             format!(
                 "failed to find circuit-blobs locally and to fetch the from github! error: {err}"
             ),

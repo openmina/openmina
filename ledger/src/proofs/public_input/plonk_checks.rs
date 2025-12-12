@@ -580,7 +580,7 @@ mod scalars {
             x
         } else {
             let y = pow(field::square(x, w), n / 2, w);
-            if n % 2 == 0 {
+            if n.is_multiple_of(2) {
                 y
             } else {
                 field::mul(x, y, w)
