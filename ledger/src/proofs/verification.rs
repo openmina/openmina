@@ -460,7 +460,7 @@ fn get_message_for_next_wrap_proof(
     }: &PicklesProofProofsVerified2ReprStableV2MessagesForNextWrapProof,
 ) -> Result<MessagesForNextWrapProof, InvalidBigInt> {
     let challenge_polynomial_commitments: Vec<InnerCurve<Fq>> =
-        extract_polynomial_commitment(&[challenge_polynomial_commitment.clone()])?;
+        extract_polynomial_commitment(std::slice::from_ref(challenge_polynomial_commitment))?;
 
     let old_bulletproof_challenges: Vec<[Fq; 15]> = extract_bulletproof(&[
         old_bulletproof_challenges[0].0.clone(),
