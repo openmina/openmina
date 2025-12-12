@@ -380,6 +380,6 @@ EXPLAIN ANALYZE SELECT ...;
 ## Next Steps
 
 - [GraphQL API Reference](./graphql-api) - Query blockchain data via GraphQL
-- [Node Architecture](./architecture) - Understanding the archive system
-- [Running Archive Nodes](../node-operators/archive-node) - Setting up archive
-  infrastructure
+- [Node Architecture](../architecture) - Understanding the archive system
+- [Running Archive Nodes](../../node-operators/archive-node) - Setting up
+  archive infrastructure

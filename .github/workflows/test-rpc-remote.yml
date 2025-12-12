@@ -1,0 +1,118 @@
+# Run locally:
+#   macOS:  gh act -W .github/workflows/test-rpc-remote.yml --matrix os:macos-latest --container-architecture linux/amd64
+#   Ubuntu: gh act -W .github/workflows/test-rpc-remote.yml --matrix os:ubuntu-latest
+
+name: Remote RPC Tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    # Run daily at 00:30 UTC (offset from GraphQL tests)
+    - cron: '30 0 * * *'
+
+jobs:
+  remote-rpc-tests:
+    name: Test Rust Node RPC Endpoints (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    timeout-minutes: 10
+    env:
+      RPC_ENDPOINT: http://mina-rust-plain-3.gcp.o1test.net
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Verify all curl scripts have tests
+        run: |
+          echo "Checking that every curl script has a corresponding test..."
+          echo ""
+          missing=0
+          for curl_script in website/docs/developers/api-and-data/scripts/rpc-api/curl/*.sh; do
+            name=$(basename "$curl_script" .sh)
+            test_script=".github/scripts/test-rpc-remote/test-${name}.sh"
+            if [ -f "$test_script" ]; then
+              echo "  $name.sh -> test-${name}.sh"
+            else
+              echo "  $name.sh -> MISSING test-${name}.sh"
+              missing=$((missing + 1))
+            fi
+          done
+          echo ""
+          if [ $missing -gt 0 ]; then
+            echo "ERROR: $missing curl script(s) without tests"
+            exit 1
+          fi
+          echo "All curl scripts have corresponding tests"
+
+      - name: Test healthz endpoint
+        run: |
+          .github/scripts/test-rpc-remote/test-healthz.sh "$RPC_ENDPOINT"
+
+      - name: Test readyz endpoint
+        run: |
+          .github/scripts/test-rpc-remote/test-readyz.sh "$RPC_ENDPOINT"
+
+      - name: Test status endpoint
+        run: |
+          .github/scripts/test-rpc-remote/test-status.sh "$RPC_ENDPOINT"
+
+      - name: Test build_env endpoint
+        run: |
+          .github/scripts/test-rpc-remote/test-build-env.sh "$RPC_ENDPOINT"
+
+      - name: Test peers endpoint
+        run: |
+          .github/scripts/test-rpc-remote/test-peers.sh "$RPC_ENDPOINT"
+
+      - name: Test stats/sync endpoint
+        run: |
+          .github/scripts/test-rpc-remote/test-stats-sync.sh "$RPC_ENDPOINT"
+
+      - name: Test stats/block_producer endpoint
+        run: |
+          .github/scripts/test-rpc-remote/test-stats-block-producer.sh "$RPC_ENDPOINT"
+
+      - name: Test snark-pool/jobs endpoint
+        run: |
+          .github/scripts/test-rpc-remote/test-snark-pool-jobs.sh "$RPC_ENDPOINT"
+
+      - name: Test snarker/workers endpoint
+        run: |
+          .github/scripts/test-rpc-remote/test-snarker-workers.sh "$RPC_ENDPOINT"
+
+      - name: Test snarker/config endpoint
+        run: |
+          .github/scripts/test-rpc-remote/test-snarker-config.sh "$RPC_ENDPOINT"
+
+      - name: Test transaction-pool endpoint
+        run: |
+          .github/scripts/test-rpc-remote/test-transaction-pool.sh "$RPC_ENDPOINT"
+
+      - name: Test discovery/routing_table endpoint
+        run: |
+          .github/scripts/test-rpc-remote/test-discovery-routing-table.sh "$RPC_ENDPOINT"
+
+      - name: Test discovery/bootstrap_stats endpoint
+        run: |
+          .github/scripts/test-rpc-remote/test-discovery-bootstrap-stats.sh "$RPC_ENDPOINT"
+
+      - name: Test scan-state/summary endpoint
+        run: |
+          .github/scripts/test-rpc-remote/test-scan-state-summary.sh "$RPC_ENDPOINT"
+
+      - name: Test state endpoint
+        run: |
+          .github/scripts/test-rpc-remote/test-state.sh "$RPC_ENDPOINT"
+
+      - name: Test message-progress endpoint
+        run: |
+          .github/scripts/test-rpc-remote/test-message-progress.sh "$RPC_ENDPOINT"
+
+      - name: Test accounts endpoint
+        run: |
+          .github/scripts/test-rpc-remote/test-accounts.sh "$RPC_ENDPOINT"

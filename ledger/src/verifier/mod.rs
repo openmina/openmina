@@ -34,7 +34,10 @@ pub static VERIFIER_INDEX: Lazy<Arc<VerifierIndex<Fq>>> = Lazy::new(|| {
         .into()
 });
 
-/// Returns the SRS on the other curve (immutable version for verifiers)
+/// Returns the Structured Reference String (SRS) for proof verification.
+/// Lazily created and cached globally. Immutable version for verifiers.
+///
+/// TODO: Use directly from proof-systems (<https://github.com/o1-labs/mina-rust/issues/1749>)
 pub fn get_srs<F: FieldWitness>() -> Arc<SRS<F::OtherCurve>> {
     cache! {
         Arc<SRS<F::OtherCurve>>,
@@ -45,7 +48,9 @@ pub fn get_srs<F: FieldWitness>() -> Arc<SRS<F::OtherCurve>> {
     }
 }
 
-/// Returns the SRS on the other curve (Mutex-wrapped version for prover)
+/// Returns the SRS on the other curve (Mutex-wrapped version for prover).
+///
+/// TODO: Use directly from proof-systems (<https://github.com/o1-labs/mina-rust/issues/1749>)
 pub fn get_srs_mut<F: FieldWitness>() -> Arc<Mutex<SRS<F::OtherCurve>>> {
     cache! {
         Arc<Mutex<SRS<F::OtherCurve>>>,

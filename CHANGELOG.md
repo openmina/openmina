@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Documentation**: add RPC API reference documentation with CI validation
+  against o1Labs node, reorganize API docs into dedicated section
+  ([#1745](https://github.com/o1-labs/mina-rust/pull/1745))
 - **Node**: add top-level documentation for the crate `node`
   ([#1736](https://github.com/o1-labs/mina-rust/pull/1736))
 - **CI**: automatically push Docker images for `vX.Y.Z` and `vX.Y` when tag `vX.Y.Z` is created

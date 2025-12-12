@@ -10,8 +10,8 @@
 
 echo "🔍 Testing consistency between bash scripts and GraphQL query files..."
 
-script_dir="website/docs/developers/scripts/graphql-api/queries/curl"
-query_dir="website/docs/developers/scripts/graphql-api/queries/query"
+script_dir="website/docs/developers/api-and-data/scripts/graphql-api/queries/curl"
+query_dir="website/docs/developers/api-and-data/scripts/graphql-api/queries/query"
 
 inconsistent=0
 

@@ -1,3 +1,64 @@
+//! # RPC Service Layer
+//!
+//! This module provides the service layer that connects HTTP endpoints to the
+//! node's state machine. It handles the communication between external RPC
+//! requests and the internal event-driven architecture.
+//!
+//! ## Architecture
+//!
+//! The RPC system follows a request-response pattern through channels:
+//!
+//! ```text
+//! HTTP Server -> RpcSender -> RpcService -> Event -> State Machine
+//!                                                         |
+//! HTTP Response <- oneshot channel <- respond_* methods <-+
+//! ```
+//!
+//! 1. HTTP server receives a request and sends it via [`RpcSender`]
+//! 2. [`RpcService`] wraps the request with a unique ID and responder channel
+//! 3. Request becomes an [`Event::Rpc`] dispatched to the state machine
+//! 4. State machine processes the request and calls a `respond_*` method
+//! 5. Response is sent back through the oneshot channel to the HTTP server
+//!
+//! ## Adding a new RPC endpoint
+//!
+//! To add a new RPC endpoint, follow these steps:
+//!
+//! 1. **Define the request type** in [`node::rpc`]:
+//!    Add a variant to `RpcRequest` enum in `node/src/rpc/mod.rs`
+//!
+//! 2. **Define the response type** in [`node::rpc`]:
+//!    Create a type alias like `pub type RpcMyNewResponse = ...;`
+//!
+//! 3. **Add the respond method** to `RpcService` trait in
+//!    `node/src/rpc_effectful/mod.rs`:
+//!    ```ignore
+//!    fn respond_my_new_endpoint(
+//!        &mut self,
+//!        rpc_id: RpcId,
+//!        response: RpcMyNewResponse,
+//!    ) -> Result<(), RespondError>;
+//!    ```
+//!
+//! 4. **Implement the respond method** in this file using the macro:
+//!    ```ignore
+//!    rpc_service_impl!(respond_my_new_endpoint, RpcMyNewResponse);
+//!    ```
+//!
+//! 5. **Handle the request** in `node/src/rpc/rpc_reducer.rs`:
+//!    Add a match arm for your new `RpcRequest` variant
+//!
+//! 6. **Add the HTTP route** in `node/native/src/http_server.rs`:
+//!    Define the route and call `rpc_sender.my_new_endpoint()`
+//!
+//! 7. **Add the sender method** in `sender.rs`:
+//!    Implement the method on [`RpcSender`] that sends the request through the
+//!    channel
+//!
+//! 8. **Document the endpoint** in the website documentation:
+//!    Add the new endpoint to `website/docs/developers/api-and-data/rpc-api.md`
+//!    so node operators can discover and use it
+
 mod sender;
 pub use sender::RpcSender;
 

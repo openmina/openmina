@@ -14,7 +14,7 @@ MINA_DIR="$(dirname "${MINA_BIN}")"
 export PATH="${MINA_DIR}:${PATH}"
 
 SCRIPT_DIR="website/docs/developers/scripts/cli"
-QUERY_FILE="website/docs/developers/scripts/graphql-api/queries/query/sync-status.graphql"
+QUERY_FILE="website/docs/developers/api-and-data/scripts/graphql-api/queries/query/sync-status.graphql"
 GRAPHQL_NODE="${GRAPHQL_NODE:-https://mina-rust-plain-3.gcp.o1test.net/graphql}"
 
 echo "Testing that 'mina internal graphql' commands are available..."

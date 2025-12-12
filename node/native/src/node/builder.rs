@@ -1,3 +1,7 @@
+//! Node builder for configuring and constructing native Mina nodes.
+//!
+//! See [`NodeBuilder`] for the main entry point.
+
 use std::{
     fs::File,
     io::{BufRead, BufReader, Read},
@@ -31,22 +35,40 @@ use crate::NodeServiceBuilder;
 
 use super::Node;
 
+/// Builder for constructing a native Mina node with fluent API.
 pub struct NodeBuilder {
+    /// Seed for RNG, used in `Node::new()` for replay. If `None` in constructor,
+    /// a random seed is generated.
     rng_seed: [u8; 32],
+    /// If `Some`, overrides system time (for testing). If `None`, uses real time.
     custom_initial_time: Option<redux::Timestamp>,
+    /// Genesis block configuration.
     genesis_config: Arc<GenesisConfig>,
+    /// P2P networking configuration.
     p2p: P2pConfig,
+    /// If `Some`, uses provided key. If `None`, `P2pSecretKey::rand()` in `build()`.
     p2p_sec_key: Option<P2pSecretKey>,
+    /// If `true`, node acts as seed (no initial peers needed).
     p2p_is_seed: bool,
+    /// If `true`, P2P service already spawned via custom task spawner.
     p2p_is_started: bool,
+    /// If `Some`, enables block production. If `None`, node is non-producing.
     block_producer: Option<BlockProducerConfig>,
+    /// If `Some`, enables archive mode. If `None`, no archiving.
     archive: Option<ArchiveConfig>,
+    /// If `Some`, enables SNARK worker. If `None`, no SNARK work.
     snarker: Option<SnarkerConfig>,
+    /// Service builder for I/O components.
     service: NodeServiceBuilder,
+    /// If `Some`, uses provided SRS. If `None`, `get_srs()` in `build()`.
     verifier_srs: Option<Arc<VerifierSRS>>,
+    /// If `Some`, uses provided index. If `None`, `BlockVerifier::make()` in `build()`.
     block_verifier_index: Option<BlockVerifier>,
+    /// If `Some`, uses provided. If `None`, `TransactionVerifier::make()` in `build()`.
     work_verifier_index: Option<TransactionVerifier>,
+    /// If `Some`, starts HTTP RPC server on port. If `None`, no RPC server.
     http_port: Option<u16>,
+    /// Daemon JSON configuration.
     daemon_conf: Daemon,
 }
 

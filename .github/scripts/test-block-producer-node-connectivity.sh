@@ -37,7 +37,7 @@ for node_url in $bp_nodes; do
   graphql_url="${node_url}graphql"
 
   # Test daemon status query using the website script
-  if response=$(bash website/docs/developers/scripts/graphql-api/queries/curl/daemon-status.sh "$graphql_url" 2>&1); then
+  if response=$(bash website/docs/developers/api-and-data/scripts/graphql-api/queries/curl/daemon-status.sh "$graphql_url" 2>&1); then
     # Check if it's valid JSON
     if echo "$response" | jq . > /dev/null 2>&1; then
       # Check for GraphQL errors

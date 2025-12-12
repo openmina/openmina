@@ -90,8 +90,9 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'APIs and Data',
       items: [
-        'developers/graphql-api',
-        'developers/archive-database-queries',
+        'developers/api-and-data/graphql-api',
+        'developers/api-and-data/rpc-api',
+        'developers/api-and-data/archive-database-queries',
       ],
     },
     {

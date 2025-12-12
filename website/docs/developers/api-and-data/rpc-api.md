@@ -1,0 +1,387 @@
+---
+title: RPC API
+description: HTTP RPC endpoints for the Mina Rust node
+sidebar_position: 2
+---
+
+import CodeBlock from "@theme/CodeBlock"; import Tabs from "@theme/Tabs"; import
+TabItem from "@theme/TabItem"; import RpcStatus from
+"!!raw-loader!./scripts/rpc-api/curl/status.sh"; import RpcHealthz from
+"!!raw-loader!./scripts/rpc-api/curl/healthz.sh"; import RpcReadyz from
+"!!raw-loader!./scripts/rpc-api/curl/readyz.sh"; import RpcPeers from
+"!!raw-loader!./scripts/rpc-api/curl/peers.sh"; import RpcStatsSync from
+"!!raw-loader!./scripts/rpc-api/curl/stats-sync.sh"; import
+RpcStatsBlockProducer from
+"!!raw-loader!./scripts/rpc-api/curl/stats-block-producer.sh"; import
+RpcSnarkPoolJobs from "!!raw-loader!./scripts/rpc-api/curl/snark-pool-jobs.sh";
+import RpcSnarkerWorkers from
+"!!raw-loader!./scripts/rpc-api/curl/snarker-workers.sh"; import
+RpcSnarkerConfig from "!!raw-loader!./scripts/rpc-api/curl/snarker-config.sh";
+import RpcTransactionPool from
+"!!raw-loader!./scripts/rpc-api/curl/transaction-pool.sh"; import RpcAccounts
+from "!!raw-loader!./scripts/rpc-api/curl/accounts.sh"; import
+RpcDiscoveryRoutingTable from
+"!!raw-loader!./scripts/rpc-api/curl/discovery-routing-table.sh"; import
+RpcDiscoveryBootstrapStats from
+"!!raw-loader!./scripts/rpc-api/curl/discovery-bootstrap-stats.sh"; import
+RpcScanStateSummary from
+"!!raw-loader!./scripts/rpc-api/curl/scan-state-summary.sh"; import RpcState
+from "!!raw-loader!./scripts/rpc-api/curl/state.sh"; import RpcMessageProgress
+from "!!raw-loader!./scripts/rpc-api/curl/message-progress.sh"; import
+RpcBuildEnv from "!!raw-loader!./scripts/rpc-api/curl/build-env.sh";
+
+# RPC API reference
+
+The Mina Rust node exposes HTTP RPC endpoints for monitoring, debugging, and
+interacting with the node. These endpoints are separate from the
+[GraphQL API](./graphql-api) and provide lower-level access to node internals.
+
+<!-- prettier-ignore-start -->
+
+:::note
+
+These RPC endpoints are **specific to the Mina Rust node** and differ from the
+OCaml node's RPC interface. The Rust node exposes its own set of HTTP endpoints
+designed for its state machine architecture.
+
+:::
+
+<!-- prettier-ignore-stop -->
+
+This documentation complements the [node dashboard](../frontend/node-dashboard)
+by explaining the RPC endpoints that the dashboard uses to retrieve node
+information.
+
+You can also use one of the nodes deployed by o1Labs. See the
+[Infrastructure](../../node-operators/infrastructure/plain-nodes) section for
+available nodes and connection details.
+
+## Endpoint reference
+
+### Accounts
+
+#### `GET /accounts`
+
+Get all accounts from the best tip ledger (slim format with public key, balance,
+and nonce).
+
+<CodeBlock language="bash" title="scripts/rpc-api/curl/accounts.sh">
+  {RpcAccounts}
+</CodeBlock>
+
+For the complete response structure, see
+[`AccountSlim`](https://o1-labs.github.io/mina-rust/api-docs/node/rpc/struct.AccountSlim.html)
+in the Rust API documentation.
+
+### Discovery
+
+#### `GET /discovery/routing_table`
+
+Get the Kademlia DHT routing table.
+
+<CodeBlock language="bash"
+title="scripts/rpc-api/curl/discovery-routing-table.sh"
+
+> {RpcDiscoveryRoutingTable} </CodeBlock>
+
+For the complete response structure, see
+[`RpcDiscoveryRoutingTable`](https://o1-labs.github.io/mina-rust/api-docs/node/rpc/struct.RpcDiscoveryRoutingTable.html)
+in the Rust API documentation.
+
+#### `GET /discovery/bootstrap_stats`
+
+Get bootstrap process statistics.
+
+<CodeBlock language="bash"
+title="scripts/rpc-api/curl/discovery-bootstrap-stats.sh"
+
+> {RpcDiscoveryBootstrapStats} </CodeBlock>
+
+For the complete response structure, see
+[`P2pNetworkKadBootstrapStats`](https://o1-labs.github.io/mina-rust/api-docs/p2p/network/kad/bootstrap/struct.P2pNetworkKadBootstrapStats.html)
+in the Rust API documentation.
+
+### Health and readiness
+
+#### `GET /healthz`
+
+Health check endpoint for load balancers and orchestration systems. Returns
+empty response with status code 200 if healthy, 503 if unhealthy.
+
+<CodeBlock language="bash" title="scripts/rpc-api/curl/healthz.sh">
+  {RpcHealthz}
+</CodeBlock>
+
+This endpoint returns no body, only an HTTP status code.
+
+#### `GET /readyz`
+
+Readiness check endpoint. Returns 200 when the node is ready to serve requests,
+503 otherwise.
+
+<CodeBlock language="bash" title="scripts/rpc-api/curl/readyz.sh">
+  {RpcReadyz}
+</CodeBlock>
+
+This endpoint returns no body, only an HTTP status code.
+
+### Node status
+
+#### `GET /status`
+
+Get comprehensive node status including sync state, peer information, and
+resource usage.
+
+<CodeBlock language="bash" title="scripts/rpc-api/curl/status.sh">
+  {RpcStatus}
+</CodeBlock>
+
+For the complete response structure, see
+[`RpcNodeStatus`](https://o1-labs.github.io/mina-rust/api-docs/node/rpc/struct.RpcNodeStatus.html)
+in the Rust API documentation.
+
+#### `GET /build_env`
+
+Get build environment information including version and compilation details.
+
+<CodeBlock language="bash" title="scripts/rpc-api/curl/build-env.sh">
+  {RpcBuildEnv}
+</CodeBlock>
+
+For the complete response structure, see
+[`BuildEnv`](https://o1-labs.github.io/mina-rust/api-docs/node/config/struct.BuildEnv.html)
+in the Rust API documentation.
+
+### Peers
+
+#### `GET /state/peers`
+
+Get detailed information about connected peers.
+
+<CodeBlock language="bash" title="scripts/rpc-api/curl/peers.sh">
+  {RpcPeers}
+</CodeBlock>
+
+For the complete response structure, see
+[`RpcPeerInfo`](https://o1-labs.github.io/mina-rust/api-docs/node/rpc/struct.RpcPeerInfo.html)
+in the Rust API documentation.
+
+#### `GET /state/message-progress`
+
+Get message synchronization progress with peers.
+
+<CodeBlock language="bash" title="scripts/rpc-api/curl/message-progress.sh">
+  {RpcMessageProgress}
+</CodeBlock>
+
+For the complete response structure, see
+[`RpcMessageProgressResponse`](https://o1-labs.github.io/mina-rust/api-docs/node/rpc/struct.RpcMessageProgressResponse.html)
+in the Rust API documentation.
+
+### Scan state
+
+#### `GET /scan-state/summary`
+
+Get scan state summary for the best tip.
+
+<CodeBlock language="bash" title="scripts/rpc-api/curl/scan-state-summary.sh">
+  {RpcScanStateSummary}
+</CodeBlock>
+
+For the complete response structure, see
+[`RpcScanStateSummary`](https://o1-labs.github.io/mina-rust/api-docs/node/rpc/struct.RpcScanStateSummary.html)
+in the Rust API documentation.
+
+#### `GET /scan-state/summary/:block`
+
+Get scan state summary for a specific block (by height or state hash).
+
+```bash
+# By height
+curl http://localhost:3000/scan-state/summary/12345
+
+# By state hash
+curl http://localhost:3000/scan-state/summary/3NKx...
+```
+
+For the complete response structure, see
+[`RpcScanStateSummary`](https://o1-labs.github.io/mina-rust/api-docs/node/rpc/struct.RpcScanStateSummary.html)
+in the Rust API documentation.
+
+### SNARK pool
+
+#### `GET /snark-pool/jobs`
+
+Get summary of all SNARK pool jobs.
+
+<CodeBlock language="bash" title="scripts/rpc-api/curl/snark-pool-jobs.sh">
+  {RpcSnarkPoolJobs}
+</CodeBlock>
+
+For the complete response structure, see
+[`RpcSnarkPoolJobSummary`](https://o1-labs.github.io/mina-rust/api-docs/node/rpc/struct.RpcSnarkPoolJobSummary.html)
+in the Rust API documentation.
+
+#### `GET /snark-pool/job/:job_id`
+
+Get detailed information about a specific SNARK job.
+
+```bash
+curl http://localhost:3000/snark-pool/job/JOB_ID
+```
+
+For the complete response structure, see
+[`RpcSnarkPoolJobFull`](https://o1-labs.github.io/mina-rust/api-docs/node/rpc/struct.RpcSnarkPoolJobFull.html)
+in the Rust API documentation.
+
+### SNARK worker
+
+#### `GET /snarker/workers`
+
+Get information about configured SNARK workers.
+
+<CodeBlock language="bash" title="scripts/rpc-api/curl/snarker-workers.sh">
+  {RpcSnarkerWorkers}
+</CodeBlock>
+
+For the complete response structure, see
+[`RpcSnarkWorker`](https://o1-labs.github.io/mina-rust/api-docs/node/rpc/struct.RpcSnarkWorker.html)
+in the Rust API documentation.
+
+#### `GET /snarker/config`
+
+Get SNARK worker configuration.
+
+<CodeBlock language="bash" title="scripts/rpc-api/curl/snarker-config.sh">
+  {RpcSnarkerConfig}
+</CodeBlock>
+
+For the complete response structure, see
+[`RpcSnarkerConfig`](https://o1-labs.github.io/mina-rust/api-docs/node/rpc/struct.RpcSnarkerConfig.html)
+in the Rust API documentation.
+
+#### `POST /snarker/job/commit`
+
+Commit to working on a SNARK job. Used by external SNARK workers.
+
+```bash
+curl -X POST http://localhost:3000/snarker/job/commit \
+  -d "JOB_ID"
+```
+
+For the complete response structure, see
+[`RpcSnarkerJobCommitResponse`](https://o1-labs.github.io/mina-rust/api-docs/node/rpc/enum.RpcSnarkerJobCommitResponse.html)
+in the Rust API documentation.
+
+#### `GET /snarker/job/spec?id=JOB_ID`
+
+Get the specification for a SNARK job.
+
+```bash
+curl "http://localhost:3000/snarker/job/spec?id=JOB_ID"
+```
+
+For the complete response structure, see
+[`RpcSnarkerJobSpecResponse`](https://o1-labs.github.io/mina-rust/api-docs/node/rpc/enum.RpcSnarkerJobSpecResponse.html)
+in the Rust API documentation.
+
+### State inspection
+
+#### `GET /state`
+
+Get the full node state (large response, use with caution).
+
+<CodeBlock language="bash" title="scripts/rpc-api/curl/state.sh">
+  {RpcState}
+</CodeBlock>
+
+**Query parameters:**
+
+- `filter` - JSONPath filter expression to select specific state fields
+
+**Example with filter:**
+
+```bash
+# Get only P2P state
+curl "http://localhost:3000/state?filter=\$.p2p"
+
+# Get transition frontier best tip
+curl "http://localhost:3000/state?filter=\$.transition_frontier.best_tip"
+```
+
+#### `POST /state`
+
+Alternative to GET for state queries with filter in request body.
+
+```bash
+curl -X POST http://localhost:3000/state \
+  -H "Content-Type: application/json" \
+  -d '{"filter": "$.p2p"}'
+```
+
+The response is a JSON representation of the node's internal `State` structure,
+filtered by the JSONPath expression if provided.
+
+### Statistics
+
+#### `GET /stats/sync`
+
+Get synchronization statistics and history.
+
+<CodeBlock language="bash" title="scripts/rpc-api/curl/stats-sync.sh">
+  {RpcStatsSync}
+</CodeBlock>
+
+**Query parameters:**
+
+- `limit` - Maximum number of sync snapshots to return
+
+For the complete response structure, see
+[`SyncStatsSnapshot`](https://o1-labs.github.io/mina-rust/api-docs/node/stats/sync/struct.SyncStatsSnapshot.html)
+in the Rust API documentation.
+
+#### `GET /stats/block_producer`
+
+Get block production statistics (only available on block producer nodes).
+
+<CodeBlock language="bash" title="scripts/rpc-api/curl/stats-block-producer.sh">
+  {RpcStatsBlockProducer}
+</CodeBlock>
+
+For the complete response structure, see
+[`RpcBlockProducerStats`](https://o1-labs.github.io/mina-rust/api-docs/node/rpc/struct.RpcBlockProducerStats.html)
+in the Rust API documentation.
+
+#### `GET /stats/actions`
+
+Get action statistics for debugging state machine behavior.
+
+**Query parameters:**
+
+- `id` - Block ID or "latest" for the most recent block
+
+For the complete response structure, see
+[`ActionStatsResponse`](https://o1-labs.github.io/mina-rust/api-docs/node/rpc/enum.ActionStatsResponse.html)
+in the Rust API documentation.
+
+### Transaction pool
+
+#### `GET /transaction-pool`
+
+Get all transactions in the transaction pool.
+
+<CodeBlock language="bash" title="scripts/rpc-api/curl/transaction-pool.sh">
+  {RpcTransactionPool}
+</CodeBlock>
+
+For the complete response structure, see
+[`ValidCommandWithHash`](https://o1-labs.github.io/mina-rust/api-docs/ledger/transaction_pool/type.ValidCommandWithHash.html)
+in the Rust API documentation.
+
+## Next steps
+
+- [GraphQL API](./graphql-api) - Query blockchain data via GraphQL
+- [Node Dashboard](../frontend/node-dashboard) - Visual dashboard using these
+  RPC endpoints
+- [Archive Database Queries](./archive-database-queries) - SQL queries for
+  historical data
