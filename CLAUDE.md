@@ -424,10 +424,5 @@ When modifying CI workflows, especially for performance improvements:
 - **MANDATORY**: Run `make fix-trailing-whitespace` before every commit
 - **MANDATORY**: Run `make check-trailing-whitespace` to verify no trailing
   whitespaces remain
-- **macOS only**: After running `make fix-trailing-whitespace` or
-  `make format-md`, run these commands to clean up backup files created by sed:
-  ```bash
-  git clean -f -- '*-e' && git clean -f -- '**/*-e'
-  ```
 - This applies to ALL file modifications, regardless of file type
 - Trailing whitespaces are strictly prohibited in the codebase
