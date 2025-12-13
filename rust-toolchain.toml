@@ -1,5 +1,5 @@
 [toolchain]
-channel = "1.84"
+channel = "1.92"
 
 # NOTE: When updating the Rust version here, also update:
 # - .github/config/versions.yaml (rust.stable)

@@ -355,7 +355,7 @@ impl P2pNetworkKadOutgoingStreamState {
             }
 
             (
-                P2pNetworkKadOutgoingStreamState::WaitingForReply { .. },
+                P2pNetworkKadOutgoingStreamState::WaitingForReply,
                 P2pNetworkKademliaStreamAction::IncomingData {
                     data,
                     peer_id,

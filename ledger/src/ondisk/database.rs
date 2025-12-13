@@ -256,7 +256,7 @@ impl Database {
     /// # Returns
     ///
     /// * `Result<Self>` - Returns an instance of the database if successful, otherwise
-    ///    returns an error.
+    ///   returns an error.
     ///
     /// # Errors
     ///
@@ -431,7 +431,7 @@ impl Database {
     /// # Returns
     ///
     /// * `Result<Option<Box<[u8]>>>` - Returns an optional values if the key exists;
-    ///    otherwise, None. Returns an error if something goes wrong.
+    ///   otherwise, None. Returns an error if something goes wrong.
     pub fn get(&mut self, key: &[u8]) -> std::io::Result<Option<Value>> {
         // Note: `&mut self` is required for `File::seek`
 
@@ -537,7 +537,7 @@ impl Database {
     /// # Returns
     ///
     /// * `Result<Vec<Option<Box<[u8]>>>>` - Returns a vector of optional values
-    ///    corresponding to each key; if a key is not found, returns None.
+    ///   corresponding to each key; if a key is not found, returns None.
     pub fn get_batch<K>(&mut self, keys: K) -> std::io::Result<Vec<Option<Value>>>
     where
         K: IntoIterator<Item = Key>,

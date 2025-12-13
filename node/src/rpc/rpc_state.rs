@@ -31,8 +31,9 @@ pub enum RpcRequestStatus {
     },
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub enum RpcRequestExtraData {
+    #[default]
     None,
     FullBlockOpt(Option<AppliedBlock>),
 }
@@ -92,11 +93,5 @@ impl RpcState {
                 None
             }
         })
-    }
-}
-
-impl Default for RpcRequestExtraData {
-    fn default() -> Self {
-        Self::None
     }
 }

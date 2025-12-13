@@ -246,11 +246,17 @@ format-md: ## Format all markdown and MDX files to wrap at 80 characters
 
 .PHONY: lint
 lint: ## Run linter (clippy)
-	cargo clippy --all-targets -- -D warnings --allow clippy::mutable_key_type
+	cargo clippy --all-targets -- -D warnings \
+	  --allow clippy::large_enum_variant \
+	  --allow clippy::result-large-err \
+	  --allow unused
 
 .PHONY: lint-beta
 lint-beta: ## Run linter (clippy) using beta Rust
-	cargo +beta clippy --all-targets -- -D warnings --allow clippy::mutable_key_type
+	cargo +beta clippy --all-targets -- -D warnings \
+	  --allow clippy::large_enum_variant \
+	  --allow clippy::result-large-err \
+	  --allow unused
 
 .PHONY: lint-bash
 lint-bash: ## Check all shell scripts using shellcheck

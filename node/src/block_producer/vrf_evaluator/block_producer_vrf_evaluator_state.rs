@@ -43,9 +43,9 @@ impl BlockProducerVrfEvaluatorState {
     /// Returns:
     /// - `SlotPositionInEpoch`: An enum indicating the slot's position (Beginning, End, or Within).
     pub fn evaluate_epoch_bounds(global_slot: &u32) -> SlotPositionInEpoch {
-        if global_slot % SLOTS_PER_EPOCH == 0 {
+        if global_slot.is_multiple_of(SLOTS_PER_EPOCH) {
             SlotPositionInEpoch::Beginning
-        } else if (global_slot.checked_add(1).expect("overflow")) % SLOTS_PER_EPOCH == 0 {
+        } else if (global_slot.checked_add(1).expect("overflow")).is_multiple_of(SLOTS_PER_EPOCH) {
             SlotPositionInEpoch::End
         } else {
             SlotPositionInEpoch::Within

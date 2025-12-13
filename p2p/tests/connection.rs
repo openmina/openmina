@@ -186,7 +186,7 @@ async fn mutual_rust_to_rust_many() -> anyhow::Result<()> {
     let node_to_node = nodes.into_iter().flat_map(|node| {
         nodes
             .into_iter()
-            .filter(move |other_node| (&node != other_node))
+            .filter(move |other_node| &node != other_node)
             .map(move |other_node| (node, other_node))
     });
 

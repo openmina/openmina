@@ -16,18 +16,12 @@ pub struct ClusterConfig {
     ocaml_node_executable: Option<OcamlNodeExecutable>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Default)]
 pub enum ProofKind {
+    #[default]
     Dummy,
     ConstraintsChecked,
     Full,
-}
-
-impl Default for ProofKind {
-    fn default() -> Self {
-        // once it's working, change to Self::ConstraintsChecked
-        Self::Dummy
-    }
 }
 
 impl ClusterConfig {
@@ -66,7 +60,9 @@ impl ClusterConfig {
     }
 
     pub fn set_all_rust_to_rust_use_webrtc(&mut self) -> &mut Self {
-        assert!(cfg!(feature = "p2p-webrtc"));
+        if !cfg!(feature = "p2p-webrtc") {
+            unreachable!();
+        }
         self.all_rust_to_rust_use_webrtc = true;
         self
     }

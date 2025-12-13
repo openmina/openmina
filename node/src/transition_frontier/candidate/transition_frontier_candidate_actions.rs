@@ -1,5 +1,4 @@
 use mina_core::{
-    action_event,
     block::{prevalidate::BlockPrevalidationError, ArcBlockWithHash},
     consensus::consensus_take,
     ActionEvent,

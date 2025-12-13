@@ -171,10 +171,8 @@ impl P2pNetworkSelectState {
                         .peer_with_connection(addr)
                         .map(|(peer_id, _)| peer_id);
 
-                    let incoming = matches!(
-                        &select_state.inner,
-                        P2pNetworkSelectStateInner::Responder { .. }
-                    );
+                    let incoming =
+                        matches!(&select_state.inner, P2pNetworkSelectStateInner::Responder);
                     dispatcher.push(P2pNetworkSchedulerAction::SelectDone {
                         addr,
                         kind,

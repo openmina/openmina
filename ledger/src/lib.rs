@@ -97,6 +97,10 @@
 #![allow(clippy::len_without_is_empty)]
 #![allow(clippy::result_unit_err)]
 // #![forbid(clippy::needless_pass_by_ref_mut)]
+#![allow(
+    clippy::mutable_key_type,
+    reason = "Deep within ValidCommandWithHash (used by TransactionPool) is a MutableFp that should probably be just Fp. Deserialize will not trigger UB. Remove this allow when fixed"
+)]
 
 // Unused, we don't want to print on stdout
 // /// Print logs on stdout with the prefix `[ledger]`

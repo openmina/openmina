@@ -2165,8 +2165,8 @@ where
             .count();
 
         {
-            let required = (required_jobs_count + 1) / 2;
-            let got = (completed_jobs.len() + 1) / 2;
+            let required = required_jobs_count.div_ceil(2);
+            let got = completed_jobs.len().div_ceil(2);
 
             // println!("required={:?} got={:?}", required, got);
 

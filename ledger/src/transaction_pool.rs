@@ -385,8 +385,8 @@ impl VkRefcountTable {
             return Vec::new();
         };
 
-        vks.iter()
-            .map(|(f, _)| self.find_vk(f).expect("malformed Vk_refcount_table.t"))
+        vks.keys()
+            .map(|f| self.find_vk(f).expect("malformed Vk_refcount_table.t"))
             .map(|(_, vk)| vk)
             .collect()
     }

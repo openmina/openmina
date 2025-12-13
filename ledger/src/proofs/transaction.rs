@@ -2044,7 +2044,7 @@ pub fn scale_known<F: FieldWitness, const N: usize>(
 ) -> GroupAffine<F> {
     let sigma = InnerCurve::of_affine(t);
     let n = bits.len();
-    let sigma_count = (n + 1) / 2;
+    let sigma_count = n.div_ceil(2);
 
     let to_term = |two_to_the_i: InnerCurve<F>,
                    two_to_the_i_plus_1: InnerCurve<F>,
@@ -3850,6 +3850,10 @@ pub fn compute_witness<C: ProofConstants, F: FieldWitness>(
     let mut res: [_; COLUMNS] = std::array::from_fn(|_| vec![F::zero(); num_rows]);
 
     // public input
+    #[allow(
+        clippy::needless_range_loop,
+        reason = "Clippy incorrectly assumes we're indexing res with `i`, but we're actually not!"
+    )]
     for i in 0..public_input_size {
         res[0][i] = external_values(i);
     }

@@ -21,9 +21,9 @@ impl redux::EnablingCondition<crate::State> for LedgerWriteAction {
         match self {
             LedgerWriteAction::Init { .. } => matches!(
                 &state.ledger.write,
-                LedgerWriteState::Idle { .. } | LedgerWriteState::Success { .. }
+                LedgerWriteState::Idle | LedgerWriteState::Success { .. }
             ),
-            LedgerWriteAction::Pending { .. } => {
+            LedgerWriteAction::Pending => {
                 matches!(&state.ledger.write, LedgerWriteState::Init { .. })
             }
             LedgerWriteAction::Success { response } => match &state.ledger.write {

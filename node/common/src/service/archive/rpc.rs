@@ -100,10 +100,10 @@ fn process_rpc(address: SocketAddr, data: &[u8]) -> io::Result<HandleResult> {
             event_count += 1;
             // Failsafe to prevent infinite loops
             if event_count > super::MAX_EVENT_COUNT {
-                return Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    format!("FAILSAFE triggered, event count: {}", event_count),
-                ));
+                return Err(io::Error::other(format!(
+                    "FAILSAFE triggered, event count: {}",
+                    event_count
+                )));
             }
             match event.token() {
                 TOKEN => {

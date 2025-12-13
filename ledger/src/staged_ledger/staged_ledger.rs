@@ -1330,7 +1330,7 @@ impl StagedLedger {
             // There's enough work. Check if they satisfy other constraints
             if resources.budget_sufficient() {
                 if resources.space_constraint_satisfied() {
-                    return;
+                    // Done
                 } else if resources.worked_more(constraint_constants) {
                     // There are too many fee_transfers(from the proofs)
                     // occupying the slots. discard one and check

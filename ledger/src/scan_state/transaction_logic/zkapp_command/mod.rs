@@ -2826,8 +2826,7 @@ impl ZkAppCommand {
             n_account_updates += 1;
         });
 
-        let group = std::iter::repeat(((), (), ()))
-            .take(n_account_updates + 2) // + 2 to prepend two. See OCaml
+        let group = std::iter::repeat_n(((), (), ()), n_account_updates + 2) // + 2 to prepend two. See OCaml
             .collect::<Vec<_>>();
 
         let groups = crate::proofs::zkapp::group::group_by_zkapp_command_rev::<_, (), (), ()>(

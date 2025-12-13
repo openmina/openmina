@@ -2,8 +2,9 @@ use serde::{Deserialize, Serialize};
 
 use super::{LedgerWriteRequest, LedgerWriteResponse};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub enum LedgerWriteState {
+    #[default]
     Idle,
     Init {
         time: redux::Timestamp,
@@ -42,11 +43,5 @@ impl LedgerWriteState {
 
     pub fn is_busy(&self) -> bool {
         self.pending_requests().peekable().peek().is_some()
-    }
-}
-
-impl Default for LedgerWriteState {
-    fn default() -> Self {
-        Self::Idle
     }
 }

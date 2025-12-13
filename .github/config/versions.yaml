@@ -10,7 +10,7 @@
 # - website/docs/developers/getting-started.mdx
 
 rust:
-  stable: "1.84"
+  stable: "1.92"
   beta: "beta"
   nightly: "nightly"
 

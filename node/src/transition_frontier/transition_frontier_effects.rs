@@ -462,7 +462,7 @@ fn handle_transition_frontier_sync_ledger_action<S: crate::Service>(
                         stats.staging_ledger_fetch_failure(error, meta.time());
                     }
                 }
-                TransitionFrontierSyncLedgerStagedAction::ReconstructInit { .. } => {
+                TransitionFrontierSyncLedgerStagedAction::ReconstructInit => {
                     if let Some(stats) = store.service.stats() {
                         let (start, end) = (meta.time(), None);
                         if let Some(kind) = store

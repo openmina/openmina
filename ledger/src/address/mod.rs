@@ -1,7 +1,7 @@
 pub mod raw;
 
 const fn compute_nbytes(nbits: usize) -> usize {
-    if nbits % 8 == 0 {
+    if nbits.is_multiple_of(8) {
         nbits / 8
     } else {
         (nbits / 8) + 1

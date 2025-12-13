@@ -190,7 +190,7 @@ impl redux::EnablingCondition<crate::State> for BlockProducerVrfEvaluatorAction 
             BlockProducerVrfEvaluatorAction::FinishEpochEvaluation { .. } => state
                 .block_producer
                 .with(false, |this| this.vrf_evaluator.is_epoch_bound_evaluated()),
-            BlockProducerVrfEvaluatorAction::WaitForNextEvaluation { .. } => state
+            BlockProducerVrfEvaluatorAction::WaitForNextEvaluation => state
                 .block_producer
                 .with(false, |this| this.vrf_evaluator.is_readiness_check()),
             BlockProducerVrfEvaluatorAction::SelectInitialSlot { .. } => {
