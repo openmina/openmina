@@ -34,11 +34,6 @@ jobs:
           toolchain: ${{ env.RUST_STABLE_VERSION }}
           cache-prefix: test-doc-commands-v0
 
-      - name: Use shared OCaml setting up steps
-        uses: ./.github/actions/setup-ocaml
-        with:
-          ocaml_version: ${{ env.OCAML_VERSION }}
-
       - name: Download circuits files
         uses: ./.github/actions/setup-circuits
 

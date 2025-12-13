@@ -43,6 +43,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Firebase Cloud Functions
 - **CI**: remove network debugger from CI
   ([#1700](https://github.com/o1-labs/mina-rust/pull/1700))
+- **CI**: remove setup-ocaml from CI
+  ([#1879](https://github.com/o1-labs/mina-rust/pull/1879))
 
 ## [0.18.1] - 2025-11-20
 

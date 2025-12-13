@@ -27,11 +27,6 @@ jobs:
       - name: Setup build dependencies
         uses: ./.github/actions/setup-build-deps
 
-      - name: Use shared OCaml setting up steps
-        uses: ./.github/actions/setup-ocaml
-        with:
-          ocaml_version: ${{ env.OCAML_VERSION }}
-
       - name: Setup Rust (Beta)
         uses: ./.github/actions/setup-rust
         with:
