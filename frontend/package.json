@@ -35,7 +35,7 @@
     "@angular/core": "^19.2.14",
     "@angular/forms": "^19.2.14",
     "@angular/material": "^19.2.19",
-    "@angular/platform-browser": "^19.2.14",
+    "@angular/platform-browser": "^21.0.5",
     "@angular/platform-browser-dynamic": "^19.2.14",
     "@angular/platform-server": "^19.2.14",
     "@angular/router": "^19.2.14",
