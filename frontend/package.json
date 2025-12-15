@@ -40,7 +40,7 @@
     "@angular/platform-server": "^19.2.14",
     "@angular/router": "^19.2.14",
     "@angular/ssr": "^19.2.15",
-    "@ledgerhq/hw-transport-webhid": "^6.29.4",
+    "@ledgerhq/hw-transport-webhid": "^6.30.9",
     "@ngneat/until-destroy": "^10.0.0",
     "@ngrx/effects": "^19.2.1",
     "@ngrx/operators": "^19.2.1",
