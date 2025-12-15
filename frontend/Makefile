@@ -1,8 +1,8 @@
 # Frontend Makefile
 
 # These are threaded from the outside env into build-webnode
-MINA_WEBNODE_SEED_URLS ?= 
-MINA_WEBNODE_BOOTNODES ?= 
+MINA_WEBNODE_SEED_URLS ?=
+MINA_WEBNODE_BOOTNODES ?=
 
 .PHONY: help
 help: ## Display this help message
@@ -14,12 +14,6 @@ help: ## Display this help message
 .PHONY: build
 build: ## Build the frontend
 	npx ng build
-
-.PHONY: build-fuzzing
-build-fuzzing: ## Build the frontend with fuzzing configuration
-	npx ng build --configuration fuzzing
-	cp dist/frontend/browser/assets/environments/fuzzing.js \
-		dist/frontend/browser/assets/environments/env.js
 
 .PHONY: build-local
 build-local: ## Build the frontend with local configuration
@@ -47,12 +41,6 @@ build-webnode: ## Build the frontend with webnode configuration
 	  --define MINA_WEBNODE_BOOTNODES="\"$(MINA_WEBNODE_BOOTNODES)\"" \
 	  --configuration webnode-local
 	cp dist/frontend/browser/assets/environments/webnode.js \
-		dist/frontend/browser/assets/environments/env.js
-
-.PHONY: build-staging
-build-staging: ## Build the frontend with staging configuration
-	npx ng build --configuration production
-	cp dist/frontend/browser/assets/environments/staging.js \
 		dist/frontend/browser/assets/environments/env.js
 
 .PHONY: check-prettify
@@ -101,11 +89,6 @@ start-bundle: ## Serve the built bundle
 .PHONY: start-dev-mobile
 start-dev-mobile: ## Start the development server for mobile (accessible on network)
 	npx ng serve --configuration development --host 0.0.0.0
-
-.PHONY: start-fuzzing
-start-fuzzing: install-deps ## Start the fuzzing build and serve
-	npx ng build --configuration fuzzing
-	$(MAKE) start-bundle
 
 .PHONY: start-local
 start-local: ## Start the development server with local configuration
