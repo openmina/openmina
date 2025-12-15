@@ -49,54 +49,22 @@ impl P2PKeyPair {
 
 /// Generates an unencrypted Mina key pair.
 ///
-/// Note: When `--web-node-secrets` is set we output a
-/// JSON file with the structure below. The webnode
-/// needs a key in this format to initialize, even if
-/// no block production is intended. This flag will be
-/// removed when the webnode no longer needs it, and exists
-/// mainly to simplify the setup process of a webnode.
-/// ```json
-/// {
-///   "publicKey": "{the public key derived from secret_key}",
-///   "privateKey": "{secret_key}",
-/// }
-/// ```
+/// Outputs the public and private keys in a human-readable format.
+/// For encrypted key storage suitable for block production, use
+/// the `mina-encrypted-key` command instead.
 #[derive(Debug, Clone, Default, clap::Args)]
 pub struct MinaKeyPair {
     #[arg(long, short = 's', env = "MINA_SEC_KEY")]
     secret_key: Option<AccountSecretKey>,
-
-    #[arg(long, help = "Format as a web-node-secrets.json")]
-    web_node_secrets: bool,
-}
-
-#[derive(serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-struct GeneratedMinaKeyPair {
-    public_key: AccountPublicKey,
-    private_key: AccountSecretKey,
-}
-
-impl GeneratedMinaKeyPair {
-    fn print(&self) {
-        println!("secret key: {}", self.private_key);
-        println!("public key: {}", self.public_key);
-    }
 }
 
 impl MinaKeyPair {
     pub fn run(self) -> anyhow::Result<()> {
         let private_key = self.secret_key.unwrap_or_else(AccountSecretKey::rand);
         let public_key = private_key.public_key();
-        let keypair = GeneratedMinaKeyPair {
-            public_key,
-            private_key,
-        };
-        if self.web_node_secrets {
-            println!("{}", serde_json::to_string_pretty(&keypair)?);
-        } else {
-            keypair.print();
-        }
+
+        println!("secret key: {private_key}");
+        println!("public key: {public_key}");
 
         Ok(())
     }
@@ -354,7 +322,6 @@ mod tests {
         let secret_key = AccountSecretKey::rand();
         let cmd = MinaKeyPair {
             secret_key: Some(secret_key),
-            web_node_secrets: false,
         };
 
         let result = cmd.run();
