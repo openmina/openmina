@@ -37,6 +37,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   [#1235](https://github.com/o1-labs/mina-rust/issues/1235)
   ([#1646](https://github.com/o1-labs/mina-rust/pull/1646))
 - *Build** Update Rust to 1.92 [#1894](https://github.com/o1-labs/mina-rust/issues/1894)
+- *CI*: run builds on macos-latest for each patch submission, fixing
+  [#1899](https://github.com/o1-labs/mina-rust/issues/1899)
+  ([#1900](https://github.com/o1-labs/mina-rust/pull/1900))
 
 ### Removed
 
