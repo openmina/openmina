@@ -8,8 +8,6 @@
  * - Production: src/environments/environment.prod.ts
  * - Local: src/environments/environment.local.ts
  * - WebNode: src/environments/environment.webnode-local.ts
- * - Producer: src/environments/environment.producer.ts
- * - Fuzzing: src/environments/environment.fuzzing.ts
  *
  * @see {@link https://github.com/o1-labs/mina-rust/tree/develop/frontend/src/environments}
  */

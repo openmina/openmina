@@ -1,5 +1,5 @@
 /**
- * This configuration is used for the staging-webnode environment.
+ * This configuration is used for the webnode environment.
  *
  * NOTE: When modifying environment configuration files, update the documentation at:
  * website/docs/developers/frontend/environment-configuration.mdx
