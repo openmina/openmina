@@ -28,7 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Build System**: enforce GNU sed on macOS, require `brew install gnu-sed`
   for `make fix-trailing-whitespace`, add CI test for cross-platform support,
   fix [#1864](https://github.com/o1-labs/mina-rust/issues/1864)
-  ([#1872](https://github.com/o1-labs/mina-rust/pull/1872))
+  ([#1898](https://github.com/o1-labs/mina-rust/pull/1898),
+  [#1872](https://github.com/o1-labs/mina-rust/pull/1872)).
 - **Dependency**: use tag instead of references of o1-labs/proof-systems, fix
   [[#1674](https://github.com/o1-labs/mina-rust/issues/1674)]
   ([#1673](https://github.com/o1-labs/mina-rust/pull/1673))
