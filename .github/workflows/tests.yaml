@@ -200,8 +200,8 @@ jobs:
 
           # Verify version format (should be a short commit hash)
           VERSION=$(./target/release/mina build-info | grep "Version:" | awk '{print $2}')
-          if [[ ! "$VERSION" =~ ^[0-9a-f]{7}$ ]]; then
-            echo "Error: Version should be a 7-character commit hash, got: $VERSION"
+          if [[ ! "$VERSION" =~ ^[0-9a-f]{7,}$ ]]; then
+            echo "Error: Version should be a commit hash (7+ characters), got: $VERSION"
             exit 1
           fi
 

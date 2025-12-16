@@ -21,6 +21,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI**: add beta channel lint workflow to catch build issues early
   ([#1875](https://github.com/o1-labs/mina-rust/pull/1875))
 
+### Fixed
+
+- **CI**: fix version regex in build verification workflows to accept
+  variable-length commit hashes (7+ characters) instead of exactly 7, adapting
+  to Git's dynamic abbreviation based on repository size, fix
+  [#1911](https://github.com/o1-labs/mina-rust/issues/1911)
+  ([#1912](https://github.com/o1-labs/mina-rust/pull/1912))
+
 ### Changes
 
 - **Dependencies**: vendor redux-rs into `vendor/redux` to centralize all code
