@@ -4,6 +4,9 @@ title: Local WebNode (Docker)
 description: How to deploy and launch a webnode using Docker images
 ---
 
+import CodeBlock from "@theme/CodeBlock";
+import GenerateEncryptedKeypairDocker from "!!raw-loader!../scripts/generate-encrypted-keypair-docker.sh";
+
 # Deploying and launching a webnode using Docker
 
 If you intend to just run the webnode instead of actively developing it, it is
@@ -17,29 +20,12 @@ are automatically built on every versioned release.
 If you want your webnode to produce blocks, generate an encrypted key pair and
 package it for upload:
 
-```sh
-# Create password file
-echo "mypassword" > producer-key-password
-
-# Generate an encrypted key pair using the password file
-docker run --rm \
-  -v $(pwd):/keys \
-  -w /keys \
-  o1labs/mina-rust:latest \
-  misc mina-encrypted-key --password $(cat producer-key-password) --file producer-key
-
-# Package into a ZIP file
-zip webnode-key.zip producer-key producer-key.pub producer-key-password
-
-# Clean up individual files
-rm producer-key producer-key.pub producer-key-password
-```
-
-This creates `webnode-key.zip` containing:
-
-- `producer-key` (encrypted private key)
-- `producer-key.pub` (public key)
-- `producer-key-password` (password file)
+<CodeBlock
+  language="bash"
+  title="website/docs/node-operators/scripts/generate-encrypted-keypair-docker.sh"
+>
+  {GenerateEncryptedKeypairDocker}
+</CodeBlock>
 
 ### 2. Launch the webnode container
 
