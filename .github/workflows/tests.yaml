@@ -283,6 +283,7 @@ jobs:
               --exclude transaction_fuzzer \
               --exclude mina-archive-breadcrumb-compare \
               --exclude webrtc-sniffer
+              # --exclude alloc-test
               # --exclude mina-tree
               # --exclude redux-rs
               # --exclude vrf
