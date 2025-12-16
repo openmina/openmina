@@ -12,42 +12,60 @@ are automatically built on every versioned release.
 
 ## Steps
 
-### 1. Generate a node key
+### 1. (Optional) Generate a block producer key
 
-:::info This step should be redundant in a future version.
-
-:::
-
-The current version of the webnode requires you to supply a node key, even if
-you don't plan to produce blocks, or you supply your own key archive. This can
-be generated once and reused across launches of the webnode container.
+If you want your webnode to produce blocks, generate an encrypted key pair and
+package it for upload:
 
 ```sh
-# Using the latest version of the Rust node, generate a keypair.
-# The --web-node-secrets flag formats the generated keypair into JSON the webnode can use.
-docker run --rm o1labs/mina-rust:latest misc mina-key-pair --web-node-secrets > $HOME/web-node-key-pair.json
+# Create password file
+echo "mypassword" > producer-key-password
+
+# Generate an encrypted key pair using the password file
+docker run --rm \
+  -v $(pwd):/keys \
+  -w /keys \
+  o1labs/mina-rust:latest \
+  misc mina-encrypted-key --password $(cat producer-key-password) --file producer-key
+
+# Package into a ZIP file
+zip webnode-key.zip producer-key producer-key.pub producer-key-password
+
+# Clean up individual files
+rm producer-key producer-key.pub producer-key-password
 ```
+
+This creates `webnode-key.zip` containing:
+
+- `producer-key` (encrypted private key)
+- `producer-key.pub` (public key)
+- `producer-key-password` (password file)
 
 ### 2. Launch the webnode container
 
-You can now simply launch the webnode as a container. Note that once
-pre-generating a node keypair is no longer necessary, the `-v` can be removed.
+Launch the webnode container:
 
 ```sh
-# Launch the latest version of the frontend in webnode configuration.
-# We mount the keypair generated in step 1, and bind port 4200 on the host to 80 (http) in the container
+# Launch the latest version of the frontend in webnode configuration
 docker run \
   -e MINA_FRONTEND_ENVIRONMENT=webnode \
-  -v ~/web-node-key-pair.json:/usr/local/apache2/htdocs/assets/webnode/web-node-secrets.json \
   -p 4200:80 \
   o1labs/mina-rust-frontend:latest
 ```
 
-### 3. Open your browser
+### 3. Open your browser and configure
 
-Navigate to [http://localhost:4200](http://localhost:4200) and enjoy using the
-webnode! If you used a different port (`-p`) when launching the container, then
-update the port accordingly.
+Navigate to [http://localhost:4200](http://localhost:4200). If you used a
+different port (`-p`) when launching the container, update the port accordingly.
+
+The webnode runs in **observer mode** by default (no block production). To
+enable block production:
+
+1. Click the file upload area on the startup screen
+2. Select the `webnode-key.zip` file you generated in step 1
+3. Click "Start Web Node" to begin producing blocks
+
+If you skip the file upload, the webnode will run as an observer only.
 
 ## Environment Variable Reference
 
