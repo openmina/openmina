@@ -193,6 +193,13 @@ const sidebars: SidebarsConfig = {
         'researchers/snark-work',
       ],
     },
+    {
+      type: 'category',
+      label: 'Specifications',
+      items: [
+        'researchers/specs/schnorr-signatures',
+      ],
+    },
   ],
 
   // Appendix sidebar - general reference material
