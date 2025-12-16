@@ -122,7 +122,6 @@ dependencies = [
 [[package]]
 name = "alloc-test"
 version = "0.1.1"
-source = "git+https://github.com/openmina/alloc-test.git#0d3951eaddc58a6ea2d2134966ed5954234889d3"
 dependencies = [
  "clap 4.5.20",
  "derive_builder",
