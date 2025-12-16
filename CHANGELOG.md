@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Documentation**: add Schnorr signatures specification from MinaProtocol/mina
+  repository to Researchers section
+  ([#1918](https://github.com/o1-labs/mina-rust/pull/1918))
 - **Documentation**: add RPC API reference documentation with CI validation
   against o1Labs node, reorganize API docs into dedicated section
   ([#1745](https://github.com/o1-labs/mina-rust/pull/1745))
