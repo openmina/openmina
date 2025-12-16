@@ -170,9 +170,7 @@ to track correspondence and detect when updates are needed.
 **Comment format:**
 
 ```rust
-/// OCaml reference: src/lib/mina_base/transaction_status.ml L:9-113
-/// Commit: 55582d249cdb225f722dbbb3b1420ce7570d501f
-/// Last verified: 2025-10-08
+/// OCaml: <https://github.com/MinaProtocol/mina/blob/5da42ccd72e791f164d4d200cf1ce300262873b3/src/lib/mina_base/transaction_status.ml#L9-L51>
 pub enum TransactionFailure {
     // ...
 }
