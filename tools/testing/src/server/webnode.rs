@@ -62,9 +62,9 @@ async fn webnode_lock_random_bp(
 
     let args = serde_json::json!({
         "network": cluster_id,
-        "block_producer": {
-            "sec_key": sec_key.to_string(),
-            "pub_key": sec_key.public_key().to_string(),
+        "blockProducer": {
+            "privateKey": sec_key.to_string(),
+            "publicKey": sec_key.public_key().to_string(),
         },
     })
     .to_string();

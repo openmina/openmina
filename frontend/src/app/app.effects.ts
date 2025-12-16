@@ -69,7 +69,7 @@ export class AppEffects extends BaseEffect {
           if (state.app.activeNode.isWebNode) {
             return this.webNodeService
               .loadWasm$()
-              .pipe(switchMap(() => this.webNodeService.startWasm$()));
+              .pipe(switchMap(cfg => this.webNodeService.startWasm$(cfg)));
           }
           return of({});
         }),
@@ -98,7 +98,7 @@ export class AppEffects extends BaseEffect {
           if (state.app.activeNode.isWebNode) {
             return this.webNodeService
               .loadWasm$()
-              .pipe(switchMap(() => this.webNodeService.startWasm$()));
+              .pipe(switchMap(cfg => this.webNodeService.startWasm$(cfg)));
           }
           return of({});
         }),
