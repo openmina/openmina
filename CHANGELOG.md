@@ -31,6 +31,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   to Git's dynamic abbreviation based on repository size, fix
   [#1911](https://github.com/o1-labs/mina-rust/issues/1911)
   ([#1912](https://github.com/o1-labs/mina-rust/pull/1912))
+- **Docker compose files**: replace old environment by local in
+  docker-compose.block-producer.yml
+  ([#1916](https://github.com/o1-labs/mina-rust/pull/1916)
 
 ### Changes
 
