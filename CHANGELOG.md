@@ -69,6 +69,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ([#1700](https://github.com/o1-labs/mina-rust/pull/1700))
 - **CI**: remove setup-ocaml from CI
   ([#1879](https://github.com/o1-labs/mina-rust/pull/1879))
+- **Web Node**: Removed web-node-secrets.json format and unified key handling
+  across documentation to use standard encrypted key format
+  ([#1917](https://github.com/o1-labs/mina-rust/issues/1971))
+- **CLI** Removed `-web-node-secrets` flag from `mina misc mina-key-pair`
+  ([#1917](https://github.com/o1-labs/mina-rust/issues/1971))
+
 
 ## [0.18.1] - 2025-11-20
 

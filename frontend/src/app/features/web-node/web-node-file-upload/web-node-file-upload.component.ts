@@ -39,19 +39,18 @@ export class WebNodeFileUploadComponent extends ManualDetection {
     super();
   }
 
-  startCustomWebNode(): void {
+  startAutoWebNode(): void {
+    this.webnodeService.blockProducerConfig = { mode: 'auto' };
+    this.startWebNode.emit();
+  }
+
+  onStartDevelopWebnodeBP(): void {
     this.startWebNode.emit();
   }
 
   onStartDevelopWebnodeNonBP(): void {
-    this.webnodeService.privateStake = null;
-    this.webnodeService.noBlockProduction = true;
+    this.webnodeService.blockProducerConfig = { mode: 'observer' };
     delete CONFIG.globalConfig.features['block-production'];
-    this.startWebNode.emit();
-  }
-
-  onStartDevelopWebnode(): void {
-    this.webnodeService.privateStake = null;
     this.startWebNode.emit();
   }
 
@@ -67,10 +66,13 @@ export class WebNodeFileUploadComponent extends ManualDetection {
       if (this.error || !publicKey || !stake) {
         this.error = true;
       } else {
-        this.webnodeService.privateStake = {
-          publicKey,
-          password,
-          stake: JSON.parse(stake),
+        this.webnodeService.blockProducerConfig = {
+          mode: 'uploaded',
+          data: {
+            publicKey,
+            password,
+            stake: JSON.parse(stake),
+          },
         };
         this.validFiles = true;
       }
@@ -110,7 +112,7 @@ export class WebNodeFileUploadComponent extends ManualDetection {
   clearFiles(): void {
     this.validFiles = false;
     this.uploadedFileName = null;
-    this.webnodeService.privateStake = null;
+    this.webnodeService.blockProducerConfig = { mode: 'auto' };
     this.error = false;
   }
 }

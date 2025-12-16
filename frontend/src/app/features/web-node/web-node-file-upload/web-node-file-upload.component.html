@@ -67,7 +67,7 @@
             accept=".zip"
           />
         </div>
-        <div class="primary">Upload webnode-account-XY.zip we sent you</div>
+        <div class="primary">Upload webnode-account.zip</div>
       } @else {
         <div
           class="upload-container warn-primary bg-warn-container mb-8 bg-surface border-rad-6 fx-row-vert-cent flex-between pl-12 pr-12"
@@ -130,7 +130,8 @@
         <button
           class="btn-aware h-lg border-rad-8 f-500 pl-12 pr-12"
           [tooltip]="'Start a develop Block Producer Web Node'"
-          (click)="onStartDevelopWebnode()"
+          (click)="onStartDevelopWebnodeBP()"
+          [class.disabled]="!validFiles"
         >
           Start BP
         </button>
@@ -144,8 +145,7 @@
       </div>
       <button
         class="whitey h-lg border-rad-8 f-500 pl-12 pr-12"
-        (click)="startCustomWebNode()"
-        [class.disabled]="!validFiles"
+        (click)="startAutoWebNode()"
       >
         Start Web Node
       </button>

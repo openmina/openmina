@@ -65,7 +65,7 @@ export class WebNodeInitializationComponent
       status: WebNodeStepStatus.LOADING,
     },
     {
-      name: 'Getting ready to produce blocks',
+      name: 'Starting the Web Node',
       loaded: false,
       status: WebNodeStepStatus.PENDING,
     },
@@ -104,9 +104,6 @@ export class WebNodeInitializationComponent
     if (!this.webNodeService.hasWebNodeConfig()) {
       this.router.navigate([getFirstFeature()]);
       return;
-    }
-    if (this.webNodeService.noBlockProduction) {
-      this.loading[1].name = 'Starting the Web Node';
     }
     safelyExecuteInBrowser(() => {
       window.dispatchEvent(new CustomEvent('startWebNode'));
