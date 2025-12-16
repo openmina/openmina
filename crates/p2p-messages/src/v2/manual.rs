@@ -1867,7 +1867,7 @@ mod test {
     #[test]
     fn test_zkapp_with_sig_auth_hash() {
         let expexcted = "AbliNXLg4Keq0ZJyxK/QNAx8SxrJeffYytk5lbcTF9s9Af0A4fUFAP2+oQMA48vntxcABLty3SXWjvuadrLtBjcsxT1oJ3C2hwS/LDh364LKUxrLe3uF/9lr8VlW/J+ctbiI+m9I61sb9BC/AAG5YjVy4OCnqtGScsSv0DQMfEsayXn32MrZOZW3ExfbPQEBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEBAQEBAQEBAAEBAQEBAQH9AJQ1dwEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAAEBAQEBAAAAAePL57cXAAS7ct0l1o77mnay7QY3LMU9aCdwtocEvyw4d+uCylMay3t7hf/Za/FZVvyfnLW4iPpvSOtbG/QQvwAAAcwXZjv4NJwWwlJhFZPh2AK+o0dKOpIy1a6CXlskW7gmAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQEBAQEBAQEAAQEBAQEBAf0AlDV3AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEAAQEBAQAAAAICAAAAACIBFlRlc3QgWktBcHAgdG8gUmVjZWl2ZXIAAAAAAAAAAAAA".to_string();
-        let bytes = include_bytes!("../../../tests/files/zkapps/with_sig_auth.bin");
+        let bytes = include_bytes!("../../../../tests/files/zkapps/with_sig_auth.bin");
         let zkapp =
             v2::MinaBaseZkappCommandTStableV1WireStableV1::binprot_read(&mut bytes.as_slice())
                 .unwrap();
@@ -1890,7 +1890,7 @@ mod test {
 
     #[test]
     fn test_archive_breadcrumb_deserialization() {
-        let breadcrumb_bytes = include_bytes!("../../../tests/files/archive-breadcrumb/3NK56ZbCS31qb8SvCtCCYza4beRDtKgXA2JL6s3evKouG2KkKtiy.bin");
+        let breadcrumb_bytes = include_bytes!("../../../../tests/files/archive-breadcrumb/3NK56ZbCS31qb8SvCtCCYza4beRDtKgXA2JL6s3evKouG2KkKtiy.bin");
         let result =
             v2::ArchiveTransitionFrontierDiff::binprot_read(&mut breadcrumb_bytes.as_slice());
 

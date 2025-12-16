@@ -1,36 +1,42 @@
 [workspace]
 members = [
-  "cli",
-  "cli/replay_dynamic_effects",
-  "core",
-  "fuzzer",
-  "ledger",
-  "macros",
-  "mina-p2p-messages",
-  "node",
-  "node/account",
-  "node/common",
-  "node/invariants",
-  "node/native",
-  "tools/testing",
-  "node/web",
-  "p2p",
-  "p2p/libp2p-rpc-behaviour",
-  "p2p/testing",
+  # Main crates
+  "crates/cli",
+  "crates/cli/replay_dynamic_effects",
+  "crates/core",
+  "crates/fuzzer",
+  "crates/ledger",
+  "crates/macros",
+  "crates/node",
+  "crates/node/account",
+  "crates/node/common",
+  "crates/node/invariants",
+  "crates/node/native",
+  "crates/node/web",
+  "crates/p2p",
+  "crates/p2p/libp2p-rpc-behaviour",
+  "crates/p2p/testing",
+  "crates/p2p-messages",
+  "crates/snark",
+  "crates/vrf",
+  # Crates to be removed (kept at root for now)
+  # poseidon: https://github.com/o1-labs/mina-rust/issues/1215
   "poseidon",
-  "snark",
+  # Tools
   "tools/archive-breadcrumb-compare",
   "tools/bootstrap-sandbox",
   "tools/fuzzing",
   "tools/gossipsub-sandbox",
   "tools/hash-tool",
   "tools/ledger-tool",
+  "tools/testing",
   "tools/transport",
   "tools/webrtc-sniffer",
-  "vendor/alloc-test",
-  "vendor/redux",
+  # Reusable libraries (project-agnostic, potentially publishable)
+  "libs/alloc-test",
+  "libs/redux",
+  # Vendored third-party libraries
   "vendor/salsa-simple",
-  "vrf",
 ]
 
 resolver = "2"
@@ -43,7 +49,7 @@ indexing_slicing = "warn"
 [workspace.dependencies]
 aes = "0.8"
 aes-gcm = "0.10.3"
-alloc-test = { path = "vendor/alloc-test" }
+alloc-test = { path = "libs/alloc-test" }
 anyhow = "1.0.81"
 argon2 = { version = "0.5.3", features = ["std"] }
 ark-ec = { version = "0.5.0", features = ["std"] }
@@ -126,7 +132,7 @@ juniper_warp = "0.8.0"
 kimchi = { git = "https://github.com/o1-labs/proof-systems", tag = "0.2.0" }
 lazy_static = "1.4.0"
 leb128 = "0.2.1"
-ledger = { path = "ledger", package = "mina-tree" }
+ledger = { path = "crates/ledger", package = "mina-tree" }
 libc = "0.2.151"
 libp2p = { git = "https://github.com/openmina/rust-libp2p", rev = "5c44c7d9", default-features = false }
 libp2p-identity = { version = "=0.2.7", features = ["peerid"] }
@@ -135,17 +141,17 @@ local-ip-address = "0.6.1"
 log = "0.4.25"
 md5 = "0.7.0"
 mina-bootstrap-sandbox = { path = "tools/bootstrap-sandbox" }
-mina-core = { path = "core" }
+mina-core = { path = "crates/core" }
 mina-curves = { git = "https://github.com/o1-labs/proof-systems", tag = "0.2.0" }
-mina-fuzzer = { path = "fuzzer" }
+mina-fuzzer = { path = "crates/fuzzer" }
 mina-hasher = { git = "https://github.com/o1-labs/proof-systems", tag = "0.2.0" }
-mina-macros = { path = "macros" }
-mina-node-account = { path = "node/account" }
-mina-node-common = { path = "node/common" }
-mina-node-invariants = { path = "node/invariants" }
-mina-node-native = { path = "node/native" }
+mina-macros = { path = "crates/macros" }
+mina-node-account = { path = "crates/node/account" }
+mina-node-common = { path = "crates/node/common" }
+mina-node-invariants = { path = "crates/node/invariants" }
+mina-node-native = { path = "crates/node/native" }
 mina-node-testing = { path = "tools/testing" }
-mina-p2p-messages = { path = "mina-p2p-messages" }
+mina-p2p-messages = { path = "crates/p2p-messages" }
 mina-poseidon = { git = "https://github.com/o1-labs/proof-systems", tag = "0.2.0" }
 mina-signer = { git = "https://github.com/o1-labs/proof-systems", tag = "0.2.0" }
 mina-transport = { path = "tools/transport" }
@@ -153,7 +159,7 @@ mio = { version = "1.0.4", features = ["os-poll", "net"] }
 multiaddr = "0.18.1"
 multihash = { version = "0.18.1", features = ["blake2b"] }
 nix = { version = "0.27.1", features = ["process", "signal"] }
-node = { path = "node" }
+node = { path = "crates/node" }
 nom = "8.0.0"
 num = { version = "0.4", features = ["std"] }
 num-bigint = { git = "https://github.com/openmina/num-bigint", branch = "rebase-onstack" }
@@ -181,7 +187,7 @@ rand_pcg = "0.3"
 rand_seeder = "0.2"
 rayon = "1.5"
 rcgen = { version = "0.13", features = ["pem", "x509-parser"] }
-redux = { path = "vendor/redux", features = ["serde"] }
+redux = { path = "libs/redux", features = ["serde"] }
 regex = "1"
 reqwest = { version = "0.12.8", features = ["blocking", "json"] }
 ring_buffer = "2.0.2"
@@ -235,7 +241,7 @@ vergen = { version = "8.2.4", features = [
   "gitcl",
   "rustc",
 ] }
-vrf = { path = "vrf" }
+vrf = { path = "crates/vrf" }
 warp = "0.3"
 wasm-bindgen = "^0.2.106"
 wasm-bindgen-futures = "^0.4.56"

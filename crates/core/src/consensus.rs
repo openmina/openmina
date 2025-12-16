@@ -330,7 +330,7 @@ mod tests {
     macro_rules! fork_file {
         ($prefix:expr, $tip:expr, $cnd:expr, $suffix:expr) => {
             concat!(
-                "../../tests/files/forks/",
+                "../../../tests/files/forks/",
                 $prefix,
                 "-",
                 $tip,

@@ -290,7 +290,7 @@ mod tests {
     #[test]
     fn test_libp2p_key_decrypt() {
         let password = "total-secure-pass";
-        let key_path = "../tests/files/accounts/libp2p-key";
+        let key_path = "../../tests/files/accounts/libp2p-key";
 
         let expected_peer_id = "12D3KooWDxyuJKSsVEwNR13UVwf4PEfs4yHkk3ecZipBPv3Y3Sac";
 

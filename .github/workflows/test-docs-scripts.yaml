@@ -272,10 +272,10 @@ jobs:
           git diff --name-only | sort > actual_files.txt
           echo ".github/workflows/ci.yaml" > expected_files.txt
           echo "docker-compose.archive.devnet.compare.yml" >> expected_files.txt
-          echo "node/testing/src/node/ocaml/config.rs" >> expected_files.txt
-          echo "node/testing/src/node/ocaml/mod.rs" >> expected_files.txt
-          echo "node/testing/src/scenarios/multi_node/basic_connectivity_peer_discovery.rs" >> expected_files.txt
-          echo "node/testing/src/scenarios/solo_node/basic_connectivity_accept_incoming.rs" >> expected_files.txt
+          echo "tools/testing/src/node/ocaml/config.rs" >> expected_files.txt
+          echo "tools/testing/src/node/ocaml/mod.rs" >> expected_files.txt
+          echo "tools/testing/src/scenarios/multi_node/basic_connectivity_peer_discovery.rs" >> expected_files.txt
+          echo "tools/testing/src/scenarios/solo_node/basic_connectivity_accept_incoming.rs" >> expected_files.txt
           sort expected_files.txt > expected_files_sorted.txt
 
           # Verify the same files were modified

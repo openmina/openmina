@@ -22,7 +22,7 @@ mina-node-common = { path = "../common" }
 mina-p2p-messages = { workspace = true }
 mina-signer = { workspace = true }
 nix = { workspace = true, features = ["signal"] }
-node = { path = "../../node", features = ["replay"] }
+node = { path = "..", features = ["replay"] }
 o1-utils = { workspace = true }
 rand = { workspace = true }
 rayon = { workspace = true }

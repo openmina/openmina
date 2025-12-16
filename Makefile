@@ -85,7 +85,7 @@ build: ## Build the project in debug mode
 
 .PHONY: build-ledger
 build-ledger: download-circuits ## Build the ledger binary and library, requires nightly Rust
-	@cd ledger && cargo +$(NIGHTLY_RUST_VERSION) build --release --tests
+	@cd crates/ledger && cargo +$(NIGHTLY_RUST_VERSION) build --release --tests
 
 build-node-native: ## Build the package mina-node-native with all features and tests
 	@cargo build -p mina-node-native --all-features --release --tests
@@ -135,7 +135,7 @@ build-tests-webrtc: ## Build tests for WebRTC
 
 .PHONY: build-wasm
 build-wasm: ## Build WebAssembly node
-	@cd node/web && cargo +${NIGHTLY_RUST_VERSION} build \
+	@cd crates/node/web && cargo +${NIGHTLY_RUST_VERSION} build \
 		--release --target wasm32-unknown-unknown
 # Update ./.gitignore accordingly if the out-dir is changed
 	@wasm-bindgen --keep-debug --web \
@@ -241,8 +241,8 @@ download-circuits: ## Download the circuits used by Mina from GitHub
 	  git clone --depth 1 $(CIRCUITS_REPO) -b $(CIRCUITS_REV); \
 	  for network in $(CIRCUITS_NETWORKS); do \
 	    echo "Including circuits for $$network"; \
-	    rm -f "$$PWD"/ledger/"$$network"; \
-	    ln -s "$$PWD"/circuit-blobs/"$$network" ledger/"$$network"; \
+	    rm -f "$$PWD"/crates/ledger/"$$network"; \
+	    ln -s "$$PWD"/circuit-blobs/"$$network" crates/ledger/"$$network"; \
 	  done; \
 	else \
 	  echo "circuit-blobs already exists, skipping download."; \
@@ -341,7 +341,7 @@ test: ## Run tests
 
 .PHONY: test-ledger
 test-ledger: build-ledger ## Run ledger tests in release mode, requires nightly Rust
-	@cd ledger && cargo +$(NIGHTLY_RUST_VERSION) test --release -- -Z unstable-options --report-time
+	@cd crates/ledger && cargo +$(NIGHTLY_RUST_VERSION) test --release -- -Z unstable-options --report-time
 
 .PHONY: test-p2p
 test-p2p: ## Run P2P tests
@@ -386,7 +386,7 @@ nextest-p2p: ## Run P2P tests with cargo-nextest
 
 .PHONY: nextest-ledger
 nextest-ledger: build-ledger ## Run ledger tests with cargo-nextest, requires nightly Rust
-	@cd ledger && cargo +$(NIGHTLY_RUST_VERSION) nextest run --release
+	@cd crates/ledger && cargo +$(NIGHTLY_RUST_VERSION) nextest run --release
 
 # Docker build targets
 

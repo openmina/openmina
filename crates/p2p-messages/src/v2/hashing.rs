@@ -859,7 +859,7 @@ mod hash_tests {
         // MinaBaseZkappCommandTStableV1WireStableV1
         //
         let expected_hash = "5JtkEP5AugQKKQAk3YKFxxUDggWf8AiAYyCQy49t2kLHRgPqcP8o".to_string();
-        let bytes = include_bytes!("../../../tests/files/zkapps/with_proof_auth.bin");
+        let bytes = include_bytes!("../../../../tests/files/zkapps/with_proof_auth.bin");
         let zkapp =
             MinaBaseZkappCommandTStableV1WireStableV1::binprot_read(&mut bytes.as_slice()).unwrap();
         let hash = zkapp.hash().unwrap().to_string();
@@ -871,7 +871,7 @@ mod hash_tests {
 
     fn test_zkapp_with_sig_auth_hash() {
         let expected_hash = "5JvQ6xQeGgCTe2d4KpCsJ97yK61mNRZHixJxPbKTppY1qSGgtj6t".to_string();
-        let bytes = include_bytes!("../../../tests/files/zkapps/with_sig_auth.bin");
+        let bytes = include_bytes!("../../../../tests/files/zkapps/with_sig_auth.bin");
         let zkapp =
             MinaBaseZkappCommandTStableV1WireStableV1::binprot_read(&mut bytes.as_slice()).unwrap();
         let hash = zkapp.hash().unwrap().to_string();

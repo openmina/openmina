@@ -67,20 +67,12 @@ RUN make setup-wasm
 # Copy source code required for WASM build
 COPY Cargo.toml Cargo.lock ./
 COPY .cargo/config.toml ./.cargo/config.toml
-COPY cli ./cli
-COPY core ./core
-COPY fuzzer ./fuzzer
+COPY crates ./crates
 COPY genesis_ledgers ./genesis_ledgers
-COPY ledger ./ledger
-COPY macros ./macros
-COPY mina-p2p-messages ./mina-p2p-messages
-COPY node ./node
-COPY p2p ./p2p
+COPY libs ./libs
 COPY poseidon ./poseidon
-COPY snark ./snark
 COPY tools ./tools
 COPY vendor ./vendor
-COPY vrf ./vrf
 
 # Build WebAssembly using Makefile (source VERGEN variables from .env.docker)
 RUN bash -c 'set -a && source .env.docker && make build-wasm'
