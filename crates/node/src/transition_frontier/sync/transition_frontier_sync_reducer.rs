@@ -451,7 +451,7 @@ impl TransitionFrontierSyncState {
                 // it is not possible to recover this info from the staging ledger reconstruction,
                 // so the value will not always be correct for the root block.
                 // The `false` value is used to be compatible with:
-                // <https://github.com/MinaProtocol/mina/blob/e975835deab303c7f48b09ec2fd0e41ec649aef6/src/lib/transition_frontier/full_frontier/full_frontier.ml#L157-L160>
+                /// OCaml: <https://github.com/MinaProtocol/mina/blob/e975835deab303c7f48b09ec2fd0e41ec649aef6/src/lib/transition_frontier/full_frontier/full_frontier.ml#L157-L160>
                 let root_block_just_emitted_a_proof = false;
 
                 if let Some(reconstructed_root_block) = root_block_updates_iter.next() {

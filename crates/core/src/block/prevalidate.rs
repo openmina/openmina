@@ -112,8 +112,7 @@ pub fn prevalidate_block(
     validate_constants(block, genesis)?;
 
     // TODO(tizoc): check for InvalidDeltaBlockChainProof
-    // <https://github.com/MinaProtocol/mina/blob/d800da86a764d8d37ffb8964dd8d54d9f522b358/src/lib/mina_block/validation.ml#L369>
-    // <https://github.com/MinaProtocol/mina/blob/d800da86a764d8d37ffb8964dd8d54d9f522b358/src/lib/transition_chain_verifier/transition_chain_verifier.ml>
-
+    /// OCaml: <https://github.com/MinaProtocol/mina/blob/d800da86a764d8d37ffb8964dd8d54d9f522b358/src/lib/mina_block/validation.ml#L369>
+    /// OCaml: <https://github.com/MinaProtocol/mina/blob/d800da86a764d8d37ffb8964dd8d54d9f522b358/src/lib/transition_chain_verifier/transition_chain_verifier.ml>
     Ok(())
 }

@@ -87,8 +87,8 @@ pub struct ForkConstants {
 /// While most constraint constants are identical across networks, some parameters
 /// may differ between mainnet and testnets for development purposes.
 ///
-/// Related OCaml implementation: <https://github.com/MinaProtocol/mina/tree/compatible/src/config>
-/// Protocol specification: <https://github.com/MinaProtocol/mina/blob/compatible/docs/specs/types_and_structures/serialized_key.md>
+/// OCaml: <https://github.com/MinaProtocol/mina/tree/compatible/src/config>
+/// OCaml: <https://github.com/MinaProtocol/mina/blob/compatible/docs/specs/types_and_structures/serialized_key.md>
 #[derive(Clone, Debug)]
 pub struct ConstraintConstants {
     /// Number of sub-windows that make up a complete window.
