@@ -2,9 +2,7 @@
 # Script to validate OCaml reference comments in Rust code
 # Usage: ./.github/scripts/check-ocaml-refs.sh [--repo REPO_URL] [--branch BRANCH] [--update]
 #
-# Supports two formats:
-# 1. New hyperlink format: /// OCaml: <https://github.com/MinaProtocol/mina/blob/COMMIT/path#L1-L10>
-# 2. Legacy multi-line format (deprecated): /// OCaml reference: path L:1-10
+# Supports hyperlink format: /// OCaml: <https://github.com/MinaProtocol/mina/blob/COMMIT/path#L1-L10>
 
 set -euo pipefail
 
@@ -64,11 +62,9 @@ fi
 
 echo "Current OCaml commit: ${CURRENT_COMMIT}"
 
-# Find all Rust files with OCaml references (both formats)
+# Find all Rust files with OCaml references
 cd "${RUST_ROOT}"
-RUST_FILES_OLD=$(git grep -l -E "^/// OCaml reference:" "*.rs" "**/*.rs" 2>/dev/null || true)
-RUST_FILES_NEW=$(git grep -l -E "^/// OCaml: <https://github.com/MinaProtocol/mina/blob/" "*.rs" "**/*.rs" 2>/dev/null || true)
-RUST_FILES=$(echo -e "${RUST_FILES_OLD}\n${RUST_FILES_NEW}" | sort -u | grep -v '^$' || true)
+RUST_FILES=$(git grep -l -E "^/// OCaml: <https://github.com/MinaProtocol/mina/blob/" "*.rs" "**/*.rs" 2>/dev/null || true)
 
 if [ -z "$RUST_FILES" ]; then
     echo "No OCaml references found in Rust code"
@@ -85,7 +81,7 @@ echo "========================"
 
 # Process each file
 echo "$RUST_FILES" | while IFS= read -r rust_file; do
-    # Process new hyperlink format: /// OCaml: <URL>
+    # Process hyperlink format: /// OCaml: <URL>
     grep -n "^/// OCaml: <https://github.com/MinaProtocol/mina/blob/" "$rust_file" 2>/dev/null | while IFS=: read -r line_num line_content; do
         # Extract URL from angle brackets
         URL=$(echo "$line_content" | sed -n 's/.*<\(https:\/\/github\.com\/MinaProtocol\/mina\/blob\/[^>]*\)>.*/\1/p')
@@ -186,110 +182,6 @@ echo "$RUST_FILES" | while IFS= read -r rust_file; do
             fi
         fi
     done
-
-    # Process legacy multi-line format (for backward compatibility)
-    awk '
-        /^\/\/\/ OCaml reference:/ {
-            line_num = NR
-            ref = $0
-            getline
-            if ($0 ~ /^\/\/\/ Commit:/) {
-                commit = $0
-                getline
-                if ($0 ~ /^\/\/\/ Last verified:/) {
-                    verified = $0
-                    print line_num "|" ref
-                    print commit
-                    print verified
-                    print "---"
-                }
-            }
-        }
-    ' "$rust_file" | while IFS= read -r line; do
-        if [[ "$line" == *"|/// OCaml reference:"* ]]; then
-            # Extract file path and line range
-            LINE_NUM=$(echo "$line" | cut -d'|' -f1)
-            FULL_REF="${line#*|/// OCaml reference: }"
-            OCAML_PATH="${FULL_REF%% L:*}"
-            LINE_RANGE=$(echo "$FULL_REF" | grep -o 'L:[0-9-]*' | sed 's/L://' || echo "")
-
-            # Read next two lines
-            read -r commit_line
-            read -r _verified_line
-            read -r _separator
-
-            COMMIT="${commit_line#/// Commit: }"
-
-            # Fetch the OCaml file from the current branch
-            CURRENT_FILE="${TEMP_DIR}/current_legacy_${rust_file//\//_}_${OCAML_PATH//\//_}"
-            CURRENT_URL="https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/${OCAML_BRANCH}/${OCAML_PATH}"
-
-            if ! curl -sf "$CURRENT_URL" -o "$CURRENT_FILE"; then
-                echo "INVALID|${rust_file}|${OCAML_PATH}|FILE_NOT_FOUND|LEGACY_FORMAT" >> "$RESULTS_FILE"
-                echo "❌ INVALID: ${rust_file}:${LINE_NUM} (LEGACY FORMAT)"
-                echo "   OCaml file not found: ${OCAML_PATH}"
-            else
-                # Validate line range if specified
-                RANGE_VALID=true
-                if [ -n "$LINE_RANGE" ]; then
-                    FILE_LINES=$(wc -l < "$CURRENT_FILE")
-                    END_LINE=$(echo "$LINE_RANGE" | cut -d'-' -f2)
-
-                    if [ "$END_LINE" -gt "$FILE_LINES" ]; then
-                        echo "INVALID|${rust_file}|${OCAML_PATH}|LINE_RANGE_EXCEEDED|L:${LINE_RANGE}|${FILE_LINES}|LEGACY_FORMAT" >> "$RESULTS_FILE"
-                        echo "❌ INVALID: ${rust_file}:${LINE_NUM} (LEGACY FORMAT)"
-                        echo "   Line range L:${LINE_RANGE} exceeds file length (${FILE_LINES} lines): ${OCAML_PATH}"
-                        RANGE_VALID=false
-                    fi
-                fi
-
-                if [ "$RANGE_VALID" = "true" ]; then
-                    # Verify that the code at the referenced commit matches the current branch
-                    CODE_MATCHES=true
-                    if [ -n "$LINE_RANGE" ]; then
-                        START_LINE=$(echo "$LINE_RANGE" | cut -d'-' -f1)
-                        END_LINE=$(echo "$LINE_RANGE" | cut -d'-' -f2)
-
-                        # Fetch the file from the referenced commit
-                        COMMIT_FILE="${TEMP_DIR}/commit_legacy_${rust_file//\//_}_${OCAML_PATH//\//_}"
-                        COMMIT_URL="https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/${COMMIT}/${OCAML_PATH}"
-
-                        if ! curl -sf "$COMMIT_URL" -o "$COMMIT_FILE"; then
-                            echo "INVALID|${rust_file}|${OCAML_PATH}|COMMIT_NOT_FOUND|${COMMIT}|LEGACY_FORMAT" >> "$RESULTS_FILE"
-                            echo "❌ INVALID: ${rust_file}:${LINE_NUM} (LEGACY FORMAT)"
-                            echo "   Referenced commit does not exist: ${COMMIT}"
-                            CODE_MATCHES=false
-                        else
-                            # Extract the specific line ranges from both files and compare
-                            CURRENT_LINES=$(sed -n "${START_LINE},${END_LINE}p" "$CURRENT_FILE")
-                            COMMIT_LINES=$(sed -n "${START_LINE},${END_LINE}p" "$COMMIT_FILE")
-
-                            if [ "$CURRENT_LINES" != "$COMMIT_LINES" ]; then
-                                echo "INVALID|${rust_file}|${OCAML_PATH}|CODE_MISMATCH|${COMMIT}|LEGACY_FORMAT" >> "$RESULTS_FILE"
-                                echo "❌ INVALID: ${rust_file}:${LINE_NUM} (LEGACY FORMAT)"
-                                echo "   Code at L:${LINE_RANGE} differs between commit ${COMMIT} and current branch"
-                                echo "   Referenced: https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/blob/${COMMIT}/${OCAML_PATH}#L${START_LINE}-L${END_LINE}"
-                                echo "   Current:    https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/blob/${OCAML_BRANCH}/${OCAML_PATH}#L${START_LINE}-L${END_LINE}"
-                                CODE_MATCHES=false
-                            fi
-                        fi
-                    fi
-
-                    if [ "$CODE_MATCHES" = "true" ]; then
-                        # Check if commit is stale
-                        if [ "$COMMIT" != "$CURRENT_COMMIT" ]; then
-                            echo "STALE|${rust_file}|${LINE_NUM}|${OCAML_PATH}|${COMMIT}|${LINE_RANGE}|LEGACY_FORMAT" >> "$RESULTS_FILE"
-                            echo "✓ VALID: ${rust_file}:${LINE_NUM} (LEGACY FORMAT) -> ${OCAML_PATH} L:${LINE_RANGE}"
-                            echo "  ⚠ STALE COMMIT: ${COMMIT} (current: ${CURRENT_COMMIT})"
-                        else
-                            echo "VALID|${rust_file}|${LINE_NUM}|${OCAML_PATH}|${LINE_RANGE}|LEGACY_FORMAT" >> "$RESULTS_FILE"
-                            echo "✓ VALID: ${rust_file}:${LINE_NUM} (LEGACY FORMAT) -> ${OCAML_PATH} L:${LINE_RANGE}"
-                        fi
-                    fi
-                fi
-            fi
-        fi
-    done
 done
 
 # Count results
@@ -310,8 +202,8 @@ if [ "$UPDATE_MODE" = "true" ] && [ "${STALE_COMMITS}" -gt 0 ]; then
     echo ""
     echo "Updating stale commit hashes..."
 
-    # Update new hyperlink format
-    grep "^STALE|" "$RESULTS_FILE" | grep -v "LEGACY_FORMAT" | while IFS='|' read -r _status rust_file line_num ocaml_path old_commit line_range _rest; do
+    # Update hyperlink format
+    grep "^STALE|" "$RESULTS_FILE" | while IFS='|' read -r _status rust_file line_num ocaml_path old_commit line_range; do
         echo "Updating ${rust_file}:${line_num}..."
 
         # Build new URL
@@ -328,22 +220,6 @@ if [ "$UPDATE_MODE" = "true" ] && [ "${STALE_COMMITS}" -gt 0 ]; then
         CURRENT_COMMIT_ESCAPED=$(echo "$CURRENT_COMMIT" | sed 's/[\/&]/\\&/g')
 
         sed -i "${line_num}s/blob\/${OLD_COMMIT_ESCAPED}\//blob\/${CURRENT_COMMIT_ESCAPED}\//" "${RUST_ROOT}/${rust_file}"
-    done
-
-    # Update legacy multi-line format (for backward compatibility during transition)
-    grep "^STALE|" "$RESULTS_FILE" | grep "LEGACY_FORMAT" | while IFS='|' read -r _status rust_file line_num ocaml_path old_commit line_range _legacy; do
-        echo "Updating legacy format in ${rust_file}:${line_num}..."
-
-        CURRENT_DATE=$(date +%Y-%m-%d)
-
-        # Find and replace the old commit with the new one
-        sed -i.bak \
-            -e "/^\/\/\/ OCaml reference: ${ocaml_path//\//\\/}/,/^\/\/\/ Last verified:/ {
-                s/^\/\/\/ Commit: .*/\/\/\/ Commit: ${CURRENT_COMMIT}/
-                s/^\/\/\/ Last verified: .*/\/\/\/ Last verified: ${CURRENT_DATE}/
-            }" \
-            "${RUST_ROOT}/${rust_file}"
-        rm -f "${RUST_ROOT}/${rust_file}.bak"
     done
 
     echo "Updated ${STALE_COMMITS} reference(s)"
