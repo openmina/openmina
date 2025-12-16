@@ -24,6 +24,6 @@ services:
   frontend:
     image: o1labs/mina-rust-frontend:${MINA_FRONTEND_TAG:-latest}
     environment:
-      MINA_FRONTEND_ENVIRONMENT: compose-producer
+      MINA_FRONTEND_ENVIRONMENT: local
     ports:
       - "8070:8070"
