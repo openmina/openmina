@@ -5,9 +5,7 @@ use ledger::{
     },
     scan_state::scan_state::transaction_snark::SokMessage,
 };
-use mina_p2p_messages::v2;
-use mina_signer::CompressedPubKey;
-use node::{
+use mina_node::{
     core::channels::mpsc,
     event_source::ExternalSnarkWorkerEvent,
     external_snark_worker::{
@@ -16,6 +14,8 @@ use node::{
     },
     snark::TransactionVerifier,
 };
+use mina_p2p_messages::v2;
+use mina_signer::CompressedPubKey;
 
 use crate::NodeService;
 
@@ -31,7 +31,7 @@ enum Cmd {
     Kill,
 }
 
-impl node::service::ExternalSnarkWorkerService for NodeService {
+impl mina_node::service::ExternalSnarkWorkerService for NodeService {
     fn start(
         &mut self,
         pub_key: v2::NonZeroCurvePoint,
@@ -50,7 +50,7 @@ impl node::service::ExternalSnarkWorkerService for NodeService {
         self.snark_worker = Some(SnarkWorker { cmd_sender });
         let event_sender = self.event_sender().clone();
 
-        node::core::thread::Builder::new()
+        mina_node::core::thread::Builder::new()
             .name("snark_worker".to_owned())
             .spawn(move || worker_thread(cmd_receiver, event_sender, sok_message, work_verifier))
             .map(|_| ())

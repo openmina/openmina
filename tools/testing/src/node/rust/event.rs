@@ -1,10 +1,10 @@
-use node::{
+use mina_node::{
     p2p::{webrtc::ConnectionAuthEncrypted, P2pConnectionEvent, P2pEvent, PeerId},
     rpc::{RpcId, RpcRequest},
 };
 use serde::{Deserialize, Serialize};
 
-pub use node::event_source::Event;
+pub use mina_node::event_source::Event;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum NonDeterministicEvent {

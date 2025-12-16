@@ -1,6 +1,6 @@
 #[cfg(target_family = "wasm")]
 use gloo_utils::format::JsValueSerdeExt;
-use node::rpc::*;
+use mina_node::rpc::*;
 #[cfg(target_family = "wasm")]
 use wasm_bindgen::prelude::*;
 

@@ -2,9 +2,9 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use crate::p2p::P2pNetworkPubsubMessageCacheId;
 use mina_core::transaction::TransactionPoolMessageSource;
 use mina_p2p_messages::v2;
-use p2p::P2pNetworkPubsubMessageCacheId;
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 

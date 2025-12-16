@@ -1,5 +1,5 @@
 use mina_core::ActionEvent;
-use p2p::{
+use mina_p2p::{
     channels::{
         rpc::{P2pRpcId, P2pRpcRequest, P2pRpcResponse},
         streaming_rpc::P2pStreamingRpcResponseFull,

@@ -4,7 +4,7 @@ pub use run::*;
 use std::{path::PathBuf, time::Duration};
 
 use ledger::BaseLedger;
-use node::{
+use mina_node::{
     account::{AccountPublicKey, AccountSecretKey},
     event_source::Event,
     ledger::LedgerService,

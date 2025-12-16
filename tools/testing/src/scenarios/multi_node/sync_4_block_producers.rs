@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use node::BlockProducerConfig;
+use mina_node::BlockProducerConfig;
 
 use crate::{
     node::{RustNodeBlockProducerTestingConfig, RustNodeTestingConfig},

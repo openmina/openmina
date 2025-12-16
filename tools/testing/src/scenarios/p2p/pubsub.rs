@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use node::ActionKind;
+use mina_node::ActionKind;
 
 use crate::{
     hosts,

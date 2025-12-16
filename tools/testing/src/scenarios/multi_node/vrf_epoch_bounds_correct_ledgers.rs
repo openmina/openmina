@@ -1,14 +1,14 @@
 use std::{str::FromStr, time::Duration};
 
 use ledger::AccountIndex;
-use mina_p2p_messages::v2::{
-    CurrencyFeeStableV1, UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
-};
-use node::{
+use mina_node::{
     account::AccountSecretKey,
     block_producer::vrf_evaluator::{BlockProducerVrfEvaluatorStatus, EpochContext},
     p2p::P2pTimeouts,
     ActionKind, BlockProducerConfig, SnarkerConfig, SnarkerStrategy,
+};
+use mina_p2p_messages::v2::{
+    CurrencyFeeStableV1, UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
 };
 
 use crate::{
@@ -49,7 +49,7 @@ impl MultiNodeVrfEpochBoundsCorrectLedger {
 
         let rust_config = RustNodeTestingConfig {
             initial_time,
-            genesis: node::config::DEVNET_CONFIG.clone(),
+            genesis: mina_node::config::DEVNET_CONFIG.clone(),
             max_peers: 100,
             initial_peers: Vec::new(),
             peer_id: Default::default(),

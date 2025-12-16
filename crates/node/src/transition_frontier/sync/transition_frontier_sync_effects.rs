@@ -1,9 +1,9 @@
-use mina_core::block::{AppliedBlock, ArcBlockWithHash};
-use mina_p2p_messages::v2::LedgerHash;
-use p2p::{
+use crate::p2p::{
     channels::rpc::{P2pChannelsRpcAction, P2pRpcId},
     P2pNetworkPubsubAction, PeerId,
 };
+use mina_core::block::{AppliedBlock, ArcBlockWithHash};
+use mina_p2p_messages::v2::LedgerHash;
 use redux::ActionMeta;
 
 use crate::{
@@ -315,7 +315,9 @@ impl TransitionFrontierSyncAction {
                 store.dispatch(TransitionFrontierAction::SyncFailed { best_tip, error });
                 // TODO this should be handled by a callback
                 store.dispatch(P2pNetworkPubsubAction::RejectMessage {
-                    message_id: Some(p2p::BroadcastMessageId::BlockHash { hash: hash.clone() }),
+                    message_id: Some(crate::p2p::BroadcastMessageId::BlockHash {
+                        hash: hash.clone(),
+                    }),
                     peer_id: None,
                     reason: "Failed to apply block".to_owned(),
                 });

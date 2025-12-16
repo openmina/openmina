@@ -9,6 +9,6 @@ crate-type = ["dylib"]
 name = "replay_dynamic_effects"
 
 [dependencies]
+mina-node = { workspace = true, features = ["replay"] }
 mina-node-invariants = { path = "../../node/invariants" }
 mina-node-native = { path = "../../node/native" }
-node = { path = "../../node", features = ["replay"] }

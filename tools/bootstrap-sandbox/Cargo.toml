@@ -8,7 +8,7 @@ base64 = { workspace = true }
 binprot = { workspace = true }
 bs58 = { workspace = true, features = ["check"] }
 env_logger = { workspace = true }
-ledger = { workspace = true, package = "mina-tree" }
+ledger = { workspace = true }
 libp2p = { workspace = true, features = ["identify", "macros"] }
 libp2p-rpc-behaviour = { path = "../../crates/p2p/libp2p-rpc-behaviour" }
 log = { workspace = true }

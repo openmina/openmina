@@ -45,7 +45,7 @@ impl SoloNodeSyncToGenesis {
 
         let rust_node = runner.add_rust_node(RustNodeTestingConfig {
             initial_time,
-            genesis: node::config::DEVNET_CONFIG.clone(),
+            genesis: mina_node::config::DEVNET_CONFIG.clone(),
             max_peers: 100,
             initial_peers: Vec::new(),
             peer_id: Default::default(),

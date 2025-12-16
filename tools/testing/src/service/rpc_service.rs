@@ -1,5 +1,5 @@
 use mina_core::requests::RpcId;
-use node::{
+use mina_node::{
     p2p::connection::P2pConnectionResponse, rpc::RpcMessageProgressResponse,
     rpc_effectful::RespondError, service::RpcService, State,
 };
@@ -14,26 +14,32 @@ macro_rules! to_real {
 
 impl RpcService for super::NodeTestingService {
     to_real!(respond_state_get, (&State, Option<&str>));
-    to_real!(respond_status_get, node::rpc::RpcStatusGetResponse);
-    to_real!(respond_heartbeat_get, node::rpc::RpcHeartbeatGetResponse);
-    to_real!(respond_sync_stats_get, node::rpc::RpcSyncStatsGetResponse);
+    to_real!(respond_status_get, mina_node::rpc::RpcStatusGetResponse);
+    to_real!(
+        respond_heartbeat_get,
+        mina_node::rpc::RpcHeartbeatGetResponse
+    );
+    to_real!(
+        respond_sync_stats_get,
+        mina_node::rpc::RpcSyncStatsGetResponse
+    );
     to_real!(
         respond_block_producer_stats_get,
-        node::rpc::RpcBlockProducerStatsGetResponse
+        mina_node::rpc::RpcBlockProducerStatsGetResponse
     );
 
     to_real!(
         respond_action_stats_get,
-        node::rpc::RpcActionStatsGetResponse,
+        mina_node::rpc::RpcActionStatsGetResponse,
     );
     to_real!(
         respond_message_progress_stats_get,
         RpcMessageProgressResponse
     );
-    to_real!(respond_peers_get, node::rpc::RpcPeersGetResponse,);
+    to_real!(respond_peers_get, mina_node::rpc::RpcPeersGetResponse,);
     to_real!(
         respond_p2p_connection_outgoing,
-        node::rpc::RpcP2pConnectionOutgoingResponse,
+        mina_node::rpc::RpcP2pConnectionOutgoingResponse,
     );
     to_real!(
         respond_p2p_connection_incoming_answer,
@@ -43,99 +49,105 @@ impl RpcService for super::NodeTestingService {
     to_real!(respond_p2p_connection_incoming, Result<(), String>,);
     to_real!(
         respond_scan_state_summary_get,
-        node::rpc::RpcScanStateSummaryGetResponse,
+        mina_node::rpc::RpcScanStateSummaryGetResponse,
     );
-    to_real!(respond_snark_pool_get, node::rpc::RpcSnarkPoolGetResponse,);
+    to_real!(
+        respond_snark_pool_get,
+        mina_node::rpc::RpcSnarkPoolGetResponse,
+    );
     to_real!(
         respond_snark_pool_job_get,
-        node::rpc::RpcSnarkPoolJobGetResponse,
+        mina_node::rpc::RpcSnarkPoolJobGetResponse,
     );
     to_real!(
         respond_snark_pool_completed_jobs_get,
-        node::rpc::RpcSnarkPoolCompletedJobsResponse,
+        mina_node::rpc::RpcSnarkPoolCompletedJobsResponse,
     );
     to_real!(
         respond_snark_pool_pending_jobs_get,
-        node::rpc::RpcSnarkPoolPendingJobsGetResponse
+        mina_node::rpc::RpcSnarkPoolPendingJobsGetResponse
     );
     to_real!(
         respond_snarker_job_commit,
-        node::rpc::RpcSnarkerJobCommitResponse,
+        mina_node::rpc::RpcSnarkerJobCommitResponse,
     );
     to_real!(
         respond_snarker_job_spec,
-        node::rpc::RpcSnarkerJobSpecResponse,
+        mina_node::rpc::RpcSnarkerJobSpecResponse,
     );
     to_real!(
         respond_snarker_workers,
-        node::rpc::RpcSnarkerWorkersResponse,
+        mina_node::rpc::RpcSnarkerWorkersResponse,
     );
     to_real!(
         respond_snarker_config_get,
-        node::rpc::RpcSnarkerConfigGetResponse,
+        mina_node::rpc::RpcSnarkerConfigGetResponse,
     );
-    to_real!(respond_health_check, node::rpc::RpcHealthCheckResponse,);
+    to_real!(respond_health_check, mina_node::rpc::RpcHealthCheckResponse,);
     to_real!(
         respond_readiness_check,
-        node::rpc::RpcReadinessCheckResponse,
+        mina_node::rpc::RpcReadinessCheckResponse,
     );
     to_real!(
         respond_discovery_routing_table,
-        node::rpc::RpcDiscoveryRoutingTableResponse
+        mina_node::rpc::RpcDiscoveryRoutingTableResponse
     );
     to_real!(
         respond_discovery_bootstrap_stats,
-        node::rpc::RpcDiscoveryBoostrapStatsResponse
+        mina_node::rpc::RpcDiscoveryBoostrapStatsResponse
     );
     to_real!(
         respond_transaction_pool,
-        node::rpc::RpcTransactionPoolResponse
+        mina_node::rpc::RpcTransactionPoolResponse
     );
     to_real!(
         respond_ledger_slim_accounts,
-        node::rpc::RpcLedgerSlimAccountsResponse
+        mina_node::rpc::RpcLedgerSlimAccountsResponse
     );
     to_real!(
         respond_ledger_accounts,
-        node::rpc::RpcLedgerAccountsResponse
+        mina_node::rpc::RpcLedgerAccountsResponse
     );
     to_real!(
         respond_transaction_inject,
-        node::rpc::RpcTransactionInjectResponse
+        mina_node::rpc::RpcTransactionInjectResponse
     );
     to_real!(
         respond_transition_frontier_commands,
-        node::rpc::RpcTransitionFrontierUserCommandsResponse,
+        mina_node::rpc::RpcTransitionFrontierUserCommandsResponse,
     );
-    to_real!(respond_best_chain, node::rpc::RpcBestChainResponse,);
+    to_real!(respond_best_chain, mina_node::rpc::RpcBestChainResponse,);
     to_real!(
         respond_consensus_constants,
-        node::rpc::RpcConsensusConstantsGetResponse,
+        mina_node::rpc::RpcConsensusConstantsGetResponse,
     );
     to_real!(
         respond_transaction_status,
-        node::rpc::RpcTransactionStatusGetResponse,
+        mina_node::rpc::RpcTransactionStatusGetResponse,
     );
-    to_real!(respond_block_get, node::rpc::RpcGetBlockResponse,);
+    to_real!(respond_block_get, mina_node::rpc::RpcGetBlockResponse,);
     to_real!(
         respond_pooled_user_commands,
-        node::rpc::RpcPooledUserCommandsResponse,
+        mina_node::rpc::RpcPooledUserCommandsResponse,
     );
     to_real!(
         respond_pooled_zkapp_commands,
-        node::rpc::RpcPooledZkappCommandsResponse,
+        mina_node::rpc::RpcPooledZkappCommandsResponse,
     );
-    to_real!(respond_genesis_block, node::rpc::RpcGenesisBlockResponse,);
+    to_real!(
+        respond_genesis_block,
+        mina_node::rpc::RpcGenesisBlockResponse,
+    );
     to_real!(
         respond_consensus_time_get,
-        node::rpc::RpcConsensusTimeGetResponse,
+        mina_node::rpc::RpcConsensusTimeGetResponse,
     );
     to_real!(
         respond_ledger_status_get,
-        node::rpc::RpcLedgerStatusGetResponse,
+        mina_node::rpc::RpcLedgerStatusGetResponse,
     );
     to_real!(
         respond_ledger_account_delegators_get,
-        node::rpc::RpcLedgerAccountDelegatorsGetResponse,
+        mina_node::rpc::RpcLedgerAccountDelegatorsGetResponse,
     );
 }

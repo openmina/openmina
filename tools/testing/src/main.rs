@@ -24,6 +24,7 @@
 
 use clap::Parser;
 
+use mina_node::p2p::webrtc::Host;
 use mina_node_testing::{
     cluster::{Cluster, ClusterConfig},
     exit_with_error,
@@ -31,7 +32,6 @@ use mina_node_testing::{
     scenarios::Scenarios,
     server, setup,
 };
-use node::p2p::webrtc::Host;
 
 pub type CommandError = anyhow::Error;
 

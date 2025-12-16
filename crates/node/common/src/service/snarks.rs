@@ -7,8 +7,7 @@ use ledger::{
     },
     transaction_pool::{TransactionError, TransactionPoolErrors},
 };
-use mina_p2p_messages::{bigint::InvalidBigInt, v2};
-use node::{
+use mina_node::{
     core::{
         channels::mpsc,
         snark::{Snark, SnarkJobId},
@@ -20,6 +19,7 @@ use node::{
         BlockVerifier, SnarkEvent, TransactionVerifier, VerifierSRS,
     },
 };
+use mina_p2p_messages::{bigint::InvalidBigInt, v2};
 use rand::prelude::*;
 
 use crate::NodeService;
@@ -72,7 +72,7 @@ impl NodeService {
     }
 }
 
-impl node::service::SnarkBlockVerifyService for NodeService {
+impl mina_node::service::SnarkBlockVerifyService for NodeService {
     fn verify_init(
         &mut self,
         req_id: SnarkBlockVerifyId,
@@ -93,7 +93,7 @@ impl node::service::SnarkBlockVerifyService for NodeService {
     }
 }
 
-impl node::service::SnarkWorkVerifyService for NodeService {
+impl mina_node::service::SnarkWorkVerifyService for NodeService {
     fn verify_init(
         &mut self,
         req_id: SnarkWorkVerifyId,
@@ -143,10 +143,10 @@ impl node::service::SnarkWorkVerifyService for NodeService {
     }
 }
 
-impl node::service::SnarkUserCommandVerifyService for NodeService {
+impl mina_node::service::SnarkUserCommandVerifyService for NodeService {
     fn verify_init(
         &mut self,
-        req_id: node::snark::user_command_verify::SnarkUserCommandVerifyId,
+        req_id: mina_node::snark::user_command_verify::SnarkUserCommandVerifyId,
         commands: Vec<WithStatus<ledger::scan_state::transaction_logic::verifiable::UserCommand>>,
     ) {
         if self.replayer.is_some() {
@@ -184,7 +184,7 @@ impl node::service::SnarkUserCommandVerifyService for NodeService {
     }
 }
 
-impl node::service::SnarkPoolService for NodeService {
+impl mina_node::service::SnarkPoolService for NodeService {
     fn random_choose<'a>(
         &mut self,
         iter: impl Iterator<Item = &'a SnarkJobId>,

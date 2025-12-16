@@ -9,7 +9,7 @@ use std::{
 use futures::StreamExt;
 use libp2p::{multiaddr::multiaddr, swarm::DialError, Multiaddr};
 use mina_core::{channels::mpsc, ChainId, Substate, DEVNET_CHAIN_ID};
-use p2p::{
+use mina_p2p::{
     connection::outgoing::{
         P2pConnectionOutgoingAction, P2pConnectionOutgoingInitLibp2pOpts,
         P2pConnectionOutgoingInitOpts, P2pConnectionOutgoingInitOptsParseError,
@@ -353,7 +353,7 @@ impl Cluster {
             identity_pub_key: secret_key.public_key(),
             initial_peers,
             external_addrs: vec![],
-            enabled_channels: p2p::channels::ChannelId::for_libp2p().collect(),
+            enabled_channels: mina_p2p::channels::ChannelId::for_libp2p().collect(),
             peer_discovery: config.discovery,
             timeouts: config.timeouts,
             limits: config.limits,

@@ -4,12 +4,12 @@ use std::{
     time::Duration,
 };
 
-use mina_p2p_messages::{binprot::BinProtRead, gossip, v2};
-use node::{
+use mina_node::{
     p2p::{P2pNetworkAction, P2pNetworkPubsubAction, PeerId},
     transition_frontier::genesis::{GenesisConfig, NonStakers},
     Action, ActionWithMeta, P2pAction,
 };
+use mina_p2p_messages::{binprot::BinProtRead, gossip, v2};
 
 use crate::{
     node::Recorder,
@@ -36,7 +36,7 @@ impl MultiNodePubsubPropagateBlock {
         let factory = || {
             let graph = graph.clone();
             move |_id,
-                  state: &node::State,
+                  state: &mina_node::State,
                   _service: &NodeTestingService,
                   action: &ActionWithMeta| {
                 let this = state.p2p.my_id();

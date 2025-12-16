@@ -159,7 +159,7 @@ fn request_best_tip<S: Service>(store: &mut Store<S>, consensus_best_tip_hash: O
 }
 
 fn p2p_request_transactions_if_needed<S: Service>(store: &mut Store<S>) {
-    use p2p::channels::transaction::P2pChannelsTransactionAction;
+    use crate::p2p::channels::transaction::P2pChannelsTransactionAction;
 
     const MAX_PEER_PENDING_TXS: usize = 32;
 
@@ -189,7 +189,7 @@ fn p2p_request_transactions_if_needed<S: Service>(store: &mut Store<S>) {
 }
 
 fn p2p_request_snarks_if_needed<S: Service>(store: &mut Store<S>) {
-    use p2p::channels::snark::P2pChannelsSnarkAction;
+    use crate::p2p::channels::snark::P2pChannelsSnarkAction;
 
     const MAX_PEER_PENDING_SNARKS: usize = 32;
 

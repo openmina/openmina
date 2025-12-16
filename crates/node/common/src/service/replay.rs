@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use node::ActionKind;
+use mina_node::ActionKind;
 use redux::ActionMeta;
 
 pub struct ReplayerState {

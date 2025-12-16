@@ -3,12 +3,7 @@ use mina_core::{
     bug_condition, log,
     transaction::TransactionWithHash,
 };
-use mina_p2p_messages::{
-    bigint::InvalidBigInt,
-    gossip::GossipNetMessageV2,
-    v2::{MinaLedgerSyncLedgerAnswerStableV2, StateHash},
-};
-use p2p::{
+use mina_p2p::{
     channels::{
         best_tip::P2pChannelsBestTipAction,
         rpc::{BestTipWithProof, P2pChannelsRpcAction, P2pRpcRequest, P2pRpcResponse},
@@ -16,6 +11,11 @@ use p2p::{
     },
     disconnection::{P2pDisconnectionAction, P2pDisconnectionReason},
     P2pNetworkPubsubAction, PeerId,
+};
+use mina_p2p_messages::{
+    bigint::InvalidBigInt,
+    gossip::GossipNetMessageV2,
+    v2::{MinaLedgerSyncLedgerAnswerStableV2, StateHash},
 };
 use redux::{ActionMeta, ActionWithMeta, Dispatcher};
 
@@ -360,7 +360,7 @@ impl crate::State {
                     }
                     PreValidationResult::Reject { reason } => {
                         dispatcher.push(P2pNetworkPubsubAction::RejectMessage {
-                            message_id: Some(p2p::BroadcastMessageId::MessageId {
+                            message_id: Some(mina_p2p::BroadcastMessageId::MessageId {
                                 message_id: *message_id,
                             }),
                             peer_id: None,
@@ -369,7 +369,7 @@ impl crate::State {
                     }
                     PreValidationResult::Ignore { reason } => {
                         dispatcher.push(P2pNetworkPubsubAction::IgnoreMessage {
-                            message_id: Some(p2p::BroadcastMessageId::MessageId {
+                            message_id: Some(mina_p2p::BroadcastMessageId::MessageId {
                                 message_id: *message_id,
                             }),
                             reason,

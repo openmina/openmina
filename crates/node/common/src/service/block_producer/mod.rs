@@ -6,15 +6,15 @@ use ledger::proofs::{
     block::BlockParams, generate_block_proof, provers::BlockProver,
     transaction::debug::KimchiProofError,
 };
+use mina_node::{
+    account::AccountSecretKey,
+    block_producer::{vrf_evaluator::VrfEvaluatorInput, BlockProducerEvent},
+    core::{channels::mpsc, constants::constraint_constants, thread},
+};
 use mina_p2p_messages::{
     bigint::BigInt,
     binprot::{self, BinProtWrite},
     v2::{self, MinaBaseProofStableV2, ProverExtendBlockchainInputStableV2, StateHash},
-};
-use node::{
-    account::AccountSecretKey,
-    block_producer::{vrf_evaluator::VrfEvaluatorInput, BlockProducerEvent},
-    core::{channels::mpsc, constants::constraint_constants, thread},
 };
 use rsa::pkcs1::DecodeRsaPublicKey;
 
@@ -153,7 +153,7 @@ pub fn prove(
         .map(Into::into)
 }
 
-impl node::service::BlockProducerService for crate::NodeService {
+impl mina_node::service::BlockProducerService for crate::NodeService {
     fn provers(&self) -> BlockProver {
         self.block_producer
             .as_ref()

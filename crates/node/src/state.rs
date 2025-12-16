@@ -1,5 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
+use crate::p2p::P2pNetworkPubsubMessageCacheId;
 use malloc_size_of_derive::MallocSizeOf;
 use mina_core::{
     block::prevalidate::{prevalidate_block, BlockPrevalidationError},
@@ -7,18 +8,9 @@ use mina_core::{
     transaction::{TransactionInfo, TransactionWithHash},
 };
 use mina_p2p_messages::v2;
-use p2p::P2pNetworkPubsubMessageCacheId;
 use rand::prelude::*;
 
-use mina_core::{
-    block::{ArcBlockWithHash, BlockWithHash},
-    consensus::ConsensusConstants,
-    constants::constraint_constants,
-    requests::RpcId,
-    snark::{Snark, SnarkInfo, SnarkJobCommitment},
-    ChainId,
-};
-use p2p::{
+use crate::p2p::{
     bootstrap::P2pNetworkKadBootstrapState,
     channels::{
         rpc::{P2pRpcId, P2pRpcRequest, P2pRpcResponse},
@@ -28,12 +20,20 @@ use p2p::{
     network::identify::P2pNetworkIdentifyState,
     P2pCallbacks, P2pConfig, P2pNetworkSchedulerState, P2pPeerState, P2pPeerStatusReady, PeerId,
 };
-use redux::{ActionMeta, EnablingCondition, Timestamp};
-use serde::{Deserialize, Serialize};
-use snark::{
+use mina_core::{
+    block::{ArcBlockWithHash, BlockWithHash},
+    consensus::ConsensusConstants,
+    constants::constraint_constants,
+    requests::RpcId,
+    snark::{Snark, SnarkInfo, SnarkJobCommitment},
+    ChainId,
+};
+use mina_snark::{
     block_verify::SnarkBlockVerifyState, user_command_verify::SnarkUserCommandVerifyState,
     work_verify::SnarkWorkVerifyState,
 };
+use redux::{ActionMeta, EnablingCondition, Timestamp};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     block_producer::vrf_evaluator::BlockProducerVrfEvaluatorState,
@@ -259,15 +259,15 @@ macro_rules! impl_p2p_state_access {
 }
 
 impl_p2p_state_access!(State, P2pNetworkIdentifyState);
-impl_p2p_state_access!(State, p2p::P2pNetworkState);
+impl_p2p_state_access!(State, crate::p2p::P2pNetworkState);
 impl_p2p_state_access!(State, P2pNetworkKadBootstrapState);
-impl_p2p_state_access!(State, p2p::P2pNetworkKadState);
+impl_p2p_state_access!(State, crate::p2p::P2pNetworkKadState);
 impl_p2p_state_access!(State, P2pNetworkSchedulerState);
-impl_p2p_state_access!(State, p2p::P2pLimits);
-impl_p2p_state_access!(State, p2p::P2pNetworkPubsubState);
-impl_p2p_state_access!(State, p2p::P2pConfig);
+impl_p2p_state_access!(State, crate::p2p::P2pLimits);
+impl_p2p_state_access!(State, crate::p2p::P2pNetworkPubsubState);
+impl_p2p_state_access!(State, crate::p2p::P2pConfig);
 
-impl p2p::P2pStateTrait for State {}
+impl crate::p2p::P2pStateTrait for State {}
 
 pub type Substate<'a, S> = mina_core::Substate<'a, crate::Action, State, S>;
 

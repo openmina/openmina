@@ -13,8 +13,8 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use ledger::AccountIndex;
 use mina_p2p_messages::v2::{EpochSeed, LedgerHash};
+use mina_vrf::{VrfEvaluationOutput, VrfWonSlot};
 use serde::{Deserialize, Serialize};
-use vrf::{VrfEvaluationOutput, VrfWonSlot};
 
 use crate::account::AccountPublicKey;
 

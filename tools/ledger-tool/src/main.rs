@@ -28,10 +28,10 @@ fn main() -> anyhow::Result<()> {
         anyhow::bail!("must provide either `--input` or `--url`");
     };
 
-    let daemon_json = serde_json::from_slice::<node::daemon_json::DaemonJson>(&data)?;
+    let daemon_json = serde_json::from_slice::<mina_node::daemon_json::DaemonJson>(&data)?;
 
     let prebuilt_config =
-        node::transition_frontier::genesis::PrebuiltGenesisConfig::try_from(daemon_json)?;
+        mina_node::transition_frontier::genesis::PrebuiltGenesisConfig::try_from(daemon_json)?;
 
     prebuilt_config.store(File::create(output)?)?;
 

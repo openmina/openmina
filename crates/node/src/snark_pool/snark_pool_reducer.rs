@@ -1,10 +1,13 @@
 use std::collections::BTreeMap;
 
-use crate::{snark_pool::JobCommitment, ExternalSnarkWorkerAction, SnarkerStrategy};
-use mina_core::snark::{SnarkJobCommitment, SnarkJobId};
-use p2p::channels::{
-    snark::P2pChannelsSnarkAction, snark_job_commitment::P2pChannelsSnarkJobCommitmentAction,
+use crate::{
+    p2p::channels::{
+        snark::P2pChannelsSnarkAction, snark_job_commitment::P2pChannelsSnarkJobCommitmentAction,
+    },
+    snark_pool::JobCommitment,
+    ExternalSnarkWorkerAction, SnarkerStrategy,
 };
+use mina_core::snark::{SnarkJobCommitment, SnarkJobId};
 
 use super::{
     JobState, SnarkPoolAction, SnarkPoolActionWithMetaRef, SnarkPoolEffectfulAction,

@@ -3,7 +3,7 @@ use mina_core::{
     consensus::{ConsensusConstants, ConsensusTime},
     constants::ConstraintConstants,
 };
-use node::{
+use mina_node::{
     rpc::{
         ConsensusTimeQuery, PeerConnectionStatus, RpcConsensusTimeGetResponse,
         RpcNodeStatusNetworkInfo, RpcPeerInfo, RpcRequest,

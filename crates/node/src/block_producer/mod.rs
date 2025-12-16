@@ -19,9 +19,9 @@ mod block_producer_reducer;
 use ledger::AccountIndex;
 use mina_core::{block::ArcBlockWithHash, constants::constraint_constants};
 use mina_p2p_messages::{list::List, v2};
+use mina_vrf::output::VrfOutput;
 use poseidon::hash::params::MINA_EPOCH_SEED;
 use serde::{Deserialize, Serialize};
-use vrf::output::VrfOutput;
 
 use self::vrf_evaluator::VrfWonSlotWithHash;
 

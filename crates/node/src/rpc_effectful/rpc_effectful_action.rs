@@ -1,6 +1,6 @@
 use crate::{
     external_snark_worker::{ExternalSnarkWorker, SnarkWorkId},
-    p2p::connection::P2pConnectionResponse,
+    p2p::{bootstrap::P2pNetworkKadBootstrapStats, connection::P2pConnectionResponse},
     rpc::{
         discovery::RpcDiscoveryRoutingTable, AccountQuery, ActionStatsQuery, RpcBestChainResponse,
         RpcConsensusTimeGetResponse, RpcGenesisBlockResponse, RpcGetBlockResponse,
@@ -17,7 +17,6 @@ use ledger::{
 };
 use mina_core::{consensus::ConsensusConstants, requests::RpcId, snark::SnarkJobId, ActionEvent};
 use mina_p2p_messages::v2::{self, MinaBaseUserCommandStableV2};
-use p2p::bootstrap::P2pNetworkKadBootstrapStats;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]

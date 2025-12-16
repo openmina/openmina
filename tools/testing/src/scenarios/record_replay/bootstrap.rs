@@ -1,7 +1,7 @@
 use std::time::Duration;
 
+use mina_node::ActionKind;
 use mina_node_native::replay_state_with_input_actions;
-use node::ActionKind;
 
 use crate::{
     hosts,
@@ -43,7 +43,7 @@ impl RecordReplayBootstrap {
             .await
             .expect("node failed to bootstrap");
         // flush the recorded data.
-        node::recorder::Recorder::graceful_shutdown();
+        mina_node::recorder::Recorder::graceful_shutdown();
 
         let node = runner.node(node_id).unwrap();
 

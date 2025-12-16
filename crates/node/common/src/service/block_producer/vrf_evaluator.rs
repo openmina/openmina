@@ -1,5 +1,4 @@
-use mina_signer::Keypair;
-use node::{
+use mina_node::{
     block_producer::{
         vrf_evaluator::{VrfEvaluationOutputWithHash, VrfEvaluatorInput},
         BlockProducerEvent, BlockProducerVrfEvaluatorEvent,
@@ -7,7 +6,8 @@ use node::{
     core::channels::mpsc::{TrackedUnboundedReceiver, UnboundedSender},
     event_source::Event,
 };
-use vrf::{VrfEvaluationInput, VrfEvaluationOutput};
+use mina_signer::Keypair;
+use mina_vrf::{VrfEvaluationInput, VrfEvaluationOutput};
 
 use crate::NodeService;
 
@@ -42,7 +42,7 @@ pub fn vrf_evaluator(
                     total_currency: (*total_currency).into(),
                 };
 
-                let vrf_result = vrf::evaluate_vrf(vrf_input).unwrap();
+                let vrf_result = mina_vrf::evaluate_vrf(vrf_input).unwrap();
 
                 // the first delegate that won the slot
                 if let VrfEvaluationOutput::SlotWon(_) = vrf_result {
@@ -67,7 +67,7 @@ pub fn vrf_evaluator(
     }
 }
 
-impl node::block_producer_effectful::vrf_evaluator_effectful::BlockProducerVrfEvaluatorService
+impl mina_node::block_producer_effectful::vrf_evaluator_effectful::BlockProducerVrfEvaluatorService
     for NodeService
 {
     fn evaluate(&mut self, data: VrfEvaluatorInput) {

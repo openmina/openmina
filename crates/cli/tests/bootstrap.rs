@@ -1,7 +1,7 @@
 use clap::Parser;
-use cli::commands::Network;
+use mina_cli::commands::Network;
 use mina_core::log::system_time;
-use node::stats::sync::{SyncSnarkedLedger, SyncStagedLedger, SyncStatsSnapshot};
+use mina_node::stats::sync::{SyncSnarkedLedger, SyncStagedLedger, SyncStatsSnapshot};
 use redux::Timestamp;
 use std::{
     fs::File,
@@ -34,10 +34,12 @@ fn spawn_node() -> anyhow::Result<Child> {
 }
 
 fn run_node() -> anyhow::Result<()> {
-    if let Err(e) =
-        cli::commands::MinaCli::parse_from([std::env::args().next().unwrap(), String::from("node")])
-            .command
-            .run(Network::Devnet)
+    if let Err(e) = mina_cli::commands::MinaCli::parse_from([
+        std::env::args().next().unwrap(),
+        String::from("node"),
+    ])
+    .command
+    .run(Network::Devnet)
     {
         anyhow::bail!(format!("{e:#}"));
     }
@@ -141,8 +143,8 @@ fn sync_stats() -> anyhow::Result<()> {
     let mut applied: u16 = 0;
     for block in blocks {
         match block.status {
-            node::stats::sync::SyncBlockStatus::Fetched => fetched += 1,
-            node::stats::sync::SyncBlockStatus::Applied => {
+            mina_node::stats::sync::SyncBlockStatus::Fetched => fetched += 1,
+            mina_node::stats::sync::SyncBlockStatus::Applied => {
                 fetched += 1;
                 applied += 1;
             }

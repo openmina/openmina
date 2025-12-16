@@ -8,7 +8,12 @@ use super::{super::rpc, RpcEffectfulAction};
 use crate::{
     block_producer::BlockProducerWonSlot,
     external_snark_worker::available_job_to_snark_worker_spec,
-    p2p::connection::P2pConnectionResponse,
+    p2p::{
+        channels::streaming_rpc::{
+            staged_ledger_parts::calc_total_pieces_to_transfer, P2pStreamingRpcReceiveProgress,
+        },
+        connection::P2pConnectionResponse,
+    },
     p2p_ready,
     rpc::{
         AccountQuery, AccountSlim, ActionStatsQuery, ActionStatsResponse, CurrentMessageProgress,
@@ -38,9 +43,6 @@ use mina_core::{block::ArcBlockWithHash, bug_condition};
 use mina_node_account::AccountPublicKey;
 use mina_p2p_messages::{rpc_kernel::QueryHeader, v2};
 use mina_signer::CompressedPubKey;
-use p2p::channels::streaming_rpc::{
-    staged_ledger_parts::calc_total_pieces_to_transfer, P2pStreamingRpcReceiveProgress,
-};
 use redux::ActionWithMeta;
 
 macro_rules! respond_or_log {

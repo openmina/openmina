@@ -11,7 +11,7 @@ path = "src/lib.rs"
 [dependencies]
 documented = { workspace = true }
 lazy_static = { workspace = true }
-node = { workspace = true }
+mina-node = { workspace = true }
 redux = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true, features = [

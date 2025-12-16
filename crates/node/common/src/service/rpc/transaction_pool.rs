@@ -1,7 +1,7 @@
 #[cfg(target_family = "wasm")]
 use gloo_utils::format::JsValueSerdeExt;
+use mina_node::rpc::*;
 use mina_p2p_messages::v2;
-use node::rpc::*;
 #[cfg(target_family = "wasm")]
 use wasm_bindgen::prelude::*;
 

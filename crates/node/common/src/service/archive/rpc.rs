@@ -54,7 +54,7 @@ fn encode_to_rpc(data: ArchiveRpc) -> io::Result<Vec<u8>> {
     })
     .binprot_write(&mut v)
     {
-        node::core::warn!(
+        mina_node::core::warn!(
             summary = "Failed binprot serializastion",
             error = e.to_string()
         );
@@ -321,7 +321,7 @@ fn handle_connection_event(
                 ParsedMessage::Unknown(msg) => {
                     registry.deregister(connection)?;
                     connection.shutdown(std::net::Shutdown::Both)?;
-                    node::core::warn!(
+                    mina_node::core::warn!(
                         summary = "Received unknown message",
                         msg = format!("{:?}", msg)
                     );

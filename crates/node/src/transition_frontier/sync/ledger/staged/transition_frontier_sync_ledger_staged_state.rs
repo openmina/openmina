@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, sync::Arc};
 
+use crate::p2p::channels::rpc::StagedLedgerAuxAndPendingCoinbases;
 use mina_p2p_messages::v2::{MinaStateProtocolStateValueStableV2, StateHash};
-use p2p::channels::rpc::StagedLedgerAuxAndPendingCoinbases;
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 

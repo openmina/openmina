@@ -20,7 +20,7 @@ mod unsafe_signal_handlers {
 
     extern "C" fn handle_sigsegv(_signal: libc::c_int) {
         eprintln!("########### SIGSEGV #############");
-        node::recorder::Recorder::graceful_shutdown();
+        mina_node::recorder::Recorder::graceful_shutdown();
         std::process::exit(1);
     }
 

@@ -1,6 +1,6 @@
 use std::net::{IpAddr, SocketAddr};
 
-use p2p::{
+use mina_p2p::{
     channels::{rpc::P2pChannelsRpcAction, P2pChannelsAction},
     connection::{incoming::P2pConnectionIncomingAction, outgoing::P2pConnectionOutgoingAction},
     disconnection::P2pDisconnectionAction,
@@ -42,13 +42,13 @@ pub enum RustNodeEvent {
     },
     RpcChannelRequestReceived {
         peer_id: PeerId,
-        id: p2p::channels::rpc::P2pRpcId,
-        request: p2p::channels::rpc::P2pRpcRequest,
+        id: mina_p2p::channels::rpc::P2pRpcId,
+        request: mina_p2p::channels::rpc::P2pRpcRequest,
     },
     RpcChannelResponseReceived {
         peer_id: PeerId,
-        id: p2p::channels::rpc::P2pRpcId,
-        response: Option<p2p::channels::rpc::P2pRpcResponse>,
+        id: mina_p2p::channels::rpc::P2pRpcId,
+        response: Option<mina_p2p::channels::rpc::P2pRpcResponse>,
     },
     Identify {
         peer_id: PeerId,
@@ -57,7 +57,7 @@ pub enum RustNodeEvent {
     KadBootstrapFinished,
     KadUpdateFindNodeRequest {
         peer_id: PeerId,
-        closest_peers: Vec<p2p::network::kad::P2pNetworkKadEntry>,
+        closest_peers: Vec<mina_p2p::network::kad::P2pNetworkKadEntry>,
     },
     /// Other non-specific p2p event.
     P2p {
@@ -78,7 +78,7 @@ pub fn event_mapper_effect(store: &mut super::redux::Store, action: P2pAction) {
             store_event(store, RustNodeEvent::PeerConnected { peer_id, incoming })
         }
         P2pAction::Connection(action) => match action {
-            p2p::connection::P2pConnectionAction::Outgoing(
+            mina_p2p::connection::P2pConnectionAction::Outgoing(
                 P2pConnectionOutgoingAction::Error { peer_id, error },
             ) => store_event(
                 store,
@@ -88,7 +88,7 @@ pub fn event_mapper_effect(store: &mut super::redux::Store, action: P2pAction) {
                     error: error.to_string(),
                 },
             ),
-            p2p::connection::P2pConnectionAction::Incoming(
+            mina_p2p::connection::P2pConnectionAction::Incoming(
                 P2pConnectionIncomingAction::Error { peer_id, error },
             ) => store_event(
                 store,
@@ -108,18 +108,22 @@ pub fn event_mapper_effect(store: &mut super::redux::Store, action: P2pAction) {
                 reason: reason.to_string(),
             },
         ),
-        P2pAction::Network(p2p::P2pNetworkAction::Kad(p2p::P2pNetworkKadAction::System(
-            p2p::P2pNetworkKademliaAction::BootstrapFinished,
-        ))) => {
+        P2pAction::Network(mina_p2p::P2pNetworkAction::Kad(
+            mina_p2p::P2pNetworkKadAction::System(
+                mina_p2p::P2pNetworkKademliaAction::BootstrapFinished,
+            ),
+        )) => {
             store_event(store, RustNodeEvent::KadBootstrapFinished);
         }
-        P2pAction::Network(p2p::P2pNetworkAction::Kad(p2p::P2pNetworkKadAction::System(
-            p2p::P2pNetworkKademliaAction::UpdateFindNodeRequest {
-                peer_id,
-                closest_peers,
-                ..
-            },
-        ))) => {
+        P2pAction::Network(mina_p2p::P2pNetworkAction::Kad(
+            mina_p2p::P2pNetworkKadAction::System(
+                mina_p2p::P2pNetworkKademliaAction::UpdateFindNodeRequest {
+                    peer_id,
+                    closest_peers,
+                    ..
+                },
+            ),
+        )) => {
             store_event(
                 store,
                 RustNodeEvent::KadUpdateFindNodeRequest {
@@ -168,21 +172,21 @@ pub fn event_mapper_effect(store: &mut super::redux::Store, action: P2pAction) {
             store_event(store, RustNodeEvent::Identify { peer_id, info })
         }
 
-        P2pAction::Network(p2p::P2pNetworkAction::Scheduler(action)) => match action {
-            p2p::P2pNetworkSchedulerAction::InterfaceDetected { ip } => {
+        P2pAction::Network(mina_p2p::P2pNetworkAction::Scheduler(action)) => match action {
+            mina_p2p::P2pNetworkSchedulerAction::InterfaceDetected { ip } => {
                 store_event(store, RustNodeEvent::Interface { addr: ip })
             }
-            p2p::P2pNetworkSchedulerAction::ListenerReady { listener } => {
+            mina_p2p::P2pNetworkSchedulerAction::ListenerReady { listener } => {
                 store_event(store, RustNodeEvent::ListenerReady { addr: listener })
             }
-            p2p::P2pNetworkSchedulerAction::ListenerError { listener, error } => store_event(
+            mina_p2p::P2pNetworkSchedulerAction::ListenerError { listener, error } => store_event(
                 store,
                 RustNodeEvent::ListenerError {
                     addr: listener,
                     error,
                 },
             ),
-            p2p::P2pNetworkSchedulerAction::Error { addr, error } => {
+            mina_p2p::P2pNetworkSchedulerAction::Error { addr, error } => {
                 if let Some(conn_state) = store.state().0.network.scheduler.connections.get(&addr) {
                     if conn_state.peer_id().is_none() {
                         let error = error.to_string();

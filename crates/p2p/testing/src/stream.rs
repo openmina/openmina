@@ -43,7 +43,7 @@ pub trait ClusterStreamExt: Stream {
     fn try_any_with_rust<F>(self, f: F) -> TryAnyWithRustNode<Self, F>
     where
         Self: Sized + TryStream,
-        F: FnMut(RustNodeId, RustNodeEvent, &p2p::P2pState) -> bool,
+        F: FnMut(RustNodeId, RustNodeEvent, &mina_p2p::P2pState) -> bool,
     {
         TryAnyWithRustNode::new(self, f)
     }
@@ -200,7 +200,7 @@ impl<St, F> TryAnyWithRustNode<St, F> {
 impl<St, F> Future for TryAnyWithRustNode<St, F>
 where
     St: TryStream<Ok = ClusterEvent> + DerefMut<Target = Cluster>,
-    F: FnMut(RustNodeId, RustNodeEvent, &p2p::P2pState) -> bool,
+    F: FnMut(RustNodeId, RustNodeEvent, &mina_p2p::P2pState) -> bool,
 {
     type Output = Result<bool, St::Error>;
 

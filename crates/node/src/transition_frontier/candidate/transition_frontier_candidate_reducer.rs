@@ -2,7 +2,7 @@ use mina_core::{
     block::{ArcBlockWithHash, BlockHash},
     bug_condition,
 };
-use snark::block_verify::{SnarkBlockVerifyAction, SnarkBlockVerifyError, SnarkBlockVerifyId};
+use mina_snark::block_verify::{SnarkBlockVerifyAction, SnarkBlockVerifyError, SnarkBlockVerifyId};
 
 use crate::{
     transition_frontier::sync::{

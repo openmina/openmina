@@ -1,7 +1,7 @@
 use std::net::IpAddr;
 
 use libp2p::{multiaddr::multiaddr, Multiaddr};
-use p2p::{
+use mina_p2p::{
     connection::outgoing::{P2pConnectionOutgoingInitLibp2pOpts, P2pConnectionOutgoingInitOpts},
     PeerId,
 };

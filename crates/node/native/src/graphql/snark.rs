@@ -1,10 +1,10 @@
 use juniper::{graphql_object, GraphQLObject};
 use ledger::scan_state::scan_state::{AvailableJobMessage, ParallelScanAvailableJob};
+use mina_node::snark_pool::JobState;
 use mina_p2p_messages::v2::{
     MinaBaseFeeExcessStableV1, MinaStateBlockchainStateValueStableV2SignedAmount,
     TransactionSnarkScanStateTransactionWithWitnessStableV2, TransactionSnarkStableV2,
 };
-use node::snark_pool::JobState;
 
 use super::{account::GraphQLAccount, Context, ConversionError, GraphQLPublicKey};
 

@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use node::p2p::P2pTimeouts;
+use mina_node::p2p::P2pTimeouts;
 use time::format_description;
 
 use crate::{
@@ -61,7 +61,7 @@ impl SoloNodeSyncToGenesisCustom {
 
         let rust_node = runner.add_rust_node(RustNodeTestingConfig {
             initial_time,
-            genesis: node::config::DEVNET_CONFIG.clone(),
+            genesis: mina_node::config::DEVNET_CONFIG.clone(),
             max_peers: 100,
             initial_peers: Vec::new(),
             peer_id: Default::default(),

@@ -8,15 +8,15 @@ pub use rayon::init_rayon;
 mod node;
 pub use node::{Node, NodeBuilder};
 
-use ::node::{
+use anyhow::Context;
+use gloo_utils::format::JsValueSerdeExt;
+use ledger::proofs::provers::BlockProver;
+use mina_node::{
     account::AccountSecretKey,
     core::{log, thread},
     snark::{BlockVerifier, TransactionVerifier},
     transition_frontier::genesis::GenesisConfig,
 };
-use anyhow::Context;
-use gloo_utils::format::JsValueSerdeExt;
-use ledger::proofs::provers::BlockProver;
 use mina_node_common::rpc::RpcSender;
 use wasm_bindgen::prelude::*;
 
@@ -36,7 +36,7 @@ fn main() {
 
 #[wasm_bindgen]
 pub fn build_env() -> JsValue {
-    JsValue::from_serde(&::node::BuildEnv::get()).unwrap_or_default()
+    JsValue::from_serde(&::mina_node::BuildEnv::get()).unwrap_or_default()
 }
 
 fn parse_bp_key(key: JsValue) -> Option<AccountSecretKey> {
@@ -129,7 +129,7 @@ pub async fn run(
 ) -> RpcSender {
     let block_producer = parse_bp_key(block_producer);
 
-    let (rpc_sender_tx, rpc_sender_rx) = ::node::core::channels::oneshot::channel();
+    let (rpc_sender_tx, rpc_sender_rx) = ::mina_node::core::channels::oneshot::channel();
     let _ = thread::spawn(move || {
         wasm_bindgen_futures::spawn_local(async move {
             let mut node = setup_node(
@@ -159,12 +159,12 @@ async fn setup_node(
     let work_verifier_index = TransactionVerifier::make().await;
 
     let genesis_config = if let Some(genesis_config_url) = genesis_config_url {
-        let bytes = ::node::core::http::get_bytes(&genesis_config_url)
+        let bytes = ::mina_node::core::http::get_bytes(&genesis_config_url)
             .await
             .expect("failed to fetch genesis config");
         GenesisConfig::Prebuilt(bytes.into()).into()
     } else {
-        ::node::config::DEVNET_CONFIG.clone()
+        ::mina_node::config::DEVNET_CONFIG.clone()
     };
 
     let mut node_builder: NodeBuilder = NodeBuilder::new(None, genesis_config);
@@ -177,7 +177,7 @@ async fn setup_node(
 
     if let Some(seed_nodes_urls) = seed_nodes_urls {
         for seed_nodes_url in seed_nodes_urls {
-            let peers = ::node::core::http::get_bytes(&seed_nodes_url).await;
+            let peers = ::mina_node::core::http::get_bytes(&seed_nodes_url).await;
             match peers {
                 Ok(s) => {
                     log::info!("Successfully fetched peers from {seed_nodes_url}");

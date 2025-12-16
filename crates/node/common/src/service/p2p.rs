@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use node::{
+use mina_node::{
     core::channels::mpsc,
     event_source::Event,
     p2p::{
@@ -14,7 +14,7 @@ use rand::prelude::*;
 #[cfg(feature = "p2p-libp2p")]
 use sha3::digest::XofReader;
 
-pub use node::p2p::{service::*, service_impl::*};
+pub use mina_node::p2p::{service::*, service_impl::*};
 
 use crate::NodeService;
 
@@ -81,7 +81,7 @@ impl webrtc::P2pServiceWebrtc for NodeService {
     fn auth_decrypt(
         &mut self,
         other_pub_key: &PublicKey,
-        auth: node::p2p::webrtc::ConnectionAuthEncrypted,
+        auth: mina_node::p2p::webrtc::ConnectionAuthEncrypted,
     ) -> Option<ConnectionAuth> {
         auth.decrypt(&self.p2p.sec_key, other_pub_key)
     }

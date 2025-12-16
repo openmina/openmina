@@ -51,7 +51,7 @@ use mina_p2p_messages::{
     },
 };
 
-use node::account::AccountPublicKey;
+use mina_node::account::AccountPublicKey;
 use serde::Deserialize;
 
 use super::{

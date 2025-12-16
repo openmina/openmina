@@ -1,4 +1,4 @@
-pub use ::snark::*;
+pub use ::mina_snark::*;
 
 pub mod block_verify;
 pub mod user_command_verify;

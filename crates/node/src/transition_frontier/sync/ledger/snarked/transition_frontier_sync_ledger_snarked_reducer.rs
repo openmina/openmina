@@ -1,11 +1,11 @@
 use std::iter;
 
-use mina_p2p_messages::v2::MinaLedgerSyncLedgerQueryStableV1;
-use p2p::{
+use crate::p2p::{
     channels::rpc::{P2pChannelsRpcAction, P2pRpcId, P2pRpcRequest},
     disconnection::{P2pDisconnectionAction, P2pDisconnectionReason},
     PeerId,
 };
+use mina_p2p_messages::v2::MinaLedgerSyncLedgerQueryStableV1;
 use rand::prelude::*;
 
 use crate::{

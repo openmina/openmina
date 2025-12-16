@@ -1,4 +1,4 @@
-use snark::user_command_verify_effectful::SnarkUserCommandVerifyEffectfulAction;
+use mina_snark::user_command_verify_effectful::SnarkUserCommandVerifyEffectfulAction;
 
 use super::*;
 

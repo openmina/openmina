@@ -5,7 +5,7 @@ use std::{
     time::Duration,
 };
 
-use node::{
+use mina_node::{
     event_source::Event,
     p2p::{P2pConnectionEvent, P2pEvent},
 };
@@ -218,7 +218,7 @@ impl MultiNodeBasicConnectivityInitialJoining {
 
         for node_id in &nodes {
             let node = runner.node(*node_id).expect("node must exist");
-            let p2p: &node::p2p::P2pState = &node.state().p2p.unwrap();
+            let p2p: &mina_node::p2p::P2pState = &node.state().p2p.unwrap();
             let ready_peers = p2p.ready_peers_iter().count();
             // each node connected to some peers
             println!("must hold {ready_peers} >= {}", p2p.min_peers());

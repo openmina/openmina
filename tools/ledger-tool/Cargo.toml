@@ -5,11 +5,11 @@ edition = "2021"
 
 [dependencies]
 anyhow = { workspace = true }
-ledger = { workspace = true, package = "mina-tree" }
+ledger = { workspace = true }
 mina-curves = { workspace = true }
+mina-node = { workspace = true }
 mina-p2p-messages = { workspace = true }
 mina-signer = { workspace = true }
-node = { workspace = true }
 reqwest = { workspace = true, features = ["blocking"] }
 serde = { workspace = true }
 serde_json = { workspace = true, features = ["preserve_order"] }

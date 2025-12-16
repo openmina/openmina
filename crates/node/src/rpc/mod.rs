@@ -1,6 +1,7 @@
 mod rpc_state;
 use std::{collections::BTreeMap, str::FromStr};
 
+use crate::p2p::bootstrap::P2pNetworkKadBootstrapStats;
 use ledger::{
     scan_state::{
         currency::{Amount, Balance, Fee, Nonce, Slot},
@@ -24,7 +25,6 @@ use mina_p2p_messages::{
         TransactionSnarkWorkTStableV2,
     },
 };
-use p2p::bootstrap::P2pNetworkKadBootstrapStats;
 pub use rpc_state::*;
 
 mod rpc_actions;
@@ -748,7 +748,7 @@ pub type PooledUserCommandsQuery = PooledCommandsQuery<MinaBaseSignedCommandStab
 pub type PooledZkappsCommandsQuery = PooledCommandsQuery<MinaBaseZkappCommandTStableV1WireStableV1>;
 
 pub mod discovery {
-    use p2p::{
+    use crate::p2p::{
         libp2p_identity::DecodingError, ConnectionType, P2pNetworkKadBucket, P2pNetworkKadDist,
         P2pNetworkKadEntry, P2pNetworkKadKey, P2pNetworkKadRoutingTable, PeerId,
     };
@@ -811,10 +811,10 @@ pub mod discovery {
     #[derive(Serialize, Deserialize, Debug, Clone)]
     pub struct RpcEntry {
         peer_id: PeerId,
-        libp2p: p2p::libp2p_identity::PeerId,
+        libp2p: crate::p2p::libp2p_identity::PeerId,
         key: P2pNetworkKadKey,
         dist: P2pNetworkKadDist,
-        addrs: Vec<p2p::multiaddr::Multiaddr>,
+        addrs: Vec<crate::p2p::multiaddr::Multiaddr>,
         connection: ConnectionType,
     }
 

@@ -4,7 +4,7 @@ use std::{collections::HashMap, time::Duration};
 
 use libp2p::Multiaddr;
 
-use node::{
+use mina_node::{
     core::log::{debug, system_time},
     p2p::connection::outgoing::P2pConnectionOutgoingInitOpts,
 };

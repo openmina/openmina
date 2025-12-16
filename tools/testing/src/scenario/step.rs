@@ -1,4 +1,4 @@
-use node::{event_source::Event, p2p::connection::outgoing::P2pConnectionOutgoingInitOpts};
+use mina_node::{event_source::Event, p2p::connection::outgoing::P2pConnectionOutgoingInitOpts};
 use serde::{Deserialize, Serialize};
 
 use crate::{

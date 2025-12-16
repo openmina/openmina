@@ -4,8 +4,8 @@ use mina_core::{
     ActionEvent,
 };
 use mina_p2p_messages::v2::StateHash;
+use mina_snark::block_verify::SnarkBlockVerifyError;
 use serde::{Deserialize, Serialize};
-use snark::block_verify::SnarkBlockVerifyError;
 
 use crate::snark::block_verify::SnarkBlockVerifyId;
 

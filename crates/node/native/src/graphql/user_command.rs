@@ -5,12 +5,12 @@ use ledger::scan_state::{
     currency::{Amount, Fee, Magnitude, Nonce, Slot},
     transaction_logic::{signed_command, Memo},
 };
+use mina_node::account::AccountPublicKey;
 use mina_p2p_messages::{
     bigint::BigInt,
     v2::{self, TokenIdKeyHash},
 };
 use mina_signer::CompressedPubKey;
-use node::account::AccountPublicKey;
 use o1_utils::field_helpers::FieldHelpers;
 
 use super::zkapp::GraphQLFailureReason;

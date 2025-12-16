@@ -610,7 +610,7 @@ mod test {
             UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
         },
     };
-    use vrf::VrfWonSlot;
+    use mina_vrf::VrfWonSlot;
 
     use crate::block_producer::vrf_evaluator::{
         BlockProducerVrfEvaluatorState, BlockProducerVrfEvaluatorStatus, EpochContext,
@@ -918,8 +918,10 @@ mod test {
                 producer: AccountSecretKey::genesis_producer().public_key(),
                 winner_account: AccountSecretKey::genesis_producer().public_key(),
                 vrf_output: Box::new(
-                    vrf::genesis_vrf(EpochSeed::from(MinaBaseEpochSeedStableV1(BigInt::zero())))
-                        .unwrap(),
+                    mina_vrf::genesis_vrf(EpochSeed::from(MinaBaseEpochSeedStableV1(
+                        BigInt::zero(),
+                    )))
+                    .unwrap(),
                 ),
                 global_slot: slot,
                 account_index: AccountIndex(0),

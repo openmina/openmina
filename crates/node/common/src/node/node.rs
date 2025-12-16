@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use node::{Effects, EventSourceAction, Service, State, Store};
+use mina_node::{Effects, EventSourceAction, Service, State, Store};
 
 use crate::{
     rpc::{RpcReceiver, RpcSender},
@@ -28,8 +28,8 @@ impl<Serv: Service + AsMut<NodeService>> Node<Serv> {
             .checked_sub(redux::Timestamp::ZERO)
             .unwrap();
         let store = Store::new(
-            node::reducer,
-            override_effects.unwrap_or(node::effects),
+            mina_node::reducer,
+            override_effects.unwrap_or(mina_node::effects),
             service,
             redux::SystemTime::UNIX_EPOCH + time_since_epoch,
             initial_state,

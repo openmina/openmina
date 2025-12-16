@@ -80,7 +80,7 @@ pub enum TransactionPoolAction {
     P2pSendAll,
     #[action_event(level = debug)]
     P2pSend {
-        peer_id: p2p::PeerId,
+        peer_id: crate::p2p::PeerId,
     },
 }
 

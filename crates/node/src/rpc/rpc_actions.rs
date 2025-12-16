@@ -1,3 +1,4 @@
+use crate::p2p::PeerId;
 use ledger::{
     transaction_pool::{diff, ValidCommandWithHash},
     Account, AccountId,
@@ -5,7 +6,6 @@ use ledger::{
 use mina_core::{block::AppliedBlock, snark::SnarkJobId, ActionEvent};
 use mina_node_account::AccountPublicKey;
 use mina_p2p_messages::v2::{LedgerHash, MinaBaseUserCommandStableV2, TokenIdKeyHash};
-use p2p::PeerId;
 use serde::{Deserialize, Serialize};
 
 use crate::{

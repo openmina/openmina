@@ -1,7 +1,7 @@
 use std::time::Duration;
 
+use mina_node::transition_frontier::genesis::{GenesisConfig, NonStakers};
 use mina_p2p_messages::v2;
-use node::transition_frontier::genesis::{GenesisConfig, NonStakers};
 
 use crate::{
     scenarios::{ClusterRunner, RunCfgAdvanceTime},

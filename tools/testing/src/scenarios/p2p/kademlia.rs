@@ -1,4 +1,4 @@
-use node::ActionKind;
+use mina_node::ActionKind;
 
 use crate::{
     cluster::ClusterNodeId,

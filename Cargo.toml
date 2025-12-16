@@ -141,25 +141,29 @@ local-ip-address = "0.6.1"
 log = "0.4.25"
 md5 = "0.7.0"
 mina-bootstrap-sandbox = { path = "tools/bootstrap-sandbox" }
+mina-cli = { path = "crates/cli" }
 mina-core = { path = "crates/core" }
 mina-curves = { git = "https://github.com/o1-labs/proof-systems", tag = "0.2.0" }
 mina-fuzzer = { path = "crates/fuzzer" }
 mina-hasher = { git = "https://github.com/o1-labs/proof-systems", tag = "0.2.0" }
 mina-macros = { path = "crates/macros" }
+mina-node = { path = "crates/node" }
 mina-node-account = { path = "crates/node/account" }
 mina-node-common = { path = "crates/node/common" }
 mina-node-invariants = { path = "crates/node/invariants" }
 mina-node-native = { path = "crates/node/native" }
 mina-node-testing = { path = "tools/testing" }
+mina-p2p = { path = "crates/p2p" }
 mina-p2p-messages = { path = "crates/p2p-messages" }
 mina-poseidon = { git = "https://github.com/o1-labs/proof-systems", tag = "0.2.0" }
 mina-signer = { git = "https://github.com/o1-labs/proof-systems", tag = "0.2.0" }
+mina-snark = { path = "crates/snark" }
 mina-transport = { path = "tools/transport" }
+mina-vrf = { path = "crates/vrf" }
 mio = { version = "1.0.4", features = ["os-poll", "net"] }
 multiaddr = "0.18.1"
 multihash = { version = "0.18.1", features = ["blake2b"] }
 nix = { version = "0.27.1", features = ["process", "signal"] }
-node = { path = "crates/node" }
 nom = "8.0.0"
 num = { version = "0.4", features = ["std"] }
 num-bigint = { git = "https://github.com/openmina/num-bigint", branch = "rebase-onstack" }
@@ -241,7 +245,6 @@ vergen = { version = "8.2.4", features = [
   "gitcl",
   "rustc",
 ] }
-vrf = { path = "crates/vrf" }
 warp = "0.3"
 wasm-bindgen = "^0.2.106"
 wasm-bindgen-futures = "^0.4.56"

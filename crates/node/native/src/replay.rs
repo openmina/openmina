@@ -1,5 +1,5 @@
 use crate::NodeService;
-use node::{
+use mina_node::{
     core::thread,
     recorder::StateWithInputActionsReader,
     snark::{BlockVerifier, TransactionVerifier},
@@ -31,13 +31,13 @@ pub fn replay_state_with_input_actions(
         // TODO(binier): we shouldn't have to do this, but serialized
         // index/srs doesn't match deserialized one.
         state.snark.block_verify.verifier_index = BlockVerifier::make();
-        state.snark.block_verify.verifier_srs = node::snark::get_srs();
+        state.snark.block_verify.verifier_srs = mina_node::snark::get_srs();
         state.snark.user_command_verify.verifier_index = TransactionVerifier::make();
-        state.snark.user_command_verify.verifier_srs = node::snark::get_srs();
+        state.snark.user_command_verify.verifier_srs = mina_node::snark::get_srs();
         state
     };
 
-    let effects: node::Effects<NodeService> = dynamic_effects_lib
+    let effects: mina_node::Effects<NodeService> = dynamic_effects_lib
         .as_ref()
         .map_or(replayer_effects, |_| replayer_effects_with_dyn_effects);
     let p2p_sec_key = initial_state.p2p_sec_key;
@@ -125,7 +125,7 @@ fn replayer_effects(store: &mut Store<NodeService>, action: ActionWithMeta) {
     assert_eq!(kind, action.action().kind());
     assert_eq!(meta.time(), action.meta().time());
 
-    node::effects(store, action)
+    mina_node::effects(store, action)
 }
 
 fn dyn_effects(store: &mut Store<NodeService>, action: &ActionWithMeta) {

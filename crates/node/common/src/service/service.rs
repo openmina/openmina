@@ -9,7 +9,7 @@ use super::{
     EventReceiver, EventSender,
 };
 use crate::rpc::RpcReceiver;
-use node::{
+use mina_node::{
     core::{channels::mpsc, invariants::InvariantsState},
     event_source::Event,
     ledger::LedgerManager,
@@ -161,9 +161,9 @@ impl AsMut<NodeService> for NodeService {
 
 impl redux::Service for NodeService {}
 
-impl node::Service for NodeService {
-    fn queues(&mut self) -> node::service::Queues {
-        node::service::Queues {
+impl mina_node::Service for NodeService {
+    fn queues(&mut self) -> mina_node::service::Queues {
+        mina_node::service::Queues {
             events: self.event_receiver.len(),
             snark_block_verify: self.snark_block_proof_verify.len(),
             ledger: self.ledger_manager.pending_calls(),
@@ -204,13 +204,13 @@ impl redux::TimeService for NodeService {
     }
 }
 
-impl node::service::EventSourceService for NodeService {
+impl mina_node::service::EventSourceService for NodeService {
     fn next_event(&mut self) -> Option<Event> {
         self.event_receiver.try_next()
     }
 }
 
-impl node::service::LedgerService for NodeService {
+impl mina_node::service::LedgerService for NodeService {
     fn ledger_manager(&self) -> &LedgerManager {
         &self.ledger_manager
     }
@@ -220,7 +220,7 @@ impl node::service::LedgerService for NodeService {
     }
 }
 
-impl node::service::TransitionFrontierGenesisService for NodeService {
+impl mina_node::service::TransitionFrontierGenesisService for NodeService {
     fn load_genesis(&mut self, config: Arc<GenesisConfig>) {
         let res = match config.load() {
             Err(err) => Err(err.to_string()),
@@ -240,7 +240,7 @@ impl node::service::TransitionFrontierGenesisService for NodeService {
     }
 }
 
-impl node::core::invariants::InvariantService for NodeService {
+impl mina_node::core::invariants::InvariantService for NodeService {
     type ClusterInvariantsState<'a> = std::cell::RefMut<'a, InvariantsState>;
 
     fn invariants_state(&mut self) -> &mut InvariantsState {

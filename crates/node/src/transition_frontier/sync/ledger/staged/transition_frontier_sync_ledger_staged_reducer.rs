@@ -1,11 +1,11 @@
-use mina_p2p_messages::{hash::MinaHash, list::List, v2};
-use p2p::{
+use crate::p2p::{
     channels::{
         rpc::{P2pChannelsRpcAction, P2pRpcId, P2pRpcRequest},
         streaming_rpc::{P2pChannelsStreamingRpcAction, P2pStreamingRpcRequest},
     },
     PeerId,
 };
+use mina_p2p_messages::{hash::MinaHash, list::List, v2};
 use rand::prelude::*;
 
 use crate::ledger::write::{LedgerWriteAction, LedgerWriteRequest};

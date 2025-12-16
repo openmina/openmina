@@ -1,4 +1,4 @@
-use p2p::listen::P2pListenAction;
+use mina_p2p::listen::P2pListenAction;
 use redux::EnablingCondition;
 
 use crate::State;

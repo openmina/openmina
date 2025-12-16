@@ -6,7 +6,7 @@ use std::{
     time::Duration,
 };
 
-use node::core::thread;
+use mina_node::core::thread;
 
 fn main() {
     let mut debugger = Command::new("bpf-recorder")

@@ -3,12 +3,12 @@ use ledger::{Account, AccountId};
 pub use ledger_read_actions::*;
 
 mod ledger_read_state;
+use crate::p2p::{channels::rpc::P2pRpcId, PeerId};
 pub use ledger_read_state::*;
 use mina_core::{
     block::AppliedBlock,
     requests::{RequestId, RpcId, RpcIdType},
 };
-use p2p::{channels::rpc::P2pRpcId, PeerId};
 use redux::Callback;
 
 mod ledger_read_reducer;

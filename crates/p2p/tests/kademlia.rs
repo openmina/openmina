@@ -1,5 +1,5 @@
 use mina_core::Substate;
-use p2p::{
+use mina_p2p::{
     identity::SecretKey, P2pAction, P2pNetworkAction, P2pNetworkKadAction, P2pNetworkKadBucket,
     P2pNetworkKademliaAction, P2pNetworkKademliaRpcReply, P2pNetworkKademliaStreamAction, P2pState,
     PeerId,

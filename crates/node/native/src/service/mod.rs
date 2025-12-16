@@ -4,7 +4,7 @@ pub use builder::*;
 use mina_node_common::p2p::TaskSpawner;
 pub use mina_node_common::NodeService;
 
-use node::core::thread;
+use mina_node::core::thread;
 
 #[derive(Clone)]
 pub struct P2pTaskSpawner {}

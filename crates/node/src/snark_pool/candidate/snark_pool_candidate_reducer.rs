@@ -1,13 +1,15 @@
 use std::collections::BTreeMap;
 
-use crate::{p2p_ready, SnarkPoolAction};
-use mina_core::snark::{Snark, SnarkJobId};
-use p2p::{
-    channels::rpc::{P2pChannelsRpcAction, P2pRpcId, P2pRpcRequest},
-    disconnection::{P2pDisconnectionAction, P2pDisconnectionReason},
-    BroadcastMessageId, P2pNetworkPubsubAction, PeerId,
+use crate::{
+    p2p::{
+        channels::rpc::{P2pChannelsRpcAction, P2pRpcId, P2pRpcRequest},
+        disconnection::{P2pDisconnectionAction, P2pDisconnectionReason},
+        BroadcastMessageId, P2pNetworkPubsubAction, PeerId,
+    },
+    p2p_ready, SnarkPoolAction,
 };
-use snark::{work_verify::SnarkWorkVerifyAction, work_verify_effectful::SnarkWorkVerifyId};
+use mina_core::snark::{Snark, SnarkJobId};
+use mina_snark::{work_verify::SnarkWorkVerifyAction, work_verify_effectful::SnarkWorkVerifyId};
 
 use super::{
     SnarkPoolCandidateAction, SnarkPoolCandidateActionWithMetaRef, SnarkPoolCandidatesState,

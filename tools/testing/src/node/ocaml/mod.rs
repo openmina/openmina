@@ -1,8 +1,7 @@
 mod config;
 pub use config::*;
 use mina_core::{thread, ChainId};
-use mina_p2p_messages::v2::StateHash;
-use node::{
+use mina_node::{
     core::log::{info, system_time},
     p2p::{
         connection::outgoing::{
@@ -11,6 +10,7 @@ use node::{
         PeerId,
     },
 };
+use mina_p2p_messages::v2::StateHash;
 
 use std::{
     path::{Path, PathBuf},

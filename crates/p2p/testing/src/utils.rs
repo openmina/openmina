@@ -34,7 +34,7 @@ pub fn rust_nodes(
 pub fn peer_ids<T: Into<NodeId>, const N: usize>(
     cluster: &Cluster,
     rust_nodes: [T; N],
-) -> [p2p::PeerId; N] {
+) -> [mina_p2p::PeerId; N] {
     rust_nodes.map(|id| cluster.peer_id(id.into()))
 }
 
@@ -157,7 +157,7 @@ pub async fn wait_for_nodes_to_connect<I>(
     time: Duration,
 ) -> bool
 where
-    I: IntoIterator<Item = (RustNodeId, p2p::PeerId)>,
+    I: IntoIterator<Item = (RustNodeId, mina_p2p::PeerId)>,
 {
     cluster
         .stream()
@@ -175,7 +175,7 @@ pub async fn try_wait_for_nodes_to_connect<I>(
     time: Duration,
 ) -> Result<bool, ClusterEvent>
 where
-    I: IntoIterator<Item = (RustNodeId, p2p::PeerId)>,
+    I: IntoIterator<Item = (RustNodeId, mina_p2p::PeerId)>,
 {
     cluster
         .try_stream()
@@ -193,7 +193,7 @@ pub async fn wait_for_all_nodes_to_connect<I>(
     time: Duration,
 ) -> bool
 where
-    I: IntoIterator<Item = (NodeId, p2p::PeerId)>,
+    I: IntoIterator<Item = (NodeId, mina_p2p::PeerId)>,
 {
     cluster
         .stream()
@@ -211,7 +211,7 @@ pub async fn try_wait_for_all_nodes_to_connect<I>(
     time: Duration,
 ) -> Result<bool, ClusterEvent>
 where
-    I: IntoIterator<Item = (NodeId, p2p::PeerId)>,
+    I: IntoIterator<Item = (NodeId, mina_p2p::PeerId)>,
 {
     cluster
         .try_stream()
@@ -232,8 +232,8 @@ pub async fn try_wait_for_all_node_peer<I, F>(
     f: F,
 ) -> Result<bool, ClusterEvent>
 where
-    I: IntoIterator<Item = (RustNodeId, p2p::PeerId)>,
-    F: FnMut(RustNodeEvent) -> Option<p2p::PeerId>,
+    I: IntoIterator<Item = (RustNodeId, mina_p2p::PeerId)>,
+    F: FnMut(RustNodeEvent) -> Option<mina_p2p::PeerId>,
 {
     cluster
         .try_stream()
