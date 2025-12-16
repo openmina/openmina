@@ -58,14 +58,8 @@ https://github.com/MinaProtocol/mina/blob/<commit-hash>/<path>#L<start>-L<end>
 ## Validation script
 
 The `.github/scripts/check-ocaml-refs.sh` script validates all OCaml references.
-
-:::note
-
-The validation script is being updated to support the new hyperlink format. In
-the meantime, newly added references using the hyperlink format will not be
-automatically validated by CI.
-
-:::
+It supports both the new hyperlink format and the legacy multi-line format
+(for backward compatibility during the transition period).
 
 ```bash
 # Validate against compatible branch (default)
