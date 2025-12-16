@@ -26,4 +26,4 @@ services:
     environment:
       MINA_FRONTEND_ENVIRONMENT: local
     ports:
-      - "8070:8070"
+      - "8070:80"
