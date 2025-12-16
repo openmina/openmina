@@ -133,7 +133,7 @@ impl FromStr for SnarkerStrategy {
 // Load static devnet genesis ledger for testing
 lazy_static::lazy_static! {
     pub static ref DEVNET_CONFIG: Arc<GenesisConfig> = {
-        let bytes = include_bytes!("../../genesis_ledgers/devnet.bin");
+        let bytes = include_bytes!("../../../genesis_ledgers/devnet.bin");
         Arc::new(GenesisConfig::Prebuilt(
             std::borrow::Cow::Borrowed(bytes)
         ))

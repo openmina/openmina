@@ -1578,7 +1578,7 @@ mod test {
 
     #[test]
     fn test_zkapp_from_input() {
-        let bytes = include_bytes!("../../../../tests/files/zkapps/valid_zkapp.bin");
+        let bytes = include_bytes!("../../../../../tests/files/zkapps/valid_zkapp.bin");
         let zkapp =
             MinaBaseZkappCommandTStableV1WireStableV1::binprot_read(&mut bytes.as_slice()).unwrap();
 
@@ -1618,7 +1618,7 @@ mod test {
         let proof = InputGraphQLAuthorization {
             signature: None,
             proof: Some(
-                include_str!("../../../../tests/files/zkapps/proof_string.txt").to_string(),
+                include_str!("../../../../../tests/files/zkapps/proof_string.txt").to_string(),
             ),
         };
         let converted: Result<MinaBaseControlStableV2, _> = proof.try_into();

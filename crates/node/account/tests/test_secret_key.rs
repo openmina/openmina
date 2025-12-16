@@ -53,7 +53,7 @@ fn test_encrypt_decrypt() {
 fn test_block_producer_key_decrypt() {
     // Get the workspace root directory
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    let workspace_root = format!("{}/../..", manifest_dir);
+    let workspace_root = format!("{}/../../..", manifest_dir);
     let key_path = format!(
         "{}/tests/files/accounts/test-block-producer",
         workspace_root
