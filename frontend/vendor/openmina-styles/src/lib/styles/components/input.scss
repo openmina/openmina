@@ -1,0 +1,58 @@
+@import '../utilities/variables';
+
+.mina-input {
+	background-color: $base-container;
+	color: $base-primary;
+	border: 1px solid $base-container;
+	padding: 0 4px;
+	height: 24px;
+	outline: none;
+	font-family: inherit;
+
+	&::-webkit-input-placeholder {
+		color: $base-tertiary;
+	}
+
+	&:-moz-placeholder {
+		color: $base-tertiary;
+	}
+
+	&:hover:not(:focus):not(.input-error) {
+		background-color: $base-divider;
+	}
+
+	&:focus {
+		background-color: $selected-container;
+		border-color: $selected-primary;
+		color: $selected-primary;
+	}
+
+	&::-webkit-outer-spin-button,
+	&::-webkit-inner-spin-button {
+		-webkit-appearance: none;
+	}
+
+	&[type=number] {
+		-moz-appearance: textfield;
+	}
+
+	&.input-selected {
+		background-color: $selected-container;
+		color: $selected-primary;
+	}
+
+	&.input-success {
+		background-color: $success-container;
+		color: $success-primary;
+	}
+
+	&.input-error {
+		background-color: $warn-container;
+		border-color: $warn-primary;
+		color: $warn-primary;
+	}
+}
+
+textarea {
+	resize: none;
+}

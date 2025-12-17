@@ -26,8 +26,7 @@ export const NODES_BOOTSTRAP_TOGGLE_SIDE_PANEL =
 export const NODES_BOOTSTRAP_CLOSE =
   NodesBootstrapActionTypes.NODES_BOOTSTRAP_CLOSE;
 
-export interface NodesBootstrapAction
-  extends FeatureAction<NodesBootstrapActionTypes> {
+export interface NodesBootstrapAction extends FeatureAction<NodesBootstrapActionTypes> {
   readonly type: NodesBootstrapActionTypes;
 }
 

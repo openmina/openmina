@@ -1,0 +1,37 @@
+<div class="container border border-rad-6 bg-surface flex-column" [class.animate]="animate" (clickOutside)="cancel()">
+  <div class="grid-preset-row border-bottom">
+    <span class="f-600 secondary">Last</span>
+    <button class="btn-primary"
+            *ngFor="let interval of presetIntervals"
+            (click)="presetInterval(interval.value)">{{ interval.name }}</button>
+  </div>
+  <div class="m-8 p-8" *ngFor="let formGroup of [fromFormGroup, toFormGroup]; let i=index">
+    <div class="grid-row f-600">
+      <span class="secondary">{{ i === 0 ? 'From' : 'To' }}</span>
+      <span class="tertiary">Hour</span>
+      <span class="tertiary">Min</span>
+      <span class="tertiary">Sec</span>
+      <span class="tertiary">Year</span>
+      <span class="tertiary">Month</span>
+      <span class="tertiary">Day</span>
+    </div>
+    <form class="grid-row f-600" [formGroup]="formGroup">
+      <span></span>
+      <input #firstInput class="mina-input" type="number" formControlName="hour" placeholder="hh" [ngClass]="{'input-error': (i === 0 && !skipFrom || i === 1 && !skipTo) && formGroup.controls['hour'].touched && formGroup.controls['hour'].errors && formGroup.controls['hour'].errors['required'] }">
+      <input class="mina-input" type="number" formControlName="minute" placeholder="mm" [ngClass]="{'input-error': (i === 0 && !skipFrom || i === 1 && !skipTo) && formGroup.controls['minute'].touched && formGroup.controls['minute'].errors && formGroup.controls['minute'].errors['required'] }">
+      <input class="mina-input" type="number" formControlName="second" placeholder="ss" [ngClass]="{'input-error': (i === 0 && !skipFrom || i === 1 && !skipTo) && formGroup.controls['second'].touched && formGroup.controls['second'].errors && formGroup.controls['second'].errors['required'] }">
+      <input class="mina-input" type="number" formControlName="year" placeholder="yy" [ngClass]="{'input-error': (i === 0 && !skipFrom || i === 1 && !skipTo) && formGroup.controls['year'].touched && formGroup.controls['year'].errors && formGroup.controls['year'].errors['required'] }">
+      <input class="mina-input" type="number" formControlName="month" placeholder="mm" [ngClass]="{'input-error': (i === 0 && !skipFrom || i === 1 && !skipTo) && formGroup.controls['month'].touched && formGroup.controls['month'].errors && formGroup.controls['month'].errors['required'] }">
+      <input class="mina-input" type="number" formControlName="day" placeholder="dd" [ngClass]="{'input-error': (i === 0 && !skipFrom || i === 1 && !skipTo) && formGroup.controls['day'].touched && formGroup.controls['day'].errors && formGroup.controls['day'].errors['required'] }">
+      <div class="flex-row flex-end">
+        <button class="now" (click)="onNowClick(formGroup)">Now</button>
+      </div>
+    </form>
+  </div>
+  <div class="flex-row flex-between mb-8 pb-8 mr-8 pr-8">
+    <div>
+      <span *ngIf="invalidInterval" class="error ml-16">Invalid interval: 'from date' is after 'to date'</span>
+    </div>
+    <button class="btn-selected border-rad-6 pl-10 pr-10" (click)="confirm()">Confirm</button>
+  </div>
+</div>

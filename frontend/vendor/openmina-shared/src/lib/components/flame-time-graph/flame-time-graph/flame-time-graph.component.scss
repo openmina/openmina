@@ -1,0 +1,263 @@
+@use 'mina-rust' as *;
+
+
+$transition: 300ms cubic-bezier(0.33, 1, 0.68, 1);
+
+.mina-graph {
+  width: 206px;
+  transition: border-color 100ms, width $transition;
+  background-color: $base-surface;
+
+  .title {
+    transition: 300ms;
+  }
+
+  &.visible .big-graph {
+    max-height: 250px;
+  }
+
+  .big-graph {
+    opacity: 1;
+    transition: $transition;
+    max-height: 0;
+    overflow: hidden;
+
+    .graph-body {
+      margin-top: 2px;
+      background: repeating-linear-gradient(0deg, transparent, transparent 15px, $base-divider 0.05em, $base-divider 16.1px);
+
+      .cols-wrap {
+        height: 146px;
+        width: 144px;
+
+        .gr-col {
+          min-width: 16px;
+
+          &:hover {
+            filter: brightness(140%);
+          }
+
+          .square {
+            pointer-events: none;
+            width: 16px;
+            height: 16px;
+            background-color: $base-surface-top;
+
+            &:last-child {
+              border-top: 1px solid;
+              border-top-color: $base-tertiary;
+
+              &.yellow-red-grey {
+                border-top-color: $chart-yellow-red-grey;
+              }
+
+              &.yellow-red-0 {
+                border-top-color: $chart-yellow-red-0;
+              }
+
+              &.yellow-red-1 {
+                border-top-color: $chart-yellow-red-1;
+              }
+
+              &.yellow-red-2 {
+                border-top-color: $chart-yellow-red-2;
+              }
+
+              &.yellow-red-3 {
+                border-top-color: $chart-yellow-red-3;
+              }
+
+              &.yellow-red-4 {
+                border-top-color: $chart-yellow-red-4;
+              }
+
+              &.yellow-red-5 {
+                border-top-color: $chart-yellow-red-5;
+              }
+            }
+
+            &.b-left {
+              div {
+                border-left: 1px solid $base-tertiary;
+              }
+
+              &.yellow-red-grey div {
+                border-left-color: $chart-yellow-red-grey;
+              }
+
+              &.yellow-red-0 div {
+                border-left-color: $chart-yellow-red-0;
+              }
+
+              &.yellow-red-1 div {
+                border-left-color: $chart-yellow-red-1;
+              }
+
+              &.yellow-red-2 div {
+                border-left-color: $chart-yellow-red-2;
+              }
+
+              &.yellow-red-3 div {
+                border-left-color: $chart-yellow-red-3;
+              }
+
+              &.yellow-red-4 div {
+                border-left-color: $chart-yellow-red-4;
+              }
+
+              &.yellow-red-5 div {
+                border-left-color: $chart-yellow-red-5;
+              }
+            }
+
+            &.b-right {
+              div {
+                border-right-color: $base-tertiary;
+              }
+
+              &.yellow-red-grey div {
+                border-right-color: $chart-yellow-red-grey;
+              }
+
+              &.yellow-red-0 div {
+                border-right-color: $chart-yellow-red-0;
+              }
+
+              &.yellow-red-1 div {
+                border-right-color: $chart-yellow-red-1;
+              }
+
+              &.yellow-red-2 div {
+                border-right-color: $chart-yellow-red-2;
+              }
+
+              &.yellow-red-3 div {
+                border-right-color: $chart-yellow-red-3;
+              }
+
+              &.yellow-red-4 div {
+                border-right-color: $chart-yellow-red-4;
+              }
+
+              &.yellow-red-5 div {
+                border-right-color: $chart-yellow-red-5;
+              }
+            }
+
+            div {
+              height: 105%;
+              border-right: 1px solid $base-surface;
+              margin-top: -1px;
+            }
+          }
+        }
+      }
+
+      .y-steps {
+        width: 44px;
+
+        div {
+          height: 16px;
+          line-height: 18px;
+        }
+      }
+    }
+
+    .x-steps {
+      text-align: right;
+      padding-top: 20px;
+
+      div {
+        transform: rotate(-60deg);
+        width: 48px;
+        height: 7px;
+        margin-left: -32px;
+      }
+    }
+
+    .mina-icon {
+      margin-left: -3px;
+    }
+  }
+
+  .flames {
+    height: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition: $transition;
+
+    .condensed-square {
+      width: 16px;
+      height: 16px;
+      background-color: transparent;
+      margin-right: 2px;
+      box-sizing: border-box;
+
+      &.severity-1 {
+        background-color: $base-tertiary;
+      }
+
+      &.severity-2 {
+        background-color: $chart-yellow-red-grey;
+      }
+
+      &.severity-3 {
+        background-color: $chart-yellow-red-0;
+      }
+
+      &.severity-4 {
+        background-color: $chart-yellow-red-1;
+      }
+
+      &.severity-5 {
+        background-color: $chart-yellow-red-2;
+      }
+
+      &.severity-6 {
+        background-color: $chart-yellow-red-3;
+      }
+
+      &.severity-7 {
+        background-color: $chart-yellow-red-4;
+      }
+
+      &.severity-8 {
+        background-color: $chart-yellow-red-5;
+      }
+
+      &.severity-0 {
+        border: 1px solid $base-divider;
+        background-color: initial;
+      }
+    }
+  }
+
+  &.graph-condensed {
+    width: 180px;
+    cursor: pointer;
+
+    &:hover {
+      background-color: $base-container;
+
+      .title {
+        transition: none;
+        color: $base-primary;
+      }
+    }
+
+    .title {
+      color: $base-tertiary;
+      transition: 100ms;
+    }
+
+    .big-graph {
+      opacity: 0;
+      max-height: 0;
+    }
+
+    .flames {
+      height: 16px;
+      opacity: 1;
+    }
+  }
+}

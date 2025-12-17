@@ -1,0 +1,25 @@
+<section class="ngx-json-viewer">
+  <section *ngFor="let segment of segments"
+           [class.ml]="internalDepth < paddingLimitForNestedElements"
+           [ngClass]="['segment', 'segment-type-' + segment.type]">
+    <section (click)="onExpandToggle(segment)"
+             [ngClass]="{
+                'segment-main': true,
+                'expandable': isExpandable(segment),
+                'expanded': segment.expanded
+             }">
+      <span *ngIf="isExpandable(segment)" class="toggler mina-icon">arrow_right</span>
+      <span class="segment-key">{{ segment.key }}</span>
+      <span class="segment-separator">:</span>
+      <span *ngIf="!segment.expanded || !isExpandable(segment)" class="segment-value">{{ segment.description }}</span>
+    </section>
+    <section *ngIf="segment.expanded && isExpandable(segment)">
+      <mina-json-viewer [json]="segment.value"
+                        [expanded]="expanded"
+                        [expandTracking]="expandTracking ? expandTracking[segment.key] : null"
+                        [internalDepth]="internalDepth"
+                        [skipDecycle]="skipDecycle"
+                        [paddingLimitForNestedElements]="paddingLimitForNestedElements"></mina-json-viewer>
+    </section>
+  </section>
+</section>

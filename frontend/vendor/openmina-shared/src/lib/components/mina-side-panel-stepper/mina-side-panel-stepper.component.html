@@ -1,0 +1,7 @@
+<div class="step p-absolute w-100 h-100 flex-column"
+		 *ngFor="let step of steps; let i = index"
+		 [class.active]="activeStep === i"
+		 [class.before]="activeStep > i"
+		 [class.after]="activeStep < i">
+	<ng-container *ngTemplateOutlet="step"></ng-container>
+</div>

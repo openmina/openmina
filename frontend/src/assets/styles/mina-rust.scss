@@ -281,7 +281,7 @@ $raleway-font: 'Raleway', sans-serif;
 }
 
 /* SMALL - MOBILE LANDSCAPE */
-@media (max-width: 767px) {
+@media (max-width: 768px) {
   .flex-row-sm {
     display: flex;
     flex-direction: row;
@@ -290,11 +290,6 @@ $raleway-font: 'Raleway', sans-serif;
   .flex-column-sm {
     display: flex;
     flex-direction: column;
-  }
-
-  .flex-column-reverse-sm {
-    display: flex;
-    flex-direction: column-reverse;
   }
 
   .flex-between-sm {
@@ -625,7 +620,7 @@ $raleway-font: 'Raleway', sans-serif;
   @extend .w-sm;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 768px) {
   .h-xs {
     height: 24px !important;
   }
@@ -915,6 +910,170 @@ textarea {
   resize: none;
 }
 
+.mina-table {
+  @include flexColumn();
+
+  .row {
+    height: 36px;
+    display: grid;
+
+    &.row-even {
+      background-color: $base-container;
+    }
+
+    &.active {
+      background-color: $selected-container;
+
+      > span,
+      a {
+        color: $selected-primary !important;
+      }
+    }
+
+    > span {
+      height: 36px;
+      line-height: 36px;
+      padding-left: 12px;
+    }
+
+    &:hover:not(.active):not(.head) {
+      background-color: $base-divider;
+
+      * {
+        color: $base-primary !important;
+      }
+    }
+
+    .underline {
+      line-height: 12px;
+      cursor: pointer;
+
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+
+    &.head {
+      font-weight: 600;
+      color: $base-tertiary;
+      text-transform: capitalize;
+
+      &.sorting {
+        > span {
+          @include flexRowVertCenter();
+
+          .mina-icon {
+            transition: 0.2s ease-in-out;
+            transform: rotateX(0) translateY(6px);
+            margin-top: 1px;
+            margin-left: 2px;
+            opacity: 0;
+
+            &.show {
+              opacity: 1;
+              transform: rotateX(0) translateY(0);
+            }
+
+            &.flip {
+              transform: rotateX(180deg) translateY(0);
+
+              &:not(.show) {
+                transform: rotateX(180deg) translateY(6px);
+              }
+            }
+          }
+
+          &:hover,
+          &.active {
+            color: $base-primary;
+            transition: 200ms;
+
+            .mina-icon:not(.show) {
+              opacity: 0.5;
+              transform: rotateX(0) translateY(0);
+
+              &.flip {
+                transform: rotateX(180deg) translateY(0);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    span mina-copy .cpy {
+      opacity: 0;
+    }
+
+    span:hover mina-copy .cpy {
+      opacity: 1;
+    }
+  }
+
+  &.active {
+    background-color: blue;
+    color: #fff;
+  }
+}
+
+@media (max-width: 768px) {
+  .cdk-virtual-scroll-content-wrapper {
+    width: 100%;
+  }
+
+  .mina-table {
+    .row {
+      height: initial;
+      display: flex;
+      background-color: initial !important;
+      padding: 5px 10px;
+
+      .mob-row {
+        padding: 0 10px;
+        outline: 1px solid $base-divider;
+        background-color: $base-surface;
+        border-radius: 6px;
+        width: 100%;
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        font-size: 12px;
+        overflow: hidden;
+
+        .th,
+        .td {
+          display: flex;
+          flex-direction: column;
+
+          span {
+            height: 26px;
+            line-height: 26px;
+          }
+        }
+
+        .th {
+          text-transform: capitalize;
+        }
+
+        .td {
+          flex: 1;
+          min-width: 0;
+          align-items: flex-end;
+
+          span {
+            max-width: 100%;
+          }
+        }
+
+        span mina-copy .cpy {
+          opacity: 1;
+          margin-right: -5px;
+        }
+      }
+    }
+  }
+}
+
 $z-index-bigger-than-cdk-overlay: 1001;
 #mina-tooltip {
   top: 0;
@@ -1093,36 +1252,24 @@ span.mina-icon {
   font-variation-settings:
     'FILL' 0,
     'wght' 200;
+}
 
-  &.icon-100 {
-    font-variation-settings:
-      'FILL' 0,
-      'wght' 100;
-  }
+.icon-100 {
+  font-variation-settings:
+    'FILL' 0,
+    'wght' 100;
+}
 
-  &.icon-200 {
-    font-variation-settings:
-      'FILL' 0,
-      'wght' 200;
-  }
+.icon-200 {
+  font-variation-settings:
+    'FILL' 0,
+    'wght' 200;
+}
 
-  &.icon-300 {
-    font-variation-settings:
-      'FILL' 0,
-      'wght' 300;
-  }
-
-  &.icon-400 {
-    font-variation-settings:
-      'FILL' 0,
-      'wght' 400;
-  }
-
-  &.icon-500 {
-    font-variation-settings:
-      'FILL' 0,
-      'wght' 500;
-  }
+.icon-300 {
+  font-variation-settings:
+    'FILL' 0,
+    'wght' 300;
 }
 
 .tracing-overview-overlay-small,
@@ -1472,7 +1619,7 @@ span.mina-icon {
 }
 
 /* SMALL - MOBILE LANDSCAPE */
-@media (max-width: 767px) {
+@media (max-width: 768px) {
   .d-none-sm {
     display: none !important;
   }

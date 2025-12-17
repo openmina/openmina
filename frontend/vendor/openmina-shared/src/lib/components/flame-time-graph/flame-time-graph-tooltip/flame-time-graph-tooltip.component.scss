@@ -1,0 +1,23 @@
+@use 'mina-rust' as *;
+
+
+:host {
+  box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
+}
+
+.x-steps {
+  text-align: right;
+  padding-top: 12.7px;
+
+  div {
+    transform: rotate(-60deg);
+    width: 48px;
+    height: 1px;
+    margin-left: -32px;
+  }
+}
+
+.flex-row {
+  height: 20px;
+  line-height: 20px;
+}

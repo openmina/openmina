@@ -1,0 +1,26 @@
+<div class="x-steps f-small flex-row text-capitalize tertiary pl-5 pr-5">
+  <div *ngFor="let step of xSteps; let i=index"
+       [class.primary]="i === activeXPointIndex">{{ step }}</div>
+</div>
+<div class="pl-5 pr-5 mt-10 border-top">
+  <div class="flex-row flex-between">
+    <span class="tertiary">Range</span>
+    <span>{{ range }}</span>
+  </div>
+  <div class="flex-row flex-between">
+    <span class="tertiary">Mean</span>
+    <span>{{ mean | secDuration }}</span>
+  </div>
+  <div class="flex-row flex-between">
+    <span class="tertiary">Max</span>
+    <span>{{ max | secDuration }}</span>
+  </div>
+  <div class="flex-row flex-between">
+    <span class="tertiary">Calls</span>
+    <span>{{ calls | thousand }}</span>
+  </div>
+  <div class="flex-row flex-between">
+    <span class="tertiary">Total Time</span>
+    <span>{{ totalTime | secDuration }}</span>
+  </div>
+</div>

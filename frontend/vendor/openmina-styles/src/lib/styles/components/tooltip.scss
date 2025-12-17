@@ -1,0 +1,97 @@
+@import '../utilities/variables';
+
+$z-index-bigger-than-cdk-overlay: 1001;
+#mina-tooltip {
+  top: 0;
+  left: 0;
+  z-index: $z-index-bigger-than-cdk-overlay;
+  position: fixed;
+  padding: 8px;
+  font-weight: 400;
+  font-size: 12px;
+  border-radius: 6px;
+  max-width: 250px;
+  background: $base-surface-top;
+  color: $base-primary;
+  border: 1px solid $base-divider;
+  box-sizing: border-box;
+  opacity: 0;
+  transform: translate(-50%, -30%);
+  transition: opacity 3000ms;
+  pointer-events: none;
+  animation-timing-function: ease-out;
+  animation-duration: 0.18s;
+  animation-fill-mode: forwards;
+  word-break: break-word;
+
+  &.cancel-formatting {
+    word-break: initial;
+    white-space: pre-line;
+  }
+}
+
+#mina-graph-tooltip {
+  position: fixed;
+  z-index: $z-index-bigger-than-cdk-overlay;
+  background-color: $base-surface-top;
+  border-radius: 6px;
+  padding: 4px 8px;
+  line-height: 18px;
+  color: $base-primary;
+  box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
+}
+
+@keyframes tooltip-no-animation {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+}
+
+@keyframes tooltip-slide-top {
+  0% {
+    opacity: 0;
+    transform: translate(0, -20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+}
+
+@keyframes tooltip-slide-bottom {
+  0% {
+    opacity: 0;
+    transform: translate(0, 20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+}
+
+@keyframes tooltip-slide-left {
+  0% {
+    opacity: 0;
+    transform: translate(-20px, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+}
+
+@keyframes tooltip-slide-right {
+  0% {
+    opacity: 0;
+    transform: translate(20px, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+}

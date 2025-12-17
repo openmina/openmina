@@ -1,0 +1,32 @@
+<div class="stepper-container">
+
+  <div class="stepper-header mb-16 flex-row flex-between p-relative">
+    <div class="step pr-12 fx-row-vert-cent"
+         *ngFor="let step of stepHeaders; let i=index"
+         [class.active]="activeStep === i"
+         [class.passed]="activeStep > i"
+         [class.pl-12]="i !== 0">
+      <span class="mr-8 border-rad-4 text-center"
+            [ngClass]="{ 'mina-icon f-20': activeStep > i }">{{ activeStep < i + 1 ? i + 1 : 'check_small' }}</span>
+      <span>{{ step }}</span>
+    </div>
+  </div>
+
+  <div class="stepper-body w-100 mt-8 overflow-hidden flex-column flex-grow"
+       [style.height.px]="height">
+    <ng-container *ngTemplateOutlet="contentHeaderInfoTemplate"></ng-container>
+    <div class="p-relative flex-grow flex-column">
+      <div *ngFor="let step of steps; let i=index"
+           class="body-step p-absolute h-100 w-100"
+           [class.active]="activeStep === i"
+           [class.passed]="activeStep > i">
+        <ng-container *ngTemplateOutlet="step"></ng-container>
+      </div>
+    </div>
+  </div>
+
+  <div class="stepper-footer">
+    <ng-container *ngTemplateOutlet="footerTemplate"></ng-container>
+  </div>
+
+</div>

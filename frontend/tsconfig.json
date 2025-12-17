@@ -32,6 +32,12 @@
       "dom"
     ],
     "paths": {
+      "@openmina/shared": [
+        "vendor/openmina-shared/src/public-api.ts"
+      ],
+      "@openmina/shared/*": [
+        "vendor/openmina-shared/src/*"
+      ],
       "@app/*": [
         "src/app/*"
       ],
