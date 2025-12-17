@@ -8,7 +8,7 @@ import {
   MemoryResourcesActions,
 } from '@resources/memory/memory-resources.actions';
 import { TreemapView } from '@shared/types/resources/memory/treemap-view.type';
-import { getLocalStorage, nanOrElse } from '@openmina/shared';
+import { getLocalStorage, nanOrElse } from '@mina-rust/shared';
 
 const initialState: MemoryResourcesState = {
   resource: undefined,

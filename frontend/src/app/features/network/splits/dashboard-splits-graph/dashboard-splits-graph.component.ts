@@ -22,7 +22,7 @@ import { DashboardSplitsSet } from '@shared/types/network/splits/dashboard-split
 import { DashboardSplitsSetActivePeer } from '@network/splits/dashboard-splits.actions';
 import { eigs } from 'mathjs';
 import * as math from 'mathjs';
-import { getLocalStorage } from '@openmina/shared';
+import { getLocalStorage } from '@mina-rust/shared';
 
 type DashboardSplitsPeerSimulation = DashboardSplitsPeer & SimulationNodeDatum;
 type DashboardSplitsLinkSimulation = {

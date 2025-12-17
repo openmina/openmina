@@ -5,7 +5,7 @@ import {
   selectSnarksWorkPoolActiveWorkPoolSpecs,
 } from '@snarks/work-pool/snarks-work-pool.state';
 import { WorkPoolSpecs } from '@shared/types/snarks/work-pool/work-pool-specs.type';
-import { downloadJsonFromURL } from '@openmina/shared';
+import { downloadJsonFromURL } from '@mina-rust/shared';
 import { RustService } from '@core/services/rust.service';
 import { WorkPoolDetail } from '@shared/types/snarks/work-pool/work-pool-detail.type';
 

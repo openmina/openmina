@@ -26,7 +26,7 @@ import {
   MergedRoute,
   ONE_THOUSAND,
   TimestampInterval,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { DatePipe } from '@angular/common';
 import { Router } from '@angular/router';
 import { Routes } from '@shared/enums/routes.enum';

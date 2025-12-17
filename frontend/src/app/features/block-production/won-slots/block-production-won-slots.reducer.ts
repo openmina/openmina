@@ -6,7 +6,7 @@ import {
   sort,
   SortDirection,
   TableSort,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { BlockProductionWonSlotsActions } from '@block-production/won-slots/block-production-won-slots.actions';
 import {
   BlockProductionWonSlotsSlot,

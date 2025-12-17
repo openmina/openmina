@@ -1,4 +1,4 @@
-import { FeatureAction } from '@openmina/shared';
+import { FeatureAction } from '@mina-rust/shared';
 import { MinaState } from '@app/app.setup';
 import { APP_PREFIX } from '@app/app.actions';
 import {

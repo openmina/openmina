@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Set the base URL for OpenMina
+# Set the base URL for o1-labs
 MINA_BASE_URL="https://github.com/o1-labs"
 
 # Function to download circuit files

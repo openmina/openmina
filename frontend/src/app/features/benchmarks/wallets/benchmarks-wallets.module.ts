@@ -8,7 +8,7 @@ import { BenchmarksWalletsEffects } from '@benchmarks/wallets/benchmarks-wallets
 import { BenchmarksWalletsTableComponent } from '@benchmarks/wallets/benchmarks-wallets-table/benchmarks-wallets-table.component';
 import { BenchmarksWalletsToolbarComponent } from '@benchmarks/wallets/benchmarks-wallets-toolbar/benchmarks-wallets-toolbar.component';
 import { BenchmarksWalletsRouting } from '@benchmarks/wallets/benchmarks-wallets.routing';
-import { CopyComponent, HorizontalMenuComponent } from '@openmina/shared';
+import { CopyComponent, HorizontalMenuComponent } from '@mina-rust/shared';
 import { BenchmarksWalletsZkappToolbarComponent } from './benchmarks-wallets-zkapp-toolbar/benchmarks-wallets-zkapp-toolbar.component';
 import { BenchmarksWalletsZkService } from '@benchmarks/wallets/benchmarks-wallets-zk.service';
 

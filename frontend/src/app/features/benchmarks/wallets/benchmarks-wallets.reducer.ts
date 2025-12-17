@@ -27,7 +27,7 @@ import {
   hasValue,
   lastItem,
   ONE_BILLION,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { BenchmarksWalletsState } from '@benchmarks/wallets/benchmarks-wallets.state';
 import { getTimeFromMemo } from '@shared/helpers/transaction.helper';
 import { BenchmarksZkapp } from '@shared/types/benchmarks/transactions/benchmarks-zkapp.type';

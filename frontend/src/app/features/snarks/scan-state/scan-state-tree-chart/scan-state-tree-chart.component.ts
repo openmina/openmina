@@ -28,7 +28,7 @@ import {
   hasValue,
   isMobile,
   safelyExecuteInBrowser,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { ScanStateSetActiveLeaf } from '@snarks/scan-state/scan-state.actions';
 import { Router } from '@angular/router';

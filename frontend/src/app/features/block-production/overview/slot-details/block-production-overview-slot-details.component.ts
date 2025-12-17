@@ -4,7 +4,7 @@ import { AppSelectors } from '@app/app.state';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { AppNodeDetails } from '@shared/types/app/app-node-details.type';
 import { filter } from 'rxjs';
-import { safelyExecuteInBrowser } from '@openmina/shared';
+import { safelyExecuteInBrowser } from '@mina-rust/shared';
 
 @Component({
   selector: 'mina-block-production-overview-slot-details',

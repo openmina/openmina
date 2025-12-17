@@ -12,7 +12,7 @@ import {
   SEC_CONFIG_GRAY_PALETTE,
   SecDurationConfig,
   TableColumnList,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { Router } from '@angular/router';
 import {
   NodesBootstrapSetActiveBlock,

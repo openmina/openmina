@@ -1,7 +1,7 @@
 import { MinaState } from '@app/app.setup';
 import { Directive, OnDestroy } from '@angular/core';
 import { UntilDestroy } from '@ngneat/until-destroy';
-import { BaseStoreDispatcher } from '@openmina/shared';
+import { BaseStoreDispatcher } from '@mina-rust/shared';
 
 @UntilDestroy()
 @Directive()

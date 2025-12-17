@@ -7,7 +7,7 @@ import { MinaState } from '@app/app.setup';
 import { FuzzingFile } from '@shared/types/fuzzing/fuzzing-file.type';
 import { FuzzingFileDetails } from '@shared/types/fuzzing/fuzzing-file-details.type';
 import { FuzzingDirectory } from '@shared/types/fuzzing/fuzzing-directory.type';
-import { TableSort } from '@openmina/shared';
+import { TableSort } from '@mina-rust/shared';
 
 export interface FuzzingState {
   directories: FuzzingDirectory[];

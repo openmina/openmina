@@ -12,7 +12,7 @@ import {
   sort,
   SortDirection,
   TableSort,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 
 @Component({
   selector: 'mina-nodes-bootstrap-blocks',

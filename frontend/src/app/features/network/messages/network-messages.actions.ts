@@ -1,4 +1,4 @@
-import { FeatureAction, TimestampInterval } from '@openmina/shared';
+import { FeatureAction, TimestampInterval } from '@mina-rust/shared';
 import { NetworkMessage } from '@shared/types/network/messages/network-message.type';
 import { NetworkMessageConnection } from '@shared/types/network/messages/network-messages-connection.type';
 import { NetworkMessagesFilter } from '@shared/types/network/messages/network-messages-filter.type';

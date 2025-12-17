@@ -24,7 +24,7 @@ import { TemplatePortal } from '@angular/cdk/portal';
 import { ScanStateLeaf } from '@shared/types/snarks/scan-state/scan-state-leaf.type';
 import { AppSelectors } from '@app/app.state';
 import { getFeaturesConfig } from '@shared/constants/config';
-import { getWindow } from '@openmina/shared';
+import { getWindow } from '@mina-rust/shared';
 
 @Component({
   selector: 'mina-scan-state-side-panel',

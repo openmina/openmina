@@ -6,7 +6,7 @@ import {
   ViewContainerRef,
 } from '@angular/core';
 import { MinaTableComponent } from '../components/mina-table/mina-table.component';
-import { BaseStoreDispatcher, TableColumnList } from '@openmina/shared';
+import { BaseStoreDispatcher, TableColumnList } from '@mina-rust/shared';
 
 @Directive()
 export abstract class MinaTableWrapper<T extends object, State>

@@ -8,7 +8,7 @@ import {
 import { selectNetworkBlocks } from '@network/blocks/network-blocks.state';
 import { NetworkBlock } from '@shared/types/network/blocks/network-block.type';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
-import { BarGraphComponent } from '@openmina/shared';
+import { BarGraphComponent } from '@mina-rust/shared';
 
 @Component({
   selector: 'mina-network-blocks-graph',
@@ -28,7 +28,7 @@ export class NetworkBlocksGraphComponent
   private component: BarGraphComponent;
 
   async ngOnInit(): Promise<void> {
-    await import('@openmina/shared').then(c => {
+    await import('@mina-rust/shared').then(c => {
       this.component = this.minaBarGraphRef.createComponent<BarGraphComponent>(
         c.BarGraphComponent,
       ).instance;

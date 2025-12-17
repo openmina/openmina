@@ -3,7 +3,7 @@ import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { selectDashboardNodesAndPeers } from '@dashboard/dashboard.state';
 import { NodesOverviewNode } from '@shared/types/nodes/dashboard/nodes-overview-node.type';
 import { NodesOverviewNodeBlockStatus } from '@shared/types/nodes/dashboard/nodes-overview-block.type';
-import { isDesktop, lastItem, ONE_MILLION } from '@openmina/shared';
+import { isDesktop, lastItem, ONE_MILLION } from '@mina-rust/shared';
 import { DashboardPeer } from '@shared/types/dashboard/dashboard.peer';
 import { SentryService } from '@core/services/sentry.service';
 import { AppActions } from '@app/app.actions';

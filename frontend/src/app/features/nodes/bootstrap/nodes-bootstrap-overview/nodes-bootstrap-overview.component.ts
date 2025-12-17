@@ -9,7 +9,7 @@ import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { NodesBootstrapNode } from '@shared/types/nodes/bootstrap/nodes-bootstrap-node.type';
 import { selectNodesBootstrapNodes } from '@nodes/bootstrap/nodes-bootstrap.state';
 import { filter } from 'rxjs';
-import { BarGraphComponent } from '@openmina/shared';
+import { BarGraphComponent } from '@mina-rust/shared';
 
 @Component({
   selector: 'mina-nodes-bootstrap-overview',
@@ -41,7 +41,7 @@ export class NodesBootstrapOverviewComponent
   private component2: BarGraphComponent;
 
   async ngOnInit(): Promise<void> {
-    await import('@openmina/shared').then(c => {
+    await import('@mina-rust/shared').then(c => {
       this.component1 =
         this.minaBarGraphRef1.createComponent<BarGraphComponent>(
           c.BarGraphComponent,
@@ -57,7 +57,7 @@ export class NodesBootstrapOverviewComponent
       this.component1.color = 'var(--base-primary)';
       this.component1.ngOnInit();
     });
-    await import('@openmina/shared').then(c => {
+    await import('@mina-rust/shared').then(c => {
       this.component2 =
         this.minaBarGraphRef2.createComponent<BarGraphComponent>(
           c.BarGraphComponent,

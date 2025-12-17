@@ -7,7 +7,7 @@ import {
   NANOSEC_IN_1_SEC,
   ONE_MILLION,
   toReadableDate,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { StateActionsStats } from '@shared/types/state/actions/state-actions-stats.type';
 import { RustService } from '@core/services/rust.service';
 

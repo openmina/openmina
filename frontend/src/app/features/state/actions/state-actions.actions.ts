@@ -1,4 +1,4 @@
-import { FeatureAction, TableSort } from '@openmina/shared';
+import { FeatureAction, TableSort } from '@mina-rust/shared';
 import { StateActionGroup } from '@shared/types/state/actions/state-action-group.type';
 import { StateActionsStats } from '@shared/types/state/actions/state-actions-stats.type';
 

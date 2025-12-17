@@ -18,7 +18,7 @@ import {
   ONE_THOUSAND,
   safelyExecuteInBrowser,
   toReadableDate,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { BlockProductionOverviewActions } from '@block-production/overview/block-production-overview.actions';
 import { Router } from '@angular/router';
 import { Routes } from '@shared/enums/routes.enum';

@@ -6,7 +6,7 @@ import {
 } from '@ngrx/store';
 import { MinaState } from '@app/app.setup';
 import { DashboardPeersStats } from '@shared/types/dashboard/dashboard-peers-stats.type';
-import { TableSort } from '@openmina/shared';
+import { TableSort } from '@mina-rust/shared';
 import { NodesOverviewNode } from '@shared/types/nodes/dashboard/nodes-overview-node.type';
 import { DashboardRpcStats } from '@shared/types/dashboard/dashboard-rpc-stats.type';
 

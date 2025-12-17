@@ -9,7 +9,7 @@ import {
   STATE_ACTIONS_TOGGLE_SIDE_PANEL,
   StateActionsActions,
 } from '@state/actions/state-actions.actions';
-import { isMobile, sort, SortDirection, TableSort } from '@openmina/shared';
+import { isMobile, sort, SortDirection, TableSort } from '@mina-rust/shared';
 import { StateActionGroup } from '@shared/types/state/actions/state-action-group.type';
 import { StateActionsStats } from '@shared/types/state/actions/state-actions-stats.type';
 

@@ -13,7 +13,7 @@ import {
   FlameTimeGraphComponent,
   HorizontalMenuComponent,
   HorizontalResizableContainerComponent,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 
 @NgModule({
   declarations: [

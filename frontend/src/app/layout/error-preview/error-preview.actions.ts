@@ -1,4 +1,4 @@
-import { FeatureAction } from '@openmina/shared';
+import { FeatureAction } from '@mina-rust/shared';
 import { MinaError } from '@shared/types/error-preview/mina-error.type';
 
 enum ErrorPreviewActionTypes {

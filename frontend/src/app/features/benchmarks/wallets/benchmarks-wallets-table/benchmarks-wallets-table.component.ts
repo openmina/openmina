@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { BenchmarksWallet } from '@shared/types/benchmarks/wallets/benchmarks-wallet.type';
 import { filter } from 'rxjs';
 import { selectBenchmarksWallets } from '@benchmarks/wallets/benchmarks-wallets.state';
-import { TableColumnList } from '@openmina/shared';
+import { TableColumnList } from '@mina-rust/shared';
 import { MinaTableRustWrapper } from '@shared/base-classes/mina-table-rust-wrapper.class';
 
 @Component({

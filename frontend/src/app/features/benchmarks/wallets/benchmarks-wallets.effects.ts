@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { MinaState, selectMinaState } from '@app/app.setup';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
-import { Effect } from '@openmina/shared';
+import { Effect } from '@mina-rust/shared';
 import { combineLatest, EMPTY, map, switchMap } from 'rxjs';
 import { Store } from '@ngrx/store';
 import {

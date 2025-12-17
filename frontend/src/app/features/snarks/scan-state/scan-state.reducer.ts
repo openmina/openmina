@@ -12,7 +12,7 @@ import {
   SCAN_STATE_TOGGLE_TREE_VIEW,
   ScanStateActions,
 } from '@snarks/scan-state/scan-state.actions';
-import { getLocalStorage, isDesktop } from '@openmina/shared';
+import { getLocalStorage, isDesktop } from '@mina-rust/shared';
 
 const initialState: ScanStateState = {
   block: undefined,

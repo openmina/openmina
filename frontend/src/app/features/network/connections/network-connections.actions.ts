@@ -1,4 +1,4 @@
-import { FeatureAction } from '@openmina/shared';
+import { FeatureAction } from '@mina-rust/shared';
 import { NetworkConnection } from '@shared/types/network/connections/network-connection.type';
 
 enum NetworkConnectionsActionTypes {

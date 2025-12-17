@@ -6,7 +6,7 @@ import {
   OnInit,
 } from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
-import { getMergedRoute, isDesktop, MergedRoute } from '@openmina/shared';
+import { getMergedRoute, isDesktop, MergedRoute } from '@mina-rust/shared';
 import { take, timer } from 'rxjs';
 import { untilDestroyed } from '@ngneat/until-destroy';
 import { BlockProductionWonSlotsActions } from '@block-production/won-slots/block-production-won-slots.actions';

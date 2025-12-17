@@ -3,7 +3,7 @@ import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { BlockProductionWonSlotsActions } from '@block-production/won-slots/block-production-won-slots.actions';
 import { BlockProductionWonSlotsFilters } from '@shared/types/block-production/won-slots/block-production-won-slots-filters.type';
 import { BlockProductionWonSlotsSelectors } from '@block-production/won-slots/block-production-won-slots.state';
-import { isMobile } from '@openmina/shared';
+import { isMobile } from '@mina-rust/shared';
 import { BlockProductionWonSlotsStatus } from '@shared/types/block-production/won-slots/block-production-won-slots-slot.type';
 
 @Component({

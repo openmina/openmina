@@ -50,6 +50,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `vrf` → `mina-vrf`, `cli` → `mina-cli`) for clearer project identity, fix
   [#1902](https://github.com/o1-labs/mina-rust/issues/1902)
   ([#1925](https://github.com/o1-labs/mina-rust/pull/1925))
+- **Frontend**: Renamed `@openmina/shared` to `@mina-rust/shared` and all its references
+  ([#1953](https://github.com/o1-labs/mina-rust/pull/1953)
+- **Frontend**: Renamed `@openmina/shared` to `@mina-rust/shared` and all its references
+  ([#1953](https://github.com/o1-labs/mina-rust/pull/1953)
 - **Repository Structure**: reorganize workspace into `crates/`, `libs/`,
   `vendor/`, and `tools/` directories for clearer separation of concerns
   ([#1910](https://github.com/o1-labs/mina-rust/pull/1910))

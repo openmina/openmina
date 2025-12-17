@@ -1,4 +1,4 @@
-import { toReadableDate } from '@openmina/shared';
+import { toReadableDate } from '@mina-rust/shared';
 import bs58check from 'bs58check';
 
 export function decodeMemo(memo: string): string {

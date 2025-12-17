@@ -6,7 +6,7 @@ import {
   NODES_OVERVIEW_SORT_NODES,
   NodesOverviewActions,
 } from '@nodes/overview/nodes-overview.actions';
-import { sort, SortDirection, TableSort } from '@openmina/shared';
+import { sort, SortDirection, TableSort } from '@mina-rust/shared';
 import {
   NodesOverviewNode,
   NodesOverviewNodeKindType,

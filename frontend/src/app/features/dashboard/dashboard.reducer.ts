@@ -10,7 +10,7 @@ import {
   DashboardPeer,
   DashboardPeerStatus,
 } from '@shared/types/dashboard/dashboard.peer';
-import { sort, SortDirection, TableSort } from '@openmina/shared';
+import { sort, SortDirection, TableSort } from '@mina-rust/shared';
 
 const initialState: DashboardState = {
   peers: [],

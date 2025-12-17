@@ -1,7 +1,7 @@
 import { MinaState } from '@app/app.setup';
 import { NetworkMessage } from '@shared/types/network/messages/network-message.type';
 import { NetworkMessageConnection } from '@shared/types/network/messages/network-messages-connection.type';
-import { TimestampInterval, VirtualScrollActivePage } from '@openmina/shared';
+import { TimestampInterval, VirtualScrollActivePage } from '@mina-rust/shared';
 import { NetworkMessagesFilter } from '@shared/types/network/messages/network-messages-filter.type';
 import { NetworkMessagesDirection } from '@shared/types/network/messages/network-messages-direction.enum';
 import { createSelector, MemoizedSelector } from '@ngrx/store';

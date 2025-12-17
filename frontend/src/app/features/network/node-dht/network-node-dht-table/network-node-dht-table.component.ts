@@ -1,6 +1,10 @@
 import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { MinaTableRustWrapper } from '@shared/base-classes/mina-table-rust-wrapper.class';
-import { getMergedRoute, MergedRoute, TableColumnList } from '@openmina/shared';
+import {
+  getMergedRoute,
+  MergedRoute,
+  TableColumnList,
+} from '@mina-rust/shared';
 import { Router } from '@angular/router';
 import {
   NetworkNodeDhtPeer,

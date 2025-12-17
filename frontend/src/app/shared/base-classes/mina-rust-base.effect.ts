@@ -1,4 +1,4 @@
-import { FeatureAction, MinaBaseEffect } from '@openmina/shared';
+import { FeatureAction, MinaBaseEffect } from '@mina-rust/shared';
 import { MinaState } from '@app/app.setup';
 import { OperatorFunction } from 'rxjs';
 import {

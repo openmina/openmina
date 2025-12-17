@@ -5,7 +5,7 @@ import {
   SortDirection,
   TableSort,
   toReadableDate,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { DashboardSplitsState } from '@network/splits/dashboard-splits.state';
 import {
   DASHBOARD_SPLITS_CLOSE,

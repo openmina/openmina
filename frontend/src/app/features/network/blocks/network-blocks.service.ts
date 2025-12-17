@@ -7,7 +7,7 @@ import {
   ONE_MILLION,
   ONE_THOUSAND,
   toReadableDate,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { ConfigService } from '@core/services/config.service';
 
 @Injectable({

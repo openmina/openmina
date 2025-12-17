@@ -23,7 +23,7 @@ import {
   AppNodeStatus,
 } from '@shared/types/app/app-node-details.type';
 import { untilDestroyed } from '@ngneat/until-destroy';
-import { isBrowser } from '@openmina/shared';
+import { isBrowser } from '@mina-rust/shared';
 
 @Component({
   selector: 'mina-dashboard',

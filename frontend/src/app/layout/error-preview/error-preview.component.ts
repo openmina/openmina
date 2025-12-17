@@ -6,7 +6,7 @@ import {
 } from '@angular/core';
 import { Store } from '@ngrx/store';
 import { MinaState } from '@app/app.setup';
-import { isDesktop, isMobile, ManualDetection } from '@openmina/shared';
+import { isDesktop, isMobile, ManualDetection } from '@mina-rust/shared';
 import { selectErrorPreviewErrors } from '@error-preview/error-preview.state';
 import { filter, take } from 'rxjs';
 import { Overlay, OverlayRef } from '@angular/cdk/overlay';

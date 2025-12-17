@@ -1,4 +1,4 @@
-import { ONE_THOUSAND } from '@openmina/shared';
+import { ONE_THOUSAND } from '@mina-rust/shared';
 
 /**
  * Get the difference between the current time and the given time

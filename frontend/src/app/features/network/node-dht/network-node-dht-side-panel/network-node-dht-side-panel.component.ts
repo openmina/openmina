@@ -12,7 +12,7 @@ import {
   downloadJson,
   ExpandTracking,
   MinaJsonViewerComponent,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { delay, mergeMap, of } from 'rxjs';
 import { Routes } from '@shared/enums/routes.enum';
 import { Router } from '@angular/router';

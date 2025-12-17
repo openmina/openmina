@@ -5,7 +5,7 @@ import {
   OnDestroy,
 } from '@angular/core';
 import { MinaTableRustWrapper } from '@shared/base-classes/mina-table-rust-wrapper.class';
-import { isBrowser, TableColumnList, TooltipPosition } from '@openmina/shared';
+import { isBrowser, TableColumnList, TooltipPosition } from '@mina-rust/shared';
 import { MemoryResource } from '@shared/types/resources/memory/memory-resource.type';
 import { selectMemoryResourcesActiveResource } from '@resources/memory/memory-resources.state';
 import { MemoryResourcesSetActiveResource } from '@resources/memory/memory-resources.actions';

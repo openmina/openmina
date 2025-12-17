@@ -11,7 +11,7 @@ import {
   decodeMemo,
   removeUnicodeEscapes,
 } from '@shared/helpers/transaction.helper';
-import { getLocalStorage, ONE_BILLION } from '@openmina/shared';
+import { getLocalStorage, ONE_BILLION } from '@mina-rust/shared';
 
 @Injectable({
   providedIn: 'root',

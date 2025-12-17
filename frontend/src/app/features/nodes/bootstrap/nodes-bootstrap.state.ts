@@ -1,6 +1,6 @@
 import { createSelector, MemoizedSelector } from '@ngrx/store';
 import { MinaState } from '@app/app.setup';
-import { TableSort } from '@openmina/shared';
+import { TableSort } from '@mina-rust/shared';
 import { NodesBootstrapNode } from '@shared/types/nodes/bootstrap/nodes-bootstrap-node.type';
 import { selectNodesBootstrapState } from '@nodes/nodes.state';
 

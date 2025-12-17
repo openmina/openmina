@@ -1,7 +1,7 @@
 import { createSelector, MemoizedSelector } from '@ngrx/store';
 import { MinaState } from '@app/app.setup';
 import { NodesOverviewNode } from '@shared/types/nodes/dashboard/nodes-overview-node.type';
-import { TableSort } from '@openmina/shared';
+import { TableSort } from '@mina-rust/shared';
 import { selectNodesDashboardState } from '@nodes/nodes.state';
 
 export interface NodesOverviewState {

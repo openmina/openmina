@@ -7,7 +7,7 @@ import {
 } from '@angular/core';
 import { Platform } from '@angular/cdk/platform';
 import { iOSversion, sendSentryEvent } from '@shared/helpers/webnode.helper';
-import { safelyExecuteInBrowser } from '@openmina/shared';
+import { safelyExecuteInBrowser } from '@mina-rust/shared';
 
 const code = [1, 2, 3, 2];
 
