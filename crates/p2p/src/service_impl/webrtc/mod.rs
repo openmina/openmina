@@ -76,7 +76,7 @@ enum PeerCmdInternal {
 }
 
 enum PeerCmdAll {
-    External(PeerCmd),
+    External(Box<PeerCmd>),
     Internal(PeerCmdInternal),
 }
 
@@ -506,7 +506,7 @@ async fn peer_loop(
         let (cmd, _tracker) = tokio::select! {
             cmd = cmd_receiver.recv() => match cmd {
                 None => return,
-                Some(cmd) => (PeerCmdAll::External(cmd.0), Some(cmd.1)),
+                Some(cmd) => (PeerCmdAll::External(Box::new(cmd.0)), Some(cmd.1)),
             },
             cmd = internal_cmd_receiver.recv() => match cmd {
                 None => return,
@@ -514,87 +514,88 @@ async fn peer_loop(
             },
         };
         match cmd {
-            PeerCmdAll::External(
+            PeerCmdAll::External(cmd) => match *cmd {
                 PeerCmd::PeerHttpOfferSend(..)
                 | PeerCmd::AnswerSet(_)
-                | PeerCmd::ConnectionAuthorizationSend(_),
-            ) => {
-                bug_condition!("unexpected peer cmd");
-            }
-            PeerCmdAll::External(PeerCmd::ChannelOpen(id)) => {
-                let chan = pc
-                    .channel_create(RTCChannelConfig {
-                        label: id.name(),
-                        negotiated: Some(id.to_u16()),
-                    })
-                    .await;
-                let internal_cmd_sender = internal_cmd_sender.clone();
-                let fut = async move {
-                    let internal_cmd_sender_clone = internal_cmd_sender.clone();
-                    let result = async move {
-                        let chan = chan?;
-
-                        let (done_tx, mut done_rx) = mpsc::channel::<Result<(), Error>>(1);
-
-                        let done_tx_clone = done_tx.clone();
-                        chan.on_open(move || {
-                            let _ = done_tx_clone.try_send(Ok(()));
-                            std::future::ready(())
-                        });
-
-                        let done_tx_clone = done_tx.clone();
-                        let internal_cmd_sender = internal_cmd_sender_clone.clone();
-                        chan.on_error(move |err| {
-                            if done_tx_clone.try_send(Err(err.into())).is_err() {
-                                let _ =
-                                    internal_cmd_sender.send(PeerCmdInternal::ChannelClosed(id));
-                            }
-                            std::future::ready(())
-                        });
-
-                        let done_tx_clone = done_tx.clone();
-                        let internal_cmd_sender = internal_cmd_sender_clone.clone();
-                        chan.on_close(move || {
-                            if done_tx_clone.try_send(Err(Error::ChannelClosed)).is_err() {
-                                let _ =
-                                    internal_cmd_sender.send(PeerCmdInternal::ChannelClosed(id));
-                            }
-                            std::future::ready(())
-                        });
-
-                        done_rx.recv().await.ok_or(Error::ChannelClosed)??;
-
-                        Ok(chan)
-                    };
-
-                    let _ =
-                        internal_cmd_sender.send(PeerCmdInternal::ChannelOpened(id, result.await));
-                };
-                let mut aborted = aborted.clone();
-                spawn_local(async move {
-                    tokio::select! {
-                        _ = aborted.wait() => {}
-                        _ = fut => {}
-                    }
-                });
-            }
-            PeerCmdAll::External(PeerCmd::ChannelSend(msg_id, msg)) => {
-                let id = msg.channel_id();
-                let err = match channels.get_msg_sender(id) {
-                    Some(msg_sender) => match msg_buf.encode(&msg) {
-                        Ok(encoded) => match msg_sender.send((msg_id, encoded, _tracker)) {
-                            Ok(_) => None,
-                            Err(_) => Some("ChannelMsgMpscSendFailed".to_owned()),
-                        },
-                        Err(err) => Some(err.to_string()),
-                    },
-                    None => Some("ChannelNotOpen".to_owned()),
-                };
-                if let Some(err) = err {
-                    let _ =
-                        event_sender(P2pChannelEvent::Sent(peer_id, id, msg_id, Err(err)).into());
+                | PeerCmd::ConnectionAuthorizationSend(_) => {
+                    bug_condition!("unexpected peer cmd");
                 }
-            }
+                PeerCmd::ChannelOpen(id) => {
+                    let chan = pc
+                        .channel_create(RTCChannelConfig {
+                            label: id.name(),
+                            negotiated: Some(id.to_u16()),
+                        })
+                        .await;
+                    let internal_cmd_sender = internal_cmd_sender.clone();
+                    let fut = async move {
+                        let internal_cmd_sender_clone = internal_cmd_sender.clone();
+                        let result = async move {
+                            let chan = chan?;
+
+                            let (done_tx, mut done_rx) = mpsc::channel::<Result<(), Error>>(1);
+
+                            let done_tx_clone = done_tx.clone();
+                            chan.on_open(move || {
+                                let _ = done_tx_clone.try_send(Ok(()));
+                                std::future::ready(())
+                            });
+
+                            let done_tx_clone = done_tx.clone();
+                            let internal_cmd_sender = internal_cmd_sender_clone.clone();
+                            chan.on_error(move |err| {
+                                if done_tx_clone.try_send(Err(err.into())).is_err() {
+                                    let _ = internal_cmd_sender
+                                        .send(PeerCmdInternal::ChannelClosed(id));
+                                }
+                                std::future::ready(())
+                            });
+
+                            let done_tx_clone = done_tx.clone();
+                            let internal_cmd_sender = internal_cmd_sender_clone.clone();
+                            chan.on_close(move || {
+                                if done_tx_clone.try_send(Err(Error::ChannelClosed)).is_err() {
+                                    let _ = internal_cmd_sender
+                                        .send(PeerCmdInternal::ChannelClosed(id));
+                                }
+                                std::future::ready(())
+                            });
+
+                            done_rx.recv().await.ok_or(Error::ChannelClosed)??;
+
+                            Ok(chan)
+                        };
+
+                        let _ = internal_cmd_sender
+                            .send(PeerCmdInternal::ChannelOpened(id, result.await));
+                    };
+                    let mut aborted = aborted.clone();
+                    spawn_local(async move {
+                        tokio::select! {
+                            _ = aborted.wait() => {}
+                            _ = fut => {}
+                        }
+                    });
+                }
+                PeerCmd::ChannelSend(msg_id, msg) => {
+                    let id = msg.channel_id();
+                    let err = match channels.get_msg_sender(id) {
+                        Some(msg_sender) => match msg_buf.encode(&msg) {
+                            Ok(encoded) => match msg_sender.send((msg_id, encoded, _tracker)) {
+                                Ok(_) => None,
+                                Err(_) => Some("ChannelMsgMpscSendFailed".to_owned()),
+                            },
+                            Err(err) => Some(err.to_string()),
+                        },
+                        None => Some("ChannelNotOpen".to_owned()),
+                    };
+                    if let Some(err) = err {
+                        let _ = event_sender(
+                            P2pChannelEvent::Sent(peer_id, id, msg_id, Err(err)).into(),
+                        );
+                    }
+                }
+            },
             PeerCmdAll::Internal(PeerCmdInternal::ChannelOpened(chan_id, result)) => {
                 let (sender_tx, mut sender_rx) = mpsc::unbounded_channel();
                 let (chan, res) = match result {
