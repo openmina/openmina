@@ -42,11 +42,11 @@ impl P2pPeerState {
                 let Some(peer) = p2p_state.peers.get_mut(&peer_id) else {
                     return Ok(());
                 };
-                peer.status = P2pPeerStatus::Ready(P2pPeerStatusReady::new(
+                peer.status = P2pPeerStatus::Ready(Box::new(P2pPeerStatusReady::new(
                     incoming,
                     meta.time(),
                     &p2p_state.config.enabled_channels,
-                ));
+                )));
 
                 if !peer.is_libp2p {
                     let (dispatcher, state) = state_context.into_dispatcher_and_state();
