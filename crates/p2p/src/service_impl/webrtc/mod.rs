@@ -659,7 +659,7 @@ async fn peer_loop(
                         while !data.is_empty() {
                             let res = match process_msg(chan_id, &mut buf, &mut len, &mut data) {
                                 Ok(None) => continue,
-                                Ok(Some(msg)) => Ok(msg),
+                                Ok(Some(msg)) => Ok(Box::new(msg)),
                                 Err(err) => Err(err),
                             };
                             let _ =

@@ -261,10 +261,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                             store.dispatch(P2pDisconnectionAction::Init { peer_id, reason });
                         }
                         Ok(message) => {
-                            store.dispatch(P2pChannelsMessageReceivedAction {
-                                peer_id,
-                                message: Box::new(message),
-                            });
+                            store.dispatch(P2pChannelsMessageReceivedAction { peer_id, message });
                         }
                     },
                     P2pChannelEvent::Closed(peer_id, chan_id) => {
