@@ -36,6 +36,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Docker compose files**: replace old environment by local in
   docker-compose.block-producer.yml
   ([#1916](https://github.com/o1-labs/mina-rust/pull/1916)
+- **CI**: Remove clippy exceptions for large enum/err variants added
+  as part of the Rust 1.92 upgrade
+  [#1968](https://github.com/o1-labs/mina-rust/pull/1968)
 
 ### Changes
 
