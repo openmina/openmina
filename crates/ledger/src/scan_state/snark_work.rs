@@ -30,6 +30,7 @@ mod tests {
 
     /// External worker input.
     #[derive(Debug, BinProtRead, BinProtWrite)]
+    #[expect(clippy::large_enum_variant, reason = "This enum is only used in tests")]
     pub enum ExternalSnarkWorkerRequest {
         /// Queries worker for readiness, expected reply is `true`.
         AwaitReadiness,
