@@ -26,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Frontend**: Fixed a bug where text was overlapping in the view.
+  ([#1957](https://github.com/o1-labs/mina-rust/pull/1957))
 - **CI**: fix version regex in build verification workflows to accept
   variable-length commit hashes (7+ characters) instead of exactly 7, adapting
   to Git's dynamic abbreviation based on repository size, fix

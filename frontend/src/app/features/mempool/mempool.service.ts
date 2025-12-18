@@ -40,7 +40,7 @@ export class MempoolService {
           const memo = decodeMemo(tx.data[1].payload.common.memo);
           return {
             kind: MempoolTransactionKind.PAYMENT,
-            txHash: tx.hash,
+            txHash: tx.hash?.toString(),
             sender: tx.data[1].payload.common.fee_payer_pk,
             fee: Number(tx.data[1].payload.common.fee),
             amount: Number(tx.data[1].payload.body[1].amount) / ONE_BILLION,
