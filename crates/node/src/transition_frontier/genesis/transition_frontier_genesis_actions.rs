@@ -17,7 +17,7 @@ pub enum TransitionFrontierGenesisAction {
     LedgerLoadInit,
     LedgerLoadPending,
     LedgerLoadSuccess {
-        data: GenesisConfigLoaded,
+        data: Box<GenesisConfigLoaded>,
     },
     Produce,
     ProveInit,

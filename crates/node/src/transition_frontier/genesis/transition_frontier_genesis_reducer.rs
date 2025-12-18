@@ -44,7 +44,7 @@ impl TransitionFrontierGenesisState {
             TransitionFrontierGenesisAction::LedgerLoadSuccess { data } => {
                 *state = Self::LedgerLoadSuccess {
                     time: meta.time(),
-                    data: data.clone(),
+                    data: *data.clone(),
                 };
 
                 // Dispatch

@@ -489,7 +489,9 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
             Event::GenesisLoad(res) => match res {
                 Err(err) => todo!("error while trying to load genesis config/ledger. - {err}"),
                 Ok(data) => {
-                    store.dispatch(TransitionFrontierGenesisAction::LedgerLoadSuccess { data });
+                    store.dispatch(TransitionFrontierGenesisAction::LedgerLoadSuccess {
+                        data: Box::new(data),
+                    });
                 }
             },
         },
