@@ -5,7 +5,7 @@ pub mod spec {
     };
 
     pub enum Work {
-        Transition((Box<Statement<()>>, TransactionWitness)),
+        Transition((Box<Statement<()>>, Box<TransactionWitness>)),
         Merge(Box<(Statement<()>, Box<(LedgerProof, LedgerProof)>)>),
     }
 }
