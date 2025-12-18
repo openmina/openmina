@@ -35,6 +35,8 @@ import {
 import { FormBuilder, FormGroup } from '@angular/forms';
 import { untilDestroyed } from '@ngneat/until-destroy';
 import { NumberInput } from '@angular/cdk/coercion';
+import { AppSelectors } from '@app/app.state';
+import { AppNodeDetails } from '@shared/types/app/app-node-details.type';
 
 @Component({
   selector: 'mina-scan-state-toolbar',
@@ -54,6 +56,7 @@ export class ScanStateToolbarComponent
   openSidePanel: boolean;
   treeView: boolean;
   highlightSnarkPool: boolean;
+  maxBlockHeight: number;
 
   private inputRef: ElementRef<HTMLInputElement>;
   private gotHeightFromForm: boolean;
@@ -76,6 +79,7 @@ export class ScanStateToolbarComponent
     this.listenToSidePanelChange();
     this.listenToTreeViewChange();
     this.listenToHighlightSnarkPoolChange();
+    this.listenToActiveNodeDetailsChanges();
   }
 
   getHeight(height: NumberInput): void {
@@ -195,5 +199,12 @@ export class ScanStateToolbarComponent
 
   toggleHighlightSnarkPool(): void {
     this.dispatch(ScanStateHighlightSnarkPool);
+  }
+
+  private listenToActiveNodeDetailsChanges(): void {
+    this.select(AppSelectors.activeNodeDetails, (details: AppNodeDetails) => {
+      this.maxBlockHeight = details?.blockHeight;
+      this.detect();
+    });
   }
 }
