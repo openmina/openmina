@@ -57,6 +57,10 @@ impl RecordedActionWithMeta<'_> {
         postcard::from_bytes(encoded)
     }
 
+    #[expect(
+        clippy::result_large_err,
+        reason = "The error variant is the same Self which is moved in; shouldn't blow up the stack"
+    )]
     pub fn as_action_with_meta(self) -> Result<ActionWithMeta, Self> {
         if let Some(action) = self.action {
             let action = action.into_owned();
