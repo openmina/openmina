@@ -415,7 +415,7 @@ pub enum P2pPeerStatus {
         time: redux::Timestamp,
     },
 
-    Ready(P2pPeerStatusReady),
+    Ready(Box<P2pPeerStatusReady>),
 }
 
 impl P2pPeerStatus {

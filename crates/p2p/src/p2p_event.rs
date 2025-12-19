@@ -74,7 +74,7 @@ pub enum P2pConnectionEvent {
 pub enum P2pChannelEvent {
     Opened(PeerId, ChannelId, Result<(), String>),
     Sent(PeerId, ChannelId, MsgId, Result<(), String>),
-    Received(PeerId, Result<ChannelMsg, String>),
+    Received(PeerId, Result<Box<ChannelMsg>, String>),
     Closed(PeerId, ChannelId),
 }
 
@@ -155,7 +155,7 @@ impl fmt::Display for P2pChannelEvent {
                     Err(_) => return write!(f, "Err"),
                     Ok(msg) => {
                         write!(f, "{:?}, ", msg.channel_id())?;
-                        msg
+                        msg.as_ref()
                     }
                 };
 

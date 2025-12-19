@@ -1271,7 +1271,7 @@ impl LedgerCtx {
             .view()
             .map(|jobs| {
                 let jobs = jobs.collect::<Vec<JobValueWithIndex<'_>>>();
-                let mut iter = jobs.iter().peekable();
+                let iter = jobs.iter().peekable();
                 let mut res = Vec::with_capacity(jobs.len());
 
                 for job in iter {

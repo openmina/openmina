@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 pub type EventSourceActionWithMeta = redux::ActionWithMeta<EventSourceAction>;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[expect(clippy::large_enum_variant, reason = "This enum wraps super::Event")]
 pub enum EventSourceAction {
     /// Notify state machine that the new events might be received/available,
     /// so trigger processing of those events.

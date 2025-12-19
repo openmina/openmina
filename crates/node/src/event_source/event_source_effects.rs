@@ -261,10 +261,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                             store.dispatch(P2pDisconnectionAction::Init { peer_id, reason });
                         }
                         Ok(message) => {
-                            store.dispatch(P2pChannelsMessageReceivedAction {
-                                peer_id,
-                                message: Box::new(message),
-                            });
+                            store.dispatch(P2pChannelsMessageReceivedAction { peer_id, message });
                         }
                     },
                     P2pChannelEvent::Closed(peer_id, chan_id) => {
@@ -489,7 +486,9 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
             Event::GenesisLoad(res) => match res {
                 Err(err) => todo!("error while trying to load genesis config/ledger. - {err}"),
                 Ok(data) => {
-                    store.dispatch(TransitionFrontierGenesisAction::LedgerLoadSuccess { data });
+                    store.dispatch(TransitionFrontierGenesisAction::LedgerLoadSuccess {
+                        data: Box::new(data),
+                    });
                 }
             },
         },

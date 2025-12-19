@@ -459,6 +459,10 @@ impl State {
 
 #[serde_with::serde_as]
 #[derive(Debug, Clone, Serialize, Deserialize, MallocSizeOf)]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "Doesn't make sense moving redux state onto heap"
+)]
 pub enum P2p {
     Pending(#[ignore_malloc_size_of = "constant"] P2pConfig),
     Ready(P2pState),

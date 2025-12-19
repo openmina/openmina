@@ -9,6 +9,10 @@ use super::{
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "Happy-path variant is the redux state"
+)]
 pub enum P2pChannelsStreamingRpcState {
     Disabled,
     Enabled,
