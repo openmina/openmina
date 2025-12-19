@@ -1,5 +1,5 @@
 use juniper::GraphQLEnum;
-use node::rpc::TransactionStatus;
+use mina_node::rpc::TransactionStatus;
 
 #[derive(Clone, Copy, Debug, GraphQLEnum)]
 #[allow(non_camel_case_types)]

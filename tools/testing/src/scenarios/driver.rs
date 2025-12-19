@@ -5,7 +5,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use node::{
+use mina_node::{
     event_source::Event,
     p2p::{
         connection::outgoing::P2pConnectionOutgoingInitOpts,
@@ -17,9 +17,11 @@ use node::{
     State,
 };
 
-use node::p2p::connection::outgoing::P2pConnectionOutgoingInitLibp2pOpts;
+use mina_node::p2p::connection::outgoing::P2pConnectionOutgoingInitLibp2pOpts;
 
-use node::p2p::{MioEvent, P2pNetworkAuthState, P2pNetworkNoiseState, P2pNetworkNoiseStateInner};
+use mina_node::p2p::{
+    MioEvent, P2pNetworkAuthState, P2pNetworkNoiseState, P2pNetworkNoiseStateInner,
+};
 
 use crate::{cluster::ClusterNodeId, node::RustNodeTestingConfig, scenario::ScenarioStep};
 

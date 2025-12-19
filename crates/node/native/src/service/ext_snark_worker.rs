@@ -17,9 +17,9 @@ use mina_p2p_messages::{
     string::CharString,
 };
 
-use node::core::channels::{mpsc, oneshot};
-use node::event_source::Event;
-use node::external_snark_worker::{
+use mina_node::core::channels::{mpsc, oneshot};
+use mina_node::event_source::Event;
+use mina_node::external_snark_worker::{
     ExternalSnarkWorkerError, ExternalSnarkWorkerEvent, ExternalSnarkWorkerService,
     ExternalSnarkWorkerWorkError, SnarkWorkSpec,
 };
@@ -97,7 +97,7 @@ where
     let mut len_buf = [0; size_of::<u64>()];
     r.read_exact(&mut len_buf).await?;
     let len = u64::from_le_bytes(len_buf);
-    node::core::log::debug!(node::core::log::system_time(); "reading {len} bytes...");
+    mina_node::core::log::debug!(mina_node::core::log::system_time(); "reading {len} bytes...");
 
     let mut buf = Vec::with_capacity(len as usize);
     let mut r = r.take(len);
@@ -105,7 +105,7 @@ where
 
     let mut read = buf.as_slice();
     let result = T::binprot_read(&mut read)?;
-    node::core::log::debug!(node::core::log::system_time(); "succesfully read {len} bytes");
+    mina_node::core::log::debug!(mina_node::core::log::system_time(); "succesfully read {len} bytes");
     Ok(result)
 }
 
@@ -157,7 +157,7 @@ impl ExternalSnarkWorkerRequest {
 }
 
 async fn stderr_reader<R: AsyncRead + Unpin>(r: R) -> Result<(), SnarkerError> {
-    use node::core::log::inner::*;
+    use mina_node::core::log::inner::*;
     #[derive(Debug, serde::Deserialize)]
     struct SnarkerMessage {
         //timestamp: String,
@@ -168,24 +168,24 @@ async fn stderr_reader<R: AsyncRead + Unpin>(r: R) -> Result<(), SnarkerError> {
     let mut buf_reader = BufReader::new(r);
     let mut line = String::new();
     while buf_reader.read_line(&mut line).await? > 0 {
-        let t = node::core::log::system_time();
+        let t = mina_node::core::log::system_time();
         match serde_json::from_str::<SnarkerMessage>(&line) {
             Ok(entry) => match entry.level.parse() {
                 Ok(Level::INFO) => {
-                    node::core::log::info!(t; source = "external snark worker", message = entry.message)
+                    mina_node::core::log::info!(t; source = "external snark worker", message = entry.message)
                 }
                 Ok(Level::WARN) => {
-                    node::core::log::warn!(t; source = "external snark worker", message = entry.message)
+                    mina_node::core::log::warn!(t; source = "external snark worker", message = entry.message)
                 }
                 Ok(Level::ERROR) => {
-                    node::core::log::error!(t; source = "external snark worker", message = entry.message)
+                    mina_node::core::log::error!(t; source = "external snark worker", message = entry.message)
                 }
                 _ => {
-                    node::core::log::warn!(t; source = "external snark worker", message = entry.message)
+                    mina_node::core::log::warn!(t; source = "external snark worker", message = entry.message)
                 }
             },
             Err(_) => {
-                node::core::log::warn!(t; source = "external snark worker", unformatted_message = line);
+                mina_node::core::log::warn!(t; source = "external snark worker", unformatted_message = line);
             }
         }
         line.clear();
@@ -195,7 +195,7 @@ async fn stderr_reader<R: AsyncRead + Unpin>(r: R) -> Result<(), SnarkerError> {
 
 macro_rules! send_event {
     ($channel:expr, $event:expr) => {
-        _ = $channel.send(node::event_source::Event::ExternalSnarkWorker($event));
+        _ = $channel.send(mina_node::event_source::Event::ExternalSnarkWorker($event));
     };
 }
 
@@ -393,7 +393,7 @@ impl ExternalSnarkWorkerService for NodeService {
         &mut self,
         public_key: NonZeroCurvePoint,
         fee: CurrencyFeeStableV1,
-    ) -> Result<(), node::external_snark_worker::ExternalSnarkWorkerError> {
+    ) -> Result<(), mina_node::external_snark_worker::ExternalSnarkWorkerError> {
         if self.common.replayer.is_some() {
             return Ok(());
         }
@@ -406,7 +406,7 @@ impl ExternalSnarkWorkerService for NodeService {
     fn submit(
         &mut self,
         spec: SnarkWorkSpec,
-    ) -> Result<(), node::external_snark_worker::ExternalSnarkWorkerError> {
+    ) -> Result<(), mina_node::external_snark_worker::ExternalSnarkWorkerError> {
         if self.common.replayer.is_some() {
             return Ok(());
         }
@@ -428,7 +428,7 @@ impl ExternalSnarkWorkerService for NodeService {
         Ok(())
     }
 
-    fn kill(&mut self) -> Result<(), node::external_snark_worker::ExternalSnarkWorkerError> {
+    fn kill(&mut self) -> Result<(), mina_node::external_snark_worker::ExternalSnarkWorkerError> {
         if self.common.replayer.is_some() {
             return Ok(());
         }
@@ -449,9 +449,9 @@ mod tests {
         CurrencyFeeStableV1, NonZeroCurvePoint, SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse,
         SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0,
     };
-    use node::core::channels::mpsc;
-    use node::core::log::inner::Level;
-    use node::{
+    use mina_node::core::channels::mpsc;
+    use mina_node::core::log::inner::Level;
+    use mina_node::{
         event_source::Event,
         external_snark_worker::{ExternalSnarkWorkerEvent, SnarkWorkSpec},
     };

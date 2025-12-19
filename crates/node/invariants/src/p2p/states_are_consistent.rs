@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use node::{p2p::PeerId, ActionKind, ActionWithMeta, Service, Store};
+use mina_node::{p2p::PeerId, ActionKind, ActionWithMeta, Service, Store};
 
 use crate::{Invariant, InvariantResult};
 

@@ -1,5 +1,5 @@
 use mina_core::channels::Aborted;
-use node::{core::thread, p2p::service_impl::TaskSpawner};
+use mina_node::{core::thread, p2p::service_impl::TaskSpawner};
 
 #[derive(Clone)]
 pub struct P2pTaskSpawner {

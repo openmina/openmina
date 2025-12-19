@@ -3,13 +3,13 @@ pub use builder::*;
 
 pub type Node = mina_node_common::Node<crate::NodeService>;
 
-use ::node::core::thread;
+use mina_node::core::thread;
 use std::future::Future;
 
 #[derive(Clone)]
 pub struct P2pTaskSpawner {}
 
-impl node::p2p::service_impl::TaskSpawner for P2pTaskSpawner {
+impl mina_node::p2p::service_impl::TaskSpawner for P2pTaskSpawner {
     fn spawn_main<F>(&self, _name: &str, fut: F)
     where
         F: 'static + Send + std::future::Future<Output = ()>,
@@ -25,7 +25,7 @@ impl node::p2p::service_impl::TaskSpawner for P2pTaskSpawner {
 #[derive(Clone)]
 pub struct P2pTaskRemoteSpawner {}
 
-impl node::p2p::service_impl::TaskSpawner for P2pTaskRemoteSpawner {
+impl mina_node::p2p::service_impl::TaskSpawner for P2pTaskRemoteSpawner {
     fn spawn_main<F>(&self, _name: &str, fut: F)
     where
         F: 'static + Send + Future<Output = ()>,

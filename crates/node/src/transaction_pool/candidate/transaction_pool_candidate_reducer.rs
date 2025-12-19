@@ -1,9 +1,11 @@
 #![allow(clippy::unit_arg)]
 
-use crate::{p2p_ready, TransactionPoolAction};
-use p2p::{
-    channels::rpc::{P2pChannelsRpcAction, P2pRpcId, P2pRpcRequest},
-    PeerId,
+use crate::{
+    p2p::{
+        channels::rpc::{P2pChannelsRpcAction, P2pRpcId, P2pRpcRequest},
+        PeerId,
+    },
+    p2p_ready, TransactionPoolAction,
 };
 
 use super::{

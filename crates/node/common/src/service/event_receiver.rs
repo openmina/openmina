@@ -1,4 +1,4 @@
-use node::{core::channels::mpsc, event_source::Event};
+use mina_node::{core::channels::mpsc, event_source::Event};
 
 pub type EventSender = mpsc::UnboundedSender<Event>;
 

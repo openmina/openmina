@@ -1,4 +1,4 @@
-use ::node::{ActionWithMeta, Store};
+use mina_node::{ActionWithMeta, Store};
 use mina_node_invariants::{InvariantIgnoreReason, InvariantResult, Invariants};
 use mina_node_native::NodeService;
 

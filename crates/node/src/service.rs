@@ -19,8 +19,8 @@ pub use crate::{
         sync::ledger::snarked::TransitionFrontierSyncLedgerSnarkedService,
     },
 };
+pub use mina_snark::user_command_verify_effectful::SnarkUserCommandVerifyService;
 pub use redux::TimeService;
-pub use snark::user_command_verify_effectful::SnarkUserCommandVerifyService;
 
 use crate::stats::Stats;
 

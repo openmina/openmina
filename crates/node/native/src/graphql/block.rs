@@ -5,12 +5,12 @@ use crate::graphql::{
 use juniper::{graphql_object, FieldResult, GraphQLEnum, GraphQLObject};
 use ledger::AccountId;
 use mina_core::block::AppliedBlock;
+use mina_node::account::AccountPublicKey;
 use mina_p2p_messages::v2::{
     MinaBaseSignedCommandPayloadBodyStableV2, MinaBaseSignedCommandStableV2,
     MinaBaseStakeDelegationStableV2, TransactionSnarkWorkTStableV2,
 };
 use mina_signer::CompressedPubKey;
-use node::account::AccountPublicKey;
 
 use super::{zkapp::GraphQLZkapp, Context, ConversionError};
 

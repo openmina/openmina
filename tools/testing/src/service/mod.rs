@@ -16,18 +16,7 @@ use ledger::{
     Mask,
 };
 use mina_core::channels::Aborter;
-use mina_node_native::NodeService;
-use mina_p2p_messages::{
-    string::ByteString,
-    v2::{
-        CurrencyFeeStableV1, LedgerHash, LedgerProofProdStableV2, MinaBaseProofStableV2,
-        MinaStateSnarkedLedgerStateWithSokStableV2, NonZeroCurvePoint,
-        ProverExtendBlockchainInputStableV2,
-        SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single, StateHash,
-        TransactionSnarkStableV2, TransactionSnarkWorkTStableV2Proofs,
-    },
-};
-use node::{
+use mina_node::{
     account::AccountPublicKey,
     block_producer::{vrf_evaluator::VrfEvaluatorInput, BlockProducerEvent},
     core::{
@@ -62,6 +51,17 @@ use node::{
     stats::Stats,
     transition_frontier::{archive::archive_service::ArchiveService, genesis::GenesisConfig},
     ActionWithMeta, State,
+};
+use mina_node_native::NodeService;
+use mina_p2p_messages::{
+    string::ByteString,
+    v2::{
+        CurrencyFeeStableV1, LedgerHash, LedgerProofProdStableV2, MinaBaseProofStableV2,
+        MinaStateSnarkedLedgerStateWithSokStableV2, NonZeroCurvePoint,
+        ProverExtendBlockchainInputStableV2,
+        SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single, StateHash,
+        TransactionSnarkStableV2, TransactionSnarkWorkTStableV2Proofs,
+    },
 };
 use redux::Instant;
 
@@ -291,8 +291,8 @@ impl NodeTestingService {
 
 impl redux::Service for NodeTestingService {}
 
-impl node::Service for NodeTestingService {
-    fn queues(&mut self) -> node::service::Queues {
+impl mina_node::Service for NodeTestingService {
+    fn queues(&mut self) -> mina_node::service::Queues {
         self.real.queues()
     }
 
@@ -340,8 +340,8 @@ impl P2pCryptoService for NodeTestingService {
     }
 }
 
-impl node::ledger::LedgerService for NodeTestingService {
-    fn ledger_manager(&self) -> &node::ledger::LedgerManager {
+impl mina_node::ledger::LedgerService for NodeTestingService {
+    fn ledger_manager(&self) -> &mina_node::ledger::LedgerManager {
         self.real.ledger_manager()
     }
 }
@@ -352,7 +352,7 @@ impl redux::TimeService for NodeTestingService {
     }
 }
 
-impl node::event_source::EventSourceService for NodeTestingService {
+impl mina_node::event_source::EventSourceService for NodeTestingService {
     fn next_event(&mut self) -> Option<Event> {
         None
     }
@@ -394,17 +394,17 @@ impl P2pServiceWebrtc for NodeTestingService {
         P2pServiceWebrtc::incoming_init(&mut self.real, peer_id, offer)
     }
 
-    fn encrypt<T: node::p2p::identity::EncryptableType>(
+    fn encrypt<T: mina_node::p2p::identity::EncryptableType>(
         &mut self,
-        other_pk: &node::p2p::identity::PublicKey,
+        other_pk: &mina_node::p2p::identity::PublicKey,
         message: &T,
     ) -> Result<T::Encrypted, Box<dyn std::error::Error>> {
         self.real.encrypt(other_pk, message)
     }
 
-    fn decrypt<T: node::p2p::identity::EncryptableType>(
+    fn decrypt<T: mina_node::p2p::identity::EncryptableType>(
         &mut self,
-        other_pub_key: &node::p2p::identity::PublicKey,
+        other_pub_key: &mina_node::p2p::identity::PublicKey,
         encrypted: &T::Encrypted,
     ) -> Result<T, Box<dyn std::error::Error>> {
         self.real.decrypt(other_pub_key, encrypted)
@@ -413,7 +413,7 @@ impl P2pServiceWebrtc for NodeTestingService {
     fn auth_encrypt_and_send(
         &mut self,
         peer_id: PeerId,
-        other_pub_key: &node::p2p::identity::PublicKey,
+        other_pub_key: &mina_node::p2p::identity::PublicKey,
         auth: webrtc::ConnectionAuth,
     ) {
         self.real
@@ -422,7 +422,7 @@ impl P2pServiceWebrtc for NodeTestingService {
 
     fn auth_decrypt(
         &mut self,
-        other_pub_key: &node::p2p::identity::PublicKey,
+        other_pub_key: &mina_node::p2p::identity::PublicKey,
         auth: webrtc::ConnectionAuthEncrypted,
     ) -> Option<webrtc::ConnectionAuth> {
         self.real.auth_decrypt(other_pub_key, auth)
@@ -431,7 +431,7 @@ impl P2pServiceWebrtc for NodeTestingService {
 
 impl P2pServiceWebrtcWithLibp2p for NodeTestingService {
     #[cfg(feature = "p2p-libp2p")]
-    fn mio(&mut self) -> &mut node::p2p::service_impl::mio::MioService {
+    fn mio(&mut self) -> &mut mina_node::p2p::service_impl::mio::MioService {
         self.real.mio()
     }
 
@@ -607,7 +607,7 @@ impl BlockProducerService for NodeTestingService {
 
     fn with_producer_keypair<T>(
         &self,
-        _f: impl FnOnce(&node::account::AccountSecretKey) -> T,
+        _f: impl FnOnce(&mina_node::account::AccountSecretKey) -> T,
     ) -> Option<T> {
         None
     }
@@ -619,12 +619,15 @@ impl ExternalSnarkWorkerService for NodeTestingService {
         public_key: NonZeroCurvePoint,
         fee: CurrencyFeeStableV1,
         _: TransactionVerifier,
-    ) -> Result<(), node::external_snark_worker::ExternalSnarkWorkerError> {
+    ) -> Result<(), mina_node::external_snark_worker::ExternalSnarkWorkerError> {
         let pub_key = AccountPublicKey::from(public_key);
         let sok_message = SokMessage::create(
             (&fee).into(),
             pub_key.try_into().map_err(|e| {
-                node::external_snark_worker::ExternalSnarkWorkerError::Error(format!("{:?}", e))
+                mina_node::external_snark_worker::ExternalSnarkWorkerError::Error(format!(
+                    "{:?}",
+                    e
+                ))
             })?,
         );
         self.set_snarker_sok_digest((&sok_message.digest()).into());
@@ -639,7 +642,7 @@ impl ExternalSnarkWorkerService for NodeTestingService {
     fn submit(
         &mut self,
         spec: SnarkWorkSpec,
-    ) -> Result<(), node::external_snark_worker::ExternalSnarkWorkerError> {
+    ) -> Result<(), mina_node::external_snark_worker::ExternalSnarkWorkerError> {
         let sok_digest = self.snarker_sok_digest.clone().unwrap();
         let make_dummy_proof = |spec| {
             let statement = match spec {
@@ -675,7 +678,7 @@ impl ExternalSnarkWorkerService for NodeTestingService {
         // self.real.submit(spec)
     }
 
-    fn cancel(&mut self) -> Result<(), node::external_snark_worker::ExternalSnarkWorkerError> {
+    fn cancel(&mut self) -> Result<(), mina_node::external_snark_worker::ExternalSnarkWorkerError> {
         let _ = self
             .real
             .event_sender()
@@ -684,7 +687,7 @@ impl ExternalSnarkWorkerService for NodeTestingService {
         // self.real.cancel()
     }
 
-    fn kill(&mut self) -> Result<(), node::external_snark_worker::ExternalSnarkWorkerError> {
+    fn kill(&mut self) -> Result<(), mina_node::external_snark_worker::ExternalSnarkWorkerError> {
         let _ = self
             .real
             .event_sender()
@@ -694,7 +697,7 @@ impl ExternalSnarkWorkerService for NodeTestingService {
     }
 }
 
-impl node::core::invariants::InvariantService for NodeTestingService {
+impl mina_node::core::invariants::InvariantService for NodeTestingService {
     type ClusterInvariantsState<'a> = std::sync::MutexGuard<'a, InvariantsState>;
 
     fn node_id(&self) -> usize {
@@ -702,7 +705,7 @@ impl node::core::invariants::InvariantService for NodeTestingService {
     }
 
     fn invariants_state(&mut self) -> &mut InvariantsState {
-        node::core::invariants::InvariantService::invariants_state(&mut self.real)
+        mina_node::core::invariants::InvariantService::invariants_state(&mut self.real)
     }
 
     fn cluster_invariants_state<'a>(&'a mut self) -> Option<Self::ClusterInvariantsState<'a>>

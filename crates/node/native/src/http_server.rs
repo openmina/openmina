@@ -9,7 +9,7 @@ use warp::{
     Filter, Rejection, Reply,
 };
 
-use node::{core::snark::SnarkJobId, rpc::*};
+use mina_node::{core::snark::SnarkJobId, rpc::*};
 
 use mina_node_common::rpc::{
     RpcActionStatsGetResponse, RpcSender, RpcSnarkPoolGetResponse, RpcSnarkerJobCommitResponse,
@@ -28,11 +28,11 @@ macro_rules! compose_route {
 pub async fn run(port: u16, rpc_sender: RpcSender) {
     let build_env_get = warp::path!("build_env")
         .and(warp::get())
-        .then(move || async { with_json_reply(&node::BuildEnv::get(), StatusCode::OK) });
+        .then(move || async { with_json_reply(&mina_node::BuildEnv::get(), StatusCode::OK) });
 
     #[cfg(feature = "p2p-webrtc")]
     let signaling = {
-        use node::p2p::{
+        use mina_node::p2p::{
             connection::{
                 incoming::{IncomingSignalingMethod, P2pConnectionIncomingInitOpts},
                 P2pConnectionResponse,
@@ -476,7 +476,7 @@ pub async fn run(port: u16, rpc_sender: RpcSender) {
                     .await
                     .map_or_else(
                         dropped_channel_response,
-                        |reply: node::rpc::RpcSnarkerConfigGetResponse| {
+                        |reply: mina_node::rpc::RpcSnarkerConfigGetResponse| {
                             with_json_reply(&reply, StatusCode::OK)
                         },
                     )
@@ -512,7 +512,7 @@ pub async fn run(port: u16, rpc_sender: RpcSender) {
                 .await
                 .map_or_else(
                     dropped_channel_response,
-                    |reply: node::rpc::RpcLedgerSlimAccountsResponse| {
+                    |reply: mina_node::rpc::RpcLedgerSlimAccountsResponse| {
                         with_json_reply(&reply, StatusCode::OK)
                     },
                 )
@@ -539,7 +539,7 @@ pub async fn run(port: u16, rpc_sender: RpcSender) {
                     ),
                     Ok(res) => res.map_or_else(
                         dropped_channel_response,
-                        |reply: node::rpc::RpcTransactionInjectResponse| {
+                        |reply: mina_node::rpc::RpcTransactionInjectResponse| {
                             with_json_reply(&reply, StatusCode::OK)
                         },
                     ),
@@ -628,7 +628,7 @@ fn healthcheck(
                             StatusCode::INTERNAL_SERVER_ERROR,
                         )
                     },
-                    |reply: node::rpc::RpcHealthCheckResponse| match reply {
+                    |reply: mina_node::rpc::RpcHealthCheckResponse| match reply {
                         Ok(()) => with_status(String::new(), StatusCode::OK),
                         Err(err) => with_status(err, StatusCode::SERVICE_UNAVAILABLE),
                     },
@@ -653,7 +653,7 @@ fn readiness(
                             StatusCode::INTERNAL_SERVER_ERROR,
                         )
                     },
-                    |reply: node::rpc::RpcReadinessCheckResponse| match reply {
+                    |reply: mina_node::rpc::RpcReadinessCheckResponse| match reply {
                         Ok(()) => with_status(String::new(), StatusCode::OK),
                         Err(err) => with_status(err, StatusCode::SERVICE_UNAVAILABLE),
                     },
@@ -663,10 +663,10 @@ fn readiness(
 }
 
 mod discovery {
-    use mina_node_common::rpc::RpcSender;
-    use node::rpc::{
+    use mina_node::rpc::{
         RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse, RpcRequest,
     };
+    use mina_node_common::rpc::RpcSender;
     use warp::Filter;
 
     use super::{with_rpc_sender, DroppedChannel};

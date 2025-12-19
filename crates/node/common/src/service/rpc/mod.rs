@@ -24,10 +24,10 @@
 //!
 //! To add a new RPC endpoint, follow these steps:
 //!
-//! 1. **Define the request type** in [`node::rpc`]:
+//! 1. **Define the request type** in [`mina_node::rpc`]:
 //!    Add a variant to `RpcRequest` enum in `node/src/rpc/mod.rs`
 //!
-//! 2. **Define the response type** in [`node::rpc`]:
+//! 2. **Define the response type** in [`mina_node::rpc`]:
 //!    Create a type alias like `pub type RpcMyNewResponse = ...;`
 //!
 //! 3. **Add the respond method** to `RpcService` trait in
@@ -68,7 +68,7 @@ pub mod stats;
 pub mod transaction_pool;
 pub mod transition_frontier;
 
-use node::rpc::{
+use mina_node::rpc::{
     RpcBestChainResponse, RpcBlockProducerStatsGetResponse, RpcConsensusConstantsGetResponse,
     RpcConsensusTimeGetResponse, RpcDiscoveryBoostrapStatsResponse,
     RpcDiscoveryRoutingTableResponse, RpcGenesisBlockResponse, RpcGetBlockResponse,
@@ -82,7 +82,7 @@ use node::rpc::{
 };
 use serde::{Deserialize, Serialize};
 
-use node::{
+use mina_node::{
     core::{
         channels::{mpsc, oneshot},
         requests::PendingRequests,
@@ -92,7 +92,7 @@ use node::{
     rpc::RpcSnarkPoolJobGetResponse,
     State,
 };
-pub use node::{
+pub use mina_node::{
     rpc::{
         ActionStatsResponse, RpcActionStatsGetResponse, RpcId, RpcIdType,
         RpcP2pConnectionOutgoingResponse, RpcScanStateSummaryGetResponse, RpcSnarkPoolGetResponse,
@@ -248,7 +248,7 @@ fn optimize_filtered_state(
     Ok((value, filter))
 }
 
-impl node::rpc_effectful::RpcService for NodeService {
+impl mina_node::rpc_effectful::RpcService for NodeService {
     fn respond_state_get(
         &mut self,
         rpc_id: RpcId,
@@ -351,15 +351,15 @@ impl node::rpc_effectful::RpcService for NodeService {
     rpc_service_impl!(respond_snarker_job_commit, RpcSnarkerJobCommitResponse);
     rpc_service_impl!(
         respond_snarker_job_spec,
-        node::rpc::RpcSnarkerJobSpecResponse
+        mina_node::rpc::RpcSnarkerJobSpecResponse
     );
     rpc_service_impl!(
         respond_snarker_workers,
-        node::rpc::RpcSnarkerWorkersResponse
+        mina_node::rpc::RpcSnarkerWorkersResponse
     );
     rpc_service_impl!(
         respond_snarker_config_get,
-        node::rpc::RpcSnarkerConfigGetResponse
+        mina_node::rpc::RpcSnarkerConfigGetResponse
     );
     rpc_service_impl!(respond_health_check, RpcHealthCheckResponse);
     rpc_service_impl!(respond_readiness_check, RpcReadinessCheckResponse);

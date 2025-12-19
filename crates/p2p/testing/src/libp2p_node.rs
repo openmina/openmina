@@ -6,8 +6,8 @@ use libp2p::{
     Transport,
 };
 use mina_core::ChainId;
+use mina_p2p::PeerId;
 use mina_p2p_messages::rpc_kernel::RpcTag;
-use p2p::PeerId;
 
 use libp2p_rpc_behaviour::StreamId;
 
@@ -88,7 +88,7 @@ pub struct Libp2pBehaviour {
 }
 
 pub(crate) fn create_swarm(
-    secret_key: p2p::identity::SecretKey,
+    secret_key: mina_p2p::identity::SecretKey,
     port: u16,
     port_reuse: bool,
     chain_id: &ChainId,

@@ -7,7 +7,7 @@ use crate::{
     scenarios::{get_peers_iter, ClusterRunner, RunCfg, PEERS_QUERY},
 };
 use anyhow::Context;
-use node::{
+use mina_node::{
     p2p::{identify::P2pIdentifyAction, peer::P2pPeerAction, PeerId},
     ActionKind, P2pAction,
 };
@@ -297,7 +297,7 @@ pub async fn wait_for_identify(
                     id == node_id
                         && matches!(
                             action.action(),
-                            node::Action::P2p(P2pAction::Identify(P2pIdentifyAction::UpdatePeerInformation {
+                            mina_node::Action::P2p(P2pAction::Identify(P2pIdentifyAction::UpdatePeerInformation {
                                 peer_id,
                                 info,
                                 ..
@@ -324,7 +324,7 @@ async fn wait_for_ready_connection(
                     id == node_id
                         && matches!(
                             action.action(),
-                            &node::Action::P2p(P2pAction::Peer(P2pPeerAction::Ready {
+                            &mina_node::Action::P2p(P2pAction::Peer(P2pPeerAction::Ready {
                                 peer_id,
                                 incoming
                             })) if peer_id == connecting_peer_id && incoming == incoming_

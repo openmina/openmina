@@ -1,5 +1,5 @@
-pub use ::p2p::network::*;
-use p2p::network::identify::{P2pNetworkIdentifyAction, P2pNetworkIdentifyStreamAction};
+use mina_p2p::network::identify::{P2pNetworkIdentifyAction, P2pNetworkIdentifyStreamAction};
+pub use mina_p2p::network::*;
 
 impl redux::EnablingCondition<crate::State> for P2pNetworkSchedulerAction {
     fn is_enabled(&self, state: &crate::State, time: redux::Timestamp) -> bool {

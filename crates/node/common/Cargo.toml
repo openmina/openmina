@@ -13,9 +13,10 @@ bitflags = { workspace = true }
 jsonpath-rust = { workspace = true }
 ledger = { workspace = true }
 mina-core = { workspace = true }
+mina-node = { workspace = true, features = ["replay"] }
 mina-p2p-messages = { workspace = true }
 mina-signer = { workspace = true }
-node = { workspace = true, features = ["replay"] }
+mina-vrf = { workspace = true }
 rand = { workspace = true }
 rayon = { workspace = true }
 rsa = { workspace = true }
@@ -25,7 +26,6 @@ sha3 = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["time", "macros"] }
 tracing = { workspace = true }
-vrf = { workspace = true }
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 redux = { workspace = true }
@@ -50,5 +50,5 @@ google-cloud-auth = { workspace = true }
 [features]
 # won't compile without this on
 default = ["p2p-webrtc"]
-p2p-webrtc = ["node/p2p-webrtc"]
-p2p-libp2p = ["node/p2p-libp2p"]
+p2p-webrtc = ["mina-node/p2p-webrtc"]
+p2p-libp2p = ["mina-node/p2p-libp2p"]

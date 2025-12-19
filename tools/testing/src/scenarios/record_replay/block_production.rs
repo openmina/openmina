@@ -1,8 +1,8 @@
 use std::time::Duration;
 
+use mina_node::transition_frontier::genesis::{GenesisConfig, NonStakers};
 use mina_node_native::replay_state_with_input_actions;
 use mina_p2p_messages::v2;
-use node::transition_frontier::genesis::{GenesisConfig, NonStakers};
 
 use crate::{
     node::Recorder,
@@ -42,7 +42,7 @@ impl RecordReplayBlockProduction {
         simulator.setup_and_run(&mut runner).await;
 
         // flush the recorded data.
-        node::recorder::Recorder::graceful_shutdown();
+        mina_node::recorder::Recorder::graceful_shutdown();
 
         for (id, node) in runner.nodes_iter() {
             let recording_dir = node.work_dir().child("recorder");

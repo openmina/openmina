@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use node::p2p::PeerId;
+use mina_node::p2p::PeerId;
 
 use crate::{
     cluster::ClusterOcamlNodeId,

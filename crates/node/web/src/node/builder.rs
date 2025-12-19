@@ -1,9 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use ledger::proofs::provers::BlockProver;
-use mina_node_common::{p2p::TaskSpawner, NodeServiceCommonBuilder};
-use mina_p2p_messages::v2::{self, NonZeroCurvePoint};
-use node::{
+use mina_node::{
     account::AccountSecretKey,
     core::{consensus::ConsensusConstants, constants::constraint_constants},
     p2p::{
@@ -15,6 +13,8 @@ use node::{
     BlockProducerConfig, GlobalConfig, LedgerConfig, P2pConfig, SnarkConfig, SnarkerConfig,
     SnarkerStrategy, TransitionFrontierConfig,
 };
+use mina_node_common::{p2p::TaskSpawner, NodeServiceCommonBuilder};
+use mina_p2p_messages::v2::{self, NonZeroCurvePoint};
 use rand::Rng;
 
 use super::{Node, P2pTaskSpawner};
@@ -222,9 +222,9 @@ impl NodeBuilder {
             ConsensusConstants::create(constraint_constants(), &protocol_constants);
 
         // build config
-        let node_config = node::Config {
+        let node_config = mina_node::Config {
             global: GlobalConfig {
-                build: node::BuildEnv::get().into(),
+                build: mina_node::BuildEnv::get().into(),
                 snarker: self.snarker,
                 consensus_constants: consensus_consts.clone(),
                 testing_run: false,
@@ -256,8 +256,8 @@ impl NodeBuilder {
             block_producer: self.block_producer,
             tx_pool: ledger::transaction_pool::Config {
                 trust_system: (),
-                pool_max_size: node::daemon_json::Daemon::DEFAULT.tx_pool_max_size(),
-                slot_tx_end: node::daemon_json::Daemon::DEFAULT.slot_tx_end(),
+                pool_max_size: mina_node::daemon_json::Daemon::DEFAULT.tx_pool_max_size(),
+                slot_tx_end: mina_node::daemon_json::Daemon::DEFAULT.slot_tx_end(),
             },
             archive: None,
         };
@@ -275,7 +275,7 @@ impl NodeBuilder {
         let initial_time = self
             .custom_initial_time
             .unwrap_or_else(redux::Timestamp::global_now);
-        let state = node::State::new(node_config, &consensus_consts, initial_time);
+        let state = mina_node::State::new(node_config, &consensus_consts, initial_time);
 
         Ok(Node::new(self.rng_seed, state, service, None))
     }

@@ -17,17 +17,17 @@ js-sys = { workspace = true }
 jsonpath-rust = { workspace = true }
 ledger = { workspace = true }
 libp2p-identity = { workspace = true, features = ["peerid"] }
+mina-node = { workspace = true }
 mina-node-common = { workspace = true }
 mina-p2p-messages = { workspace = true }
 mina-signer = { workspace = true }
-node = { workspace = true }
+mina-vrf = { workspace = true }
 rand = { workspace = true }
 rayon = { workspace = true }
 redux = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
-vrf = { workspace = true }
 wasm-bindgen = { workspace = true }
 wasm-bindgen-futures = { workspace = true }
 

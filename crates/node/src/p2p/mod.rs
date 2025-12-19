@@ -1,5 +1,5 @@
-pub use ::p2p::*;
-use p2p::{
+pub use mina_p2p::*;
+use mina_p2p::{
     channels::P2pChannelsEffectfulAction,
     network::identify::stream_effectful::P2pNetworkIdentifyStreamEffectfulAction,
 };
@@ -109,26 +109,26 @@ impl_into_global_action!(channels::snark_job_commitment::P2pChannelsSnarkJobComm
 impl_into_global_action!(channels::rpc::P2pChannelsRpcAction);
 impl_into_global_action!(channels::streaming_rpc::P2pChannelsStreamingRpcAction);
 
-impl_into_global_action!(p2p::P2pNetworkKademliaStreamAction);
-impl_into_global_action!(p2p::P2pNetworkKadRequestAction);
-impl_into_global_action!(p2p::P2pNetworkKadBootstrapAction);
-impl_into_global_action!(p2p::P2pNetworkYamuxAction);
-impl_into_global_action!(p2p::peer::P2pPeerAction);
-impl_into_global_action!(p2p::network::identify::stream::P2pNetworkIdentifyStreamAction);
-impl_into_global_action!(p2p::identify::P2pIdentifyAction);
-impl_into_global_action!(p2p::P2pNetworkSelectAction);
-impl_into_global_action!(p2p::P2pNetworkPnetAction);
-impl_into_global_action!(p2p::P2pNetworkNoiseAction);
-impl_into_global_action!(p2p::P2pNetworkRpcAction);
+impl_into_global_action!(mina_p2p::P2pNetworkKademliaStreamAction);
+impl_into_global_action!(mina_p2p::P2pNetworkKadRequestAction);
+impl_into_global_action!(mina_p2p::P2pNetworkKadBootstrapAction);
+impl_into_global_action!(mina_p2p::P2pNetworkYamuxAction);
+impl_into_global_action!(mina_p2p::peer::P2pPeerAction);
+impl_into_global_action!(mina_p2p::network::identify::stream::P2pNetworkIdentifyStreamAction);
+impl_into_global_action!(mina_p2p::identify::P2pIdentifyAction);
+impl_into_global_action!(mina_p2p::P2pNetworkSelectAction);
+impl_into_global_action!(mina_p2p::P2pNetworkPnetAction);
+impl_into_global_action!(mina_p2p::P2pNetworkNoiseAction);
+impl_into_global_action!(mina_p2p::P2pNetworkRpcAction);
 
 impl_into_global_action!(effectful network::kad_effectful::P2pNetworkKadEffectfulAction);
-impl_into_global_action!(effectful p2p::P2pNetworkSchedulerEffectfulAction);
-impl_into_global_action!(effectful p2p::P2pNetworkPnetEffectfulAction);
+impl_into_global_action!(effectful mina_p2p::P2pNetworkSchedulerEffectfulAction);
+impl_into_global_action!(effectful mina_p2p::P2pNetworkPnetEffectfulAction);
 impl_into_global_action!(effectful connection::incoming_effectful::P2pConnectionIncomingEffectfulAction);
 impl_into_global_action!(effectful connection::outgoing_effectful::P2pConnectionOutgoingEffectfulAction);
-impl_into_global_action!(effectful p2p::disconnection_effectful::P2pDisconnectionEffectfulAction);
+impl_into_global_action!(effectful mina_p2p::disconnection_effectful::P2pDisconnectionEffectfulAction);
 impl_into_global_action!(effectful network::pubsub::P2pNetworkPubsubEffectfulAction);
 impl_into_global_action!(effectful P2pNetworkIdentifyStreamEffectfulAction);
 impl_into_global_action!(effectful P2pChannelsEffectfulAction);
 
-impl p2p::P2pActionTrait<crate::State> for crate::Action {}
+impl mina_p2p::P2pActionTrait<crate::State> for crate::Action {}

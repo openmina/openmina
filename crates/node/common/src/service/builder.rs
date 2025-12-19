@@ -1,5 +1,5 @@
 use ledger::proofs::provers::BlockProver;
-use node::{
+use mina_node::{
     account::AccountSecretKey,
     core::channels::mpsc,
     ledger::{LedgerCtx, LedgerManager},

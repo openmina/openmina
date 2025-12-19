@@ -1,8 +1,8 @@
-use mina_p2p_messages::v2::{self};
-use node::{
+use mina_node::{
     core::{channels::mpsc, thread},
     ledger::write::BlockApplyResult,
 };
+use mina_p2p_messages::v2::{self};
 use std::{env, io::Write};
 
 use mina_core::NetworkConfig;
@@ -99,7 +99,7 @@ impl ArchiveServiceClients {
             if let Some(socket_addr) = self.archiver_address {
                 Self::handle_archiver_process(&breadcrumb, &socket_addr).await;
             } else {
-                node::core::warn!(summary = "Archiver address not set");
+                mina_node::core::warn!(summary = "Archiver address not set");
             }
         }
 
@@ -110,7 +110,7 @@ impl ArchiveServiceClients {
 
             let key = format!("{network_name}-{height}-{state_hash}.json");
 
-            node::core::info!(
+            mina_node::core::info!(
                 summary = "Uploading precomputed block to archive",
                 key = key.clone()
             );
@@ -118,7 +118,7 @@ impl ArchiveServiceClients {
             let precomputed_block: PrecomputedBlock = match breadcrumb.try_into() {
                 Ok(block) => block,
                 Err(_) => {
-                    node::core::warn!(
+                    mina_node::core::warn!(
                         summary = "Failed to convert breadcrumb to precomputed block"
                     );
                     return;
@@ -128,7 +128,7 @@ impl ArchiveServiceClients {
             let data = match serde_json::to_vec(&precomputed_block) {
                 Ok(data) => data,
                 Err(e) => {
-                    node::core::warn!(
+                    mina_node::core::warn!(
                         summary = "Failed to serialize precomputed block",
                         error = e.to_string()
                     );
@@ -140,43 +140,43 @@ impl ArchiveServiceClients {
                 if let Some(path) = &self.local_path {
                     let key_clone = key.clone();
                     match write_to_local_storage(path, &key, &data) {
-                        Ok(_) => node::core::info!(
+                        Ok(_) => mina_node::core::info!(
                             summary = "Successfully wrote precomputed block to local storage",
                             key = key_clone
                         ),
-                        Err(e) => node::core::warn!(
+                        Err(e) => mina_node::core::warn!(
                             summary = "Failed to write precomputed block to local storage",
                             key = key_clone,
                             error = e.to_string()
                         ),
                     }
                 } else {
-                    node::core::warn!(summary = "Local precomputed storage path not set");
+                    mina_node::core::warn!(summary = "Local precomputed storage path not set");
                 }
             }
 
             if options.uses_gcp_precomputed_storage() {
                 if let Some(client) = &self.gcp_client {
                     if let Err(e) = client.upload_block(&key, &data).await {
-                        node::core::warn!(
+                        mina_node::core::warn!(
                             summary = "Failed to upload precomputed block to GCP",
                             error = e.to_string()
                         );
                     }
                 } else {
-                    node::core::warn!(summary = "GCP client not initialized");
+                    mina_node::core::warn!(summary = "GCP client not initialized");
                 }
             }
             if options.uses_aws_precomputed_storage() {
                 if let Some(client) = &self.aws_client {
                     if let Err(e) = client.upload_block(&key, &data).await {
-                        node::core::warn!(
+                        mina_node::core::warn!(
                             summary = "Failed to upload precomputed block to AWS",
                             error = e.to_string()
                         );
                     }
                 } else {
-                    node::core::warn!(summary = "AWS client not initialized");
+                    mina_node::core::warn!(summary = "AWS client not initialized");
                 }
             }
         }
@@ -194,15 +194,15 @@ impl ArchiveServiceClients {
                 v2::ArchiveRpc::SendDiff(archive_transition_frontier_diff.clone()),
             ) {
                 Ok(result) if result.should_retry() => {
-                    node::core::warn!(summary = "Archive closed connection, retrying...");
+                    mina_node::core::warn!(summary = "Archive closed connection, retrying...");
                     tokio::time::sleep(tokio::time::Duration::from_millis(RETRY_INTERVAL_MS)).await;
                 }
                 Ok(_) => {
-                    node::core::info!(summary = "Successfully sent diff to archive");
+                    mina_node::core::info!(summary = "Successfully sent diff to archive");
                     return;
                 }
                 Err(e) => {
-                    node::core::warn!(
+                    mina_node::core::warn!(
                         summary = "Failed sending diff to archive",
                         error = e.to_string(),
                         retries = retries
@@ -229,7 +229,7 @@ impl ArchiveService {
         let clients = match ArchiveServiceClients::new(&options, work_dir).await {
             Ok(clients) => clients,
             Err(e) => {
-                node::core::error!(
+                mina_node::core::error!(
                     summary = "Failed to initialize archive service clients",
                     error = e.to_string()
                 );
@@ -298,11 +298,11 @@ impl ArchiveService {
     }
 }
 
-impl node::transition_frontier::archive::archive_service::ArchiveService for NodeService {
+impl mina_node::transition_frontier::archive::archive_service::ArchiveService for NodeService {
     fn send_to_archive(&mut self, data: BlockApplyResult) {
         if let Some(archive) = self.archive.as_mut() {
             if let Err(e) = archive.archive_sender.send(data) {
-                node::core::warn!(
+                mina_node::core::warn!(
                     summary = "Failed sending diff to archive service",
                     error = e.to_string()
                 );

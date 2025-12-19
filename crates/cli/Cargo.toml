@@ -1,5 +1,5 @@
 [package]
-name = "cli"
+name = "mina-cli"
 version = "0.18.1"
 edition = "2021"
 license = "Apache-2.0"
@@ -19,12 +19,14 @@ hex = { workspace = true }
 ledger = { workspace = true }
 libp2p-identity = { workspace = true, features = ["peerid"] }
 mina-core = { path = "../core" }
+mina-node = { workspace = true, features = ["replay"] }
 mina-node-account = { workspace = true }
 mina-node-native = { path = "../node/native" }
 mina-p2p-messages = { workspace = true }
 mina-signer = { workspace = true }
+mina-snark = { workspace = true }
+mina-vrf = { workspace = true }
 nix = { workspace = true, features = ["signal"] }
-node = { path = "../node", features = ["replay"] }
 num_cpus = { workspace = true }
 rand = { workspace = true }
 rayon = { workspace = true }
@@ -37,7 +39,6 @@ shellexpand = { workspace = true }
 time = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
-vrf = { workspace = true }
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 redux = { workspace = true, features = ["serializable_callbacks"] }
@@ -51,4 +52,4 @@ default = ["p2p-libp2p", "p2p-webrtc"]
 unsafe-signal-handlers = []
 p2p-libp2p = ["mina-node-native/p2p-libp2p"]
 p2p-webrtc = ["mina-node-native/p2p-webrtc"]
-fuzzing = ["node/fuzzing", "mina-core/fuzzing"]
+fuzzing = ["mina-node/fuzzing", "mina-core/fuzzing"]

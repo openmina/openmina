@@ -1,4 +1,4 @@
-use p2p::channels::{
+use crate::p2p::channels::{
     signaling::{
         discovery::P2pChannelsSignalingDiscoveryAction,
         exchange::P2pChannelsSignalingExchangeAction,
@@ -7,7 +7,7 @@ use p2p::channels::{
     streaming_rpc::P2pChannelsStreamingRpcAction,
     transaction::P2pChannelsTransactionAction,
 };
-use snark::user_command_verify::{SnarkUserCommandVerifyAction, SnarkUserCommandVerifyError};
+use mina_snark::user_command_verify::{SnarkUserCommandVerifyAction, SnarkUserCommandVerifyError};
 
 #[cfg(feature = "p2p-libp2p")]
 use crate::p2p::{MioEvent, P2pNetworkSchedulerAction};
@@ -114,12 +114,12 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         if let Err(e) = result {
                             store.dispatch(P2pNetworkSchedulerAction::Error {
                                 addr,
-                                error: p2p::P2pNetworkConnectionError::MioError(e),
+                                error: crate::p2p::P2pNetworkConnectionError::MioError(e),
                             });
                         } else {
                             store.dispatch(P2pNetworkSchedulerAction::Error {
                                 addr,
-                                error: p2p::P2pNetworkConnectionError::RemoteClosed,
+                                error: crate::p2p::P2pNetworkConnectionError::RemoteClosed,
                             });
                         }
                     }

@@ -1,5 +1,5 @@
 use mina_core::bug_condition;
-use vrf::VrfEvaluationOutput;
+use mina_vrf::VrfEvaluationOutput;
 
 use crate::{
     block_producer::to_epoch_and_slot,
@@ -41,7 +41,7 @@ impl BlockProducerVrfEvaluatorState {
                 staking_ledger_hash,
             } => {
                 let global_slot_evaluated = match &vrf_output {
-                    vrf::VrfEvaluationOutput::SlotWon(won_slot_data) => {
+                    mina_vrf::VrfEvaluationOutput::SlotWon(won_slot_data) => {
                         state.won_slots.insert(
                             won_slot_data.global_slot,
                             VrfWonSlotWithHash::new(
@@ -51,7 +51,7 @@ impl BlockProducerVrfEvaluatorState {
                         );
                         won_slot_data.global_slot
                     }
-                    vrf::VrfEvaluationOutput::SlotLost(global_slot) => *global_slot,
+                    mina_vrf::VrfEvaluationOutput::SlotLost(global_slot) => *global_slot,
                 };
                 state.set_latest_evaluated_global_slot(&global_slot_evaluated);
 

@@ -7,7 +7,7 @@ use mina_p2p_messages::v2::{
 
 use std::{collections::BTreeSet, time::Duration};
 
-use node::{
+use mina_node::{
     ActionKind, ActionWithMeta, BlockProducerConfig, SnarkerConfig, SnarkerStrategy, State,
 };
 
@@ -312,7 +312,7 @@ impl Simulator {
                             consensus_state.epoch_count.as_u32() >= *epoch
                         }
                         SimulatorRunUntil::BlockchainLength(height) => {
-                            let start_height = node::core::constants::constraint_constants()
+                            let start_height = mina_node::core::constants::constraint_constants()
                                 .fork
                                 .as_ref()
                                 .map_or(0, |c| c.blockchain_length);

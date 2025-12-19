@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use node::transition_frontier::genesis::GenesisConfig;
+use mina_node::transition_frontier::genesis::GenesisConfig;
 use serde::{Deserialize, Serialize};
 
 use crate::{node::Recorder, scenarios::RunCfgAdvanceTime};

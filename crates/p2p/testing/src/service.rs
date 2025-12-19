@@ -1,7 +1,7 @@
 use std::{collections::VecDeque, time::Instant};
 
 use mina_core::channels::mpsc;
-use p2p::{
+use mina_p2p::{
     identity::SecretKey,
     service_impl::{
         mio::MioService, webrtc::P2pServiceWebrtc, webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p,
@@ -16,9 +16,9 @@ use crate::event::{RustNodeEvent, RustNodeEventStore};
 pub struct ClusterService {
     pub rng: StdRng,
     pub event_sender: mpsc::UnboundedSender<P2pEvent>,
-    pub cmd_sender: mpsc::TrackedUnboundedSender<p2p::service_impl::webrtc::Cmd>,
+    pub cmd_sender: mpsc::TrackedUnboundedSender<mina_p2p::service_impl::webrtc::Cmd>,
     mio: MioService,
-    peers: std::collections::BTreeMap<p2p::PeerId, p2p::service_impl::webrtc::PeerState>,
+    peers: std::collections::BTreeMap<mina_p2p::PeerId, mina_p2p::service_impl::webrtc::PeerState>,
     time: Instant,
 
     rust_node_events: VecDeque<RustNodeEvent>,
@@ -29,7 +29,7 @@ impl ClusterService {
         node_idx: usize,
         secret_key: SecretKey,
         event_sender: mpsc::UnboundedSender<P2pEvent>,
-        cmd_sender: mpsc::TrackedUnboundedSender<p2p::service_impl::webrtc::Cmd>,
+        cmd_sender: mpsc::TrackedUnboundedSender<mina_p2p::service_impl::webrtc::Cmd>,
         time: Instant,
     ) -> Self {
         let mio = {
@@ -71,11 +71,11 @@ impl TimeService for ClusterService {
 impl Service for ClusterService {}
 
 impl P2pServiceWebrtcWithLibp2p for ClusterService {
-    fn mio(&mut self) -> &mut p2p::service_impl::mio::MioService {
+    fn mio(&mut self) -> &mut mina_p2p::service_impl::mio::MioService {
         &mut self.mio
     }
 
-    fn connections(&self) -> std::collections::BTreeSet<p2p::PeerId> {
+    fn connections(&self) -> std::collections::BTreeSet<mina_p2p::PeerId> {
         Default::default()
     }
 }
@@ -85,8 +85,8 @@ impl P2pServiceWebrtc for ClusterService {
 
     fn random_pick(
         &mut self,
-        list: &[p2p::connection::outgoing::P2pConnectionOutgoingInitOpts],
-    ) -> Option<p2p::connection::outgoing::P2pConnectionOutgoingInitOpts> {
+        list: &[mina_p2p::connection::outgoing::P2pConnectionOutgoingInitOpts],
+    ) -> Option<mina_p2p::connection::outgoing::P2pConnectionOutgoingInitOpts> {
         list.choose(&mut self.rng).cloned()
     }
 
@@ -94,27 +94,28 @@ impl P2pServiceWebrtc for ClusterService {
         &self.event_sender
     }
 
-    fn cmd_sender(&self) -> &mpsc::TrackedUnboundedSender<p2p::service_impl::webrtc::Cmd> {
+    fn cmd_sender(&self) -> &mpsc::TrackedUnboundedSender<mina_p2p::service_impl::webrtc::Cmd> {
         &self.cmd_sender
     }
 
     fn peers(
         &mut self,
-    ) -> &mut std::collections::BTreeMap<p2p::PeerId, p2p::service_impl::webrtc::PeerState> {
+    ) -> &mut std::collections::BTreeMap<mina_p2p::PeerId, mina_p2p::service_impl::webrtc::PeerState>
+    {
         &mut self.peers
     }
 
-    fn encrypt<T: p2p::identity::EncryptableType>(
+    fn encrypt<T: mina_p2p::identity::EncryptableType>(
         &mut self,
-        _other_pk: &p2p::identity::PublicKey,
+        _other_pk: &mina_p2p::identity::PublicKey,
         _message: &T,
     ) -> Result<T::Encrypted, Box<dyn std::error::Error>> {
         unreachable!("this is webrtc only and this crate tests libp2p only")
     }
 
-    fn decrypt<T: p2p::identity::EncryptableType>(
+    fn decrypt<T: mina_p2p::identity::EncryptableType>(
         &mut self,
-        _other_pub_key: &p2p::identity::PublicKey,
+        _other_pub_key: &mina_p2p::identity::PublicKey,
         _encrypted: &T::Encrypted,
     ) -> Result<T, Box<dyn std::error::Error>> {
         unreachable!("this is webrtc only and this crate tests libp2p only")
@@ -122,18 +123,18 @@ impl P2pServiceWebrtc for ClusterService {
 
     fn auth_encrypt_and_send(
         &mut self,
-        _peer_id: p2p::PeerId,
-        _other_pub_key: &p2p::identity::PublicKey,
-        _auth: p2p::webrtc::ConnectionAuth,
+        _peer_id: mina_p2p::PeerId,
+        _other_pub_key: &mina_p2p::identity::PublicKey,
+        _auth: mina_p2p::webrtc::ConnectionAuth,
     ) {
         unreachable!("this is webrtc only and this crate tests libp2p only")
     }
 
     fn auth_decrypt(
         &mut self,
-        _other_pub_key: &p2p::identity::PublicKey,
-        _auth: p2p::webrtc::ConnectionAuthEncrypted,
-    ) -> Option<p2p::webrtc::ConnectionAuth> {
+        _other_pub_key: &mina_p2p::identity::PublicKey,
+        _auth: mina_p2p::webrtc::ConnectionAuthEncrypted,
+    ) -> Option<mina_p2p::webrtc::ConnectionAuth> {
         unreachable!("this is webrtc only and this crate tests libp2p only")
     }
 }

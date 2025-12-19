@@ -1,5 +1,5 @@
 use crate::{Service, Store};
-use p2p::P2pEffectfulAction;
+use mina_p2p::P2pEffectfulAction;
 use redux::ActionWithMeta;
 
 pub fn node_p2p_effects<S: Service>(

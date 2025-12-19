@@ -1,5 +1,5 @@
 use crate::{
-    account::AccountSecretKey, block_producer::calc_epoch_seed,
+    account::AccountSecretKey, block_producer::calc_epoch_seed, p2p::P2pInitializeAction,
     transition_frontier::genesis_effectful::TransitionFrontierGenesisEffectfulAction,
 };
 use ledger::{
@@ -11,7 +11,6 @@ use mina_core::{
     error,
 };
 use mina_p2p_messages::v2;
-use p2p::P2pInitializeAction;
 
 use super::{
     empty_block_body, empty_block_body_hash, empty_pending_coinbase, empty_pending_coinbase_hash,
@@ -58,7 +57,7 @@ impl TransitionFrontierGenesisState {
                     return;
                 };
 
-                let genesis_vrf = ::vrf::genesis_vrf(data.staking_epoch_seed.clone()).unwrap();
+                let genesis_vrf = ::mina_vrf::genesis_vrf(data.staking_epoch_seed.clone()).unwrap();
                 let genesis_vrf_hash = genesis_vrf.hash();
 
                 let Ok((negative_one, genesis, genesis_hash)) =

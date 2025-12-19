@@ -1,6 +1,6 @@
 use std::{future::ready, time::Duration};
 
-use p2p::{P2pNetworkConnectionState, PeerId};
+use mina_p2p::{P2pNetworkConnectionState, PeerId};
 use p2p_testing::{
     cluster::{Cluster, ClusterBuilder, ClusterEvent, NodeId},
     event::{allow_disconnections, RustNodeEvent},

@@ -3,7 +3,7 @@ use std::{
     time::Duration,
 };
 
-use node::p2p::{
+use mina_node::p2p::{
     connection::outgoing::{P2pConnectionOutgoingInitLibp2pOpts, P2pConnectionOutgoingInitOpts},
     identity::SecretKey,
     P2pPeerStatus, P2pTimeouts, PeerId,
@@ -23,7 +23,7 @@ use crate::{
 fn custom_listener(peer_id: PeerId, port: u16) -> ListenerNode {
     P2pConnectionOutgoingInitOpts::LibP2P(P2pConnectionOutgoingInitLibp2pOpts {
         peer_id,
-        host: node::p2p::webrtc::Host::Ipv4([127, 0, 0, 1].into()),
+        host: mina_node::p2p::webrtc::Host::Ipv4([127, 0, 0, 1].into()),
         port,
     })
     .into()
@@ -179,7 +179,7 @@ impl DontConnectToSelfInitialPeer {
         let self_opts =
             P2pConnectionOutgoingInitOpts::LibP2P(P2pConnectionOutgoingInitLibp2pOpts {
                 peer_id,
-                host: node::p2p::webrtc::Host::Ipv4([127, 0, 0, 1].into()),
+                host: mina_node::p2p::webrtc::Host::Ipv4([127, 0, 0, 1].into()),
                 port,
             });
         let (node_ut, _) = driver.add_rust_node(

@@ -39,13 +39,15 @@ libp2p = { workspace = true, features = [
   "kad",
 ] }
 mina-core = { workspace = true }
+mina-node = { workspace = true }
 mina-node-invariants = { workspace = true }
 mina-node-native = { workspace = true }
 mina-p2p-messages = { workspace = true }
+mina-snark = { workspace = true }
+mina-vrf = { workspace = true }
 multiaddr = { workspace = true }
 multihash = { workspace = true }
 nix = { workspace = true }
-node = { workspace = true }
 num_cpus = { workspace = true }
 postcard = { workspace = true }
 rand = { workspace = true }
@@ -66,7 +68,6 @@ tokio = { workspace = true }
 tower-http = { workspace = true }
 tracing = { workspace = true }
 tracing-log = { workspace = true }
-vrf = { workspace = true }
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 redux = { workspace = true, features = ["serializable_callbacks"] }

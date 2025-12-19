@@ -1,6 +1,6 @@
 use std::{collections::BTreeSet, time::Duration};
 
-use node::{
+use mina_node::{
     p2p::{P2pPeerAction, PeerId},
     Action, P2pAction,
 };

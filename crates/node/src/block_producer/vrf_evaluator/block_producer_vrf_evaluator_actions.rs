@@ -9,8 +9,8 @@ use mina_p2p_messages::v2::{
     ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
     ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1, LedgerHash,
 };
+use mina_vrf::{VrfEvaluationOutput, VrfWonSlot};
 use serde::{Deserialize, Serialize};
-use vrf::{VrfEvaluationOutput, VrfWonSlot};
 
 use super::{DelegatorTable, EpochData, InterruptReason, VrfEvaluatorInput};
 

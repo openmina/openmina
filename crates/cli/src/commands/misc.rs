@@ -1,6 +1,6 @@
 use libp2p_identity::PeerId;
+use mina_node::{account::AccountSecretKey, p2p::identity::SecretKey};
 use mina_node_account::AccountPublicKey;
-use node::{account::AccountSecretKey, p2p::identity::SecretKey};
 use std::{fs::File, io::Write};
 
 #[derive(Debug, clap::Args)]

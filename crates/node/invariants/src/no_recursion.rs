@@ -1,4 +1,4 @@
-use node::{ActionKind, ActionWithMeta, Store};
+use mina_node::{ActionKind, ActionWithMeta, Store};
 use strum::VariantArray;
 
 use crate::{Invariant, InvariantResult};

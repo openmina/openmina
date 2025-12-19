@@ -3,14 +3,14 @@ use std::{
     time::Duration,
 };
 
-use multiaddr::{multiaddr, Multiaddr};
-use p2p::{
+use mina_p2p::{
     network::identify::{
         stream_effectful::P2pNetworkIdentifyStreamEffectfulAction,
         P2pNetworkIdentifyEffectfulAction, P2pNetworkIdentifyStreamAction,
     },
     P2pEffectfulAction, P2pNetworkEffectfulAction, PeerId,
 };
+use multiaddr::{multiaddr, Multiaddr};
 use p2p_testing::{
     cluster::{Cluster, ClusterBuilder, ClusterEvent, Listener},
     event::{allow_disconnections, event_mapper_effect, RustNodeEvent},

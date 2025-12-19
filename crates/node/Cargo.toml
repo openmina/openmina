@@ -1,5 +1,5 @@
 [package]
-name = "node"
+name = "mina-node"
 version = "0.18.1"
 edition = "2021"
 license = "Apache-2.0"
@@ -22,11 +22,13 @@ mina-core = { path = "../core" }
 mina-curves = { workspace = true }
 mina-hasher = { workspace = true }
 mina-node-account = { workspace = true }
+mina-p2p = { workspace = true }
 mina-p2p-messages = { workspace = true }
 mina-signer = { workspace = true }
+mina-snark = { workspace = true }
+mina-vrf = { workspace = true }
 multihash = { workspace = true }
 num_enum = { workspace = true }
-p2p = { path = "../p2p" }
 poseidon = { workspace = true }
 postcard = { workspace = true }
 rand = { workspace = true }
@@ -37,14 +39,12 @@ serde_json = { workspace = true, features = [
   "arbitrary_precision",
 ] }
 serde_with = { workspace = true, features = ["time_0_3"] }
-snark = { path = "../snark" }
 static_assertions = { workspace = true }
 strum = { workspace = true }
 strum_macros = { workspace = true }
 thiserror = { workspace = true }
 time = { workspace = true, features = ["parsing"] }
 tokio = { workspace = true }
-vrf = { workspace = true }
 
 [build-dependencies]
 regex = { workspace = true }
@@ -61,6 +61,6 @@ wasm-bindgen = { workspace = true }
 [features]
 serializable_callbacks = []
 replay = []
-p2p-webrtc = ["p2p/p2p-webrtc"]
-p2p-libp2p = ["p2p/p2p-libp2p"]
-fuzzing = ["p2p/fuzzing"]
+p2p-webrtc = ["mina-p2p/p2p-webrtc"]
+p2p-libp2p = ["mina-p2p/p2p-libp2p"]
+fuzzing = ["mina-p2p/fuzzing"]

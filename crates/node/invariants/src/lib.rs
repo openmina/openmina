@@ -10,11 +10,11 @@ use p2p::*;
 pub mod transition_frontier;
 use transition_frontier::*;
 
-pub use node::core::invariants::{InvariantService, InvariantsState};
+pub use mina_node::core::invariants::{InvariantService, InvariantsState};
 
 use strum_macros::{EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
 
-use node::{ActionKind, ActionWithMeta, Service, Store};
+use mina_node::{ActionKind, ActionWithMeta, Service, Store};
 
 pub trait Invariant {
     /// Internal state of the invariant.

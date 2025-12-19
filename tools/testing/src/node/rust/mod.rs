@@ -4,7 +4,7 @@ pub use config::*;
 mod event;
 pub use event::*;
 
-use node::{
+use mina_node::{
     event_source::EventSourceAction,
     p2p::{
         connection::outgoing::{
@@ -76,7 +76,7 @@ impl Node {
         } else {
             let opts = P2pConnectionOutgoingInitLibp2pOpts {
                 peer_id,
-                host: node::p2p::webrtc::Host::Ipv4([127, 0, 0, 1].into()),
+                host: mina_node::p2p::webrtc::Host::Ipv4([127, 0, 0, 1].into()),
                 port: self.store.state().p2p.config().libp2p_port.unwrap(),
             };
             P2pConnectionOutgoingInitOpts::LibP2P(opts)

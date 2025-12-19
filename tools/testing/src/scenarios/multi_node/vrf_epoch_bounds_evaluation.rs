@@ -1,11 +1,11 @@
 use std::{str::FromStr, time::Duration};
 
-use mina_p2p_messages::v2::{
-    CurrencyFeeStableV1, UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
-};
-use node::{
+use mina_node::{
     account::AccountSecretKey, p2p::P2pTimeouts, BlockProducerConfig, SnarkerConfig,
     SnarkerStrategy,
+};
+use mina_p2p_messages::v2::{
+    CurrencyFeeStableV1, UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
 };
 
 use crate::{
@@ -37,7 +37,7 @@ impl MultiNodeVrfEpochBoundsEvaluation {
 
         let rust_config = RustNodeTestingConfig {
             initial_time,
-            genesis: node::config::DEVNET_CONFIG.clone(),
+            genesis: mina_node::config::DEVNET_CONFIG.clone(),
             max_peers: 100,
             initial_peers: Vec::new(),
             peer_id: Default::default(),

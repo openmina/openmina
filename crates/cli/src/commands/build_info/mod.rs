@@ -1,4 +1,4 @@
-use node::BuildEnv;
+use mina_node::BuildEnv;
 
 /// Displays mina version, commit etc.
 #[derive(Debug, clap::Args)]

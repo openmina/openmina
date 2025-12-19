@@ -5,7 +5,7 @@ use crate::{
     scenarios::ClusterRunner,
 };
 use mina_core::constants::constraint_constants;
-use node::transition_frontier::sync::TransitionFrontierSyncState;
+use mina_node::transition_frontier::sync::TransitionFrontierSyncState;
 use redux::Instant;
 use std::time::Duration;
 

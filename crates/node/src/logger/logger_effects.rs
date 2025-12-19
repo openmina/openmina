@@ -1,13 +1,13 @@
+use crate::p2p::{
+    connection::P2pConnectionEffectfulAction, P2pNetworkConnectionError, P2pNetworkSchedulerAction,
+    PeerId,
+};
 use mina_core::log::{
     inner::{
         field::{display, DisplayValue},
         Value,
     },
     time_to_str, ActionEvent, EventContext,
-};
-use p2p::{
-    connection::P2pConnectionEffectfulAction, P2pNetworkConnectionError, P2pNetworkSchedulerAction,
-    PeerId,
 };
 
 use crate::{
@@ -112,14 +112,14 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
             },
         },
         Action::P2pEffectful(action) => match action {
-            p2p::P2pEffectfulAction::Channels(action) => action.action_event(&context),
-            p2p::P2pEffectfulAction::Connection(action) => match action {
+            crate::p2p::P2pEffectfulAction::Channels(action) => action.action_event(&context),
+            crate::p2p::P2pEffectfulAction::Connection(action) => match action {
                 P2pConnectionEffectfulAction::Outgoing(action) => action.action_event(&context),
                 P2pConnectionEffectfulAction::Incoming(action) => action.action_event(&context),
             },
-            p2p::P2pEffectfulAction::Disconnection(action) => action.action_event(&context),
-            p2p::P2pEffectfulAction::Network(action) => action.action_event(&context),
-            p2p::P2pEffectfulAction::Initialize => {}
+            crate::p2p::P2pEffectfulAction::Disconnection(action) => action.action_event(&context),
+            crate::p2p::P2pEffectfulAction::Network(action) => action.action_event(&context),
+            crate::p2p::P2pEffectfulAction::Initialize => {}
         },
         Action::ExternalSnarkWorker(action) => action.action_event(&context),
         Action::SnarkPool(action) => action.action_event(&context),

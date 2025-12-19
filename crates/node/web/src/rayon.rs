@@ -1,4 +1,4 @@
-use ::node::core::thread;
+use mina_node::core::thread;
 use wasm_bindgen::JsValue;
 
 /// This method must be called to initialize rayon.

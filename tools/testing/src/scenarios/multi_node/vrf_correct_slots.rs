@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, str::FromStr, time::Duration};
 
-use node::{
+use mina_node::{
     account::AccountSecretKey,
     block_producer::{
         vrf_evaluator::VrfEvaluationOutputWithHash, BlockProducerEvent,
@@ -10,7 +10,7 @@ use node::{
     p2p::P2pTimeouts,
     BlockProducerConfig,
 };
-use vrf::VrfEvaluationOutput;
+use mina_vrf::VrfEvaluationOutput;
 
 use crate::{
     node::{OcamlVrfOutput, RustNodeBlockProducerTestingConfig, RustNodeTestingConfig},
@@ -41,7 +41,7 @@ impl MultiNodeVrfGetCorrectSlots {
 
         let producer_node = runner.add_rust_node(RustNodeTestingConfig {
             initial_time,
-            genesis: node::config::DEVNET_CONFIG.clone(),
+            genesis: mina_node::config::DEVNET_CONFIG.clone(),
             max_peers: 100,
             initial_peers: Vec::new(),
             peer_id: Default::default(),

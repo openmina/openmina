@@ -4,7 +4,7 @@ use std::{
 };
 
 use libp2p::swarm::SwarmEvent;
-use p2p::PeerId;
+use mina_p2p::PeerId;
 
 use crate::{
     cluster::{ClusterEvent, NodeId},
@@ -150,21 +150,21 @@ pub fn default_errors(event: &ClusterEvent) -> bool {
             RustNodeEvent::PeerConnectionError { .. } => true,
             RustNodeEvent::PeerDisconnected { .. } => true,
             RustNodeEvent::P2p { event: e } => match e {
-                p2p::P2pEvent::Connection(_) => false,
-                p2p::P2pEvent::Channel(e) => matches!(
+                mina_p2p::P2pEvent::Connection(_) => false,
+                mina_p2p::P2pEvent::Channel(e) => matches!(
                     e,
-                    p2p::P2pChannelEvent::Opened(_, _, Err(_))
-                        | p2p::P2pChannelEvent::Sent(_, _, _, Err(_))
-                        | p2p::P2pChannelEvent::Received(_, Err(_))
+                    mina_p2p::P2pChannelEvent::Opened(_, _, Err(_))
+                        | mina_p2p::P2pChannelEvent::Sent(_, _, _, Err(_))
+                        | mina_p2p::P2pChannelEvent::Received(_, Err(_))
                 ),
-                p2p::P2pEvent::MioEvent(e) => matches!(
+                mina_p2p::P2pEvent::MioEvent(e) => matches!(
                     e,
-                    p2p::MioEvent::ListenerError { .. }
-                        | p2p::MioEvent::IncomingConnectionDidAccept(_, Err(_))
-                        | p2p::MioEvent::IncomingDataDidReceive(_, Err(_))
-                        | p2p::MioEvent::OutgoingConnectionDidConnect(_, Err(_))
-                        | p2p::MioEvent::OutgoingDataDidSend(_, Err(_))
-                        | p2p::MioEvent::ConnectionDidClose(_, Err(_))
+                    mina_p2p::MioEvent::ListenerError { .. }
+                        | mina_p2p::MioEvent::IncomingConnectionDidAccept(_, Err(_))
+                        | mina_p2p::MioEvent::IncomingDataDidReceive(_, Err(_))
+                        | mina_p2p::MioEvent::OutgoingConnectionDidConnect(_, Err(_))
+                        | mina_p2p::MioEvent::OutgoingDataDidSend(_, Err(_))
+                        | mina_p2p::MioEvent::ConnectionDidClose(_, Err(_))
                 ),
             },
             _ => false,

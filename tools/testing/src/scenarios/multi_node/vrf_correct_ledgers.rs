@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, str::FromStr, time::Duration};
 
 use ledger::AccountIndex;
-use node::{
+use mina_node::{
     account::{AccountPublicKey, AccountSecretKey},
     p2p::P2pTimeouts,
     ActionKind, BlockProducerConfig,
@@ -38,7 +38,7 @@ impl MultiNodeVrfGetCorrectLedgers {
 
         let producer_node = runner.add_rust_node(RustNodeTestingConfig {
             initial_time,
-            genesis: node::config::DEVNET_CONFIG.clone(),
+            genesis: mina_node::config::DEVNET_CONFIG.clone(),
             max_peers: 100,
             initial_peers: Vec::new(),
             peer_id: Default::default(),

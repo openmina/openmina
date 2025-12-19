@@ -316,7 +316,7 @@ fn synced_effects<S: crate::Service>(
     // TODO this should be handled by a callback
     // If this get dispatched, we received block from libp2p.
     if !store.dispatch(P2pNetworkPubsubAction::BroadcastValidatedMessage {
-        message_id: p2p::BroadcastMessageId::BlockHash {
+        message_id: crate::p2p::BroadcastMessageId::BlockHash {
             hash: best_tip.hash().clone(),
         },
     }) {

@@ -1,4 +1,4 @@
-pub use ::p2p::channels::*;
+pub use mina_p2p::channels::*;
 
 pub mod best_tip;
 pub mod rpc;

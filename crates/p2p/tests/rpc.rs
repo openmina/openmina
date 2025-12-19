@@ -4,7 +4,7 @@ use std::{
     time::Duration,
 };
 
-use p2p::{
+use mina_p2p::{
     channels::rpc::{
         P2pChannelsRpcAction, P2pChannelsRpcState, P2pRpcId, P2pRpcLocalState, P2pRpcRemoteState,
         P2pRpcRequest, P2pRpcResponse,
@@ -464,7 +464,7 @@ fn send_response(
     sender: RustNodeId,
     receiver: RustNodeId,
     request_id: u64,
-    response: p2p::channels::rpc::P2pRpcResponse,
+    response: mina_p2p::channels::rpc::P2pRpcResponse,
 ) {
     let [_sender_id, receiver_id] = peer_ids(cluster, [sender, receiver]);
     let sender_receiver_rpc = &cluster

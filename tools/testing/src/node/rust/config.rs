@@ -1,6 +1,6 @@
 use std::{fs::File, path::Path, sync::Arc};
 
-use node::{
+use mina_node::{
     account::AccountSecretKey, config::DEVNET_CONFIG, p2p::P2pTimeouts,
     transition_frontier::genesis::GenesisConfig, BlockProducerConfig, SnarkerConfig,
 };

@@ -1,4 +1,4 @@
-use p2p::P2pEffectfulAction;
+use crate::p2p::P2pEffectfulAction;
 use serde::{Deserialize, Serialize};
 
 pub type ActionWithMeta = redux::ActionWithMeta<Action>;

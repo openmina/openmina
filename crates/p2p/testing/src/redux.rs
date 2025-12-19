@@ -9,7 +9,7 @@ use mina_core::{
     },
     ActionEvent,
 };
-use p2p::{
+use mina_p2p::{
     bootstrap::P2pNetworkKadBootstrapState,
     channels::{
         best_tip::P2pChannelsBestTipAction,
@@ -120,13 +120,13 @@ macro_rules! impl_p2p_state_access {
 }
 
 impl_p2p_state_access!(State, P2pNetworkIdentifyState);
-impl_p2p_state_access!(State, p2p::P2pNetworkState);
+impl_p2p_state_access!(State, mina_p2p::P2pNetworkState);
 impl_p2p_state_access!(State, P2pNetworkKadBootstrapState);
-impl_p2p_state_access!(State, p2p::P2pNetworkKadState);
-impl_p2p_state_access!(State, p2p::P2pNetworkSchedulerState);
-impl_p2p_state_access!(State, p2p::P2pLimits);
-impl_p2p_state_access!(State, p2p::P2pNetworkPubsubState);
-impl_p2p_state_access!(State, p2p::P2pConfig);
+impl_p2p_state_access!(State, mina_p2p::P2pNetworkKadState);
+impl_p2p_state_access!(State, mina_p2p::P2pNetworkSchedulerState);
+impl_p2p_state_access!(State, mina_p2p::P2pLimits);
+impl_p2p_state_access!(State, mina_p2p::P2pNetworkPubsubState);
+impl_p2p_state_access!(State, mina_p2p::P2pConfig);
 
 impl P2pStateTrait for State {}
 
@@ -238,7 +238,7 @@ pub(super) fn event_effect(store: &mut crate::redux::Store, event: P2pEvent) -> 
                         store,
                         P2pNetworkSchedulerAction::Error {
                             addr,
-                            error: p2p::P2pNetworkConnectionError::MioError(e),
+                            error: mina_p2p::P2pNetworkConnectionError::MioError(e),
                         },
                     )
                 } else {
@@ -246,7 +246,7 @@ pub(super) fn event_effect(store: &mut crate::redux::Store, event: P2pEvent) -> 
                         store,
                         P2pNetworkSchedulerAction::Error {
                             addr,
-                            error: p2p::P2pNetworkConnectionError::RemoteClosed,
+                            error: mina_p2p::P2pNetworkConnectionError::RemoteClosed,
                         },
                     )
                 }
@@ -286,16 +286,16 @@ impl_from_p2p!(P2pConnectionOutgoingAction);
 impl_from_p2p!(P2pNetworkSchedulerAction);
 impl_from_p2p!(P2pNetworkIdentifyStreamAction);
 impl_from_p2p!(P2pIdentifyAction);
-impl_from_p2p!(p2p::P2pNetworkSelectAction);
-impl_from_p2p!(p2p::P2pNetworkPnetAction);
-impl_from_p2p!(p2p::P2pNetworkNoiseAction);
-impl_from_p2p!(p2p::connection::incoming::P2pConnectionIncomingAction);
-impl_from_p2p!(p2p::P2pNetworkPubsubAction);
+impl_from_p2p!(mina_p2p::P2pNetworkSelectAction);
+impl_from_p2p!(mina_p2p::P2pNetworkPnetAction);
+impl_from_p2p!(mina_p2p::P2pNetworkNoiseAction);
+impl_from_p2p!(mina_p2p::connection::incoming::P2pConnectionIncomingAction);
+impl_from_p2p!(mina_p2p::P2pNetworkPubsubAction);
 impl_from_p2p!(P2pChannelsSignalingDiscoveryAction);
 impl_from_p2p!(P2pChannelsSignalingExchangeAction);
 impl_from_p2p!(P2pChannelsTransactionAction);
 impl_from_p2p!(P2pChannelsSnarkAction);
-impl_from_p2p!(p2p::P2pNetworkRpcAction);
+impl_from_p2p!(mina_p2p::P2pNetworkRpcAction);
 impl_from_p2p!(P2pChannelsRpcAction);
 impl_from_p2p!(P2pDisconnectionAction);
 impl_from_p2p!(P2pChannelsBestTipAction);
@@ -304,12 +304,12 @@ impl_from_p2p!(P2pChannelsStreamingRpcAction);
 
 impl_from_p2p!(effectful P2pNetworkKadEffectfulAction);
 impl_from_p2p!(effectful P2pConnectionIncomingEffectfulAction);
-impl_from_p2p!(effectful p2p::P2pNetworkSchedulerEffectfulAction);
-impl_from_p2p!(effectful p2p::P2pNetworkPnetEffectfulAction);
-impl_from_p2p!(effectful p2p::P2pNetworkPubsubEffectfulAction);
+impl_from_p2p!(effectful mina_p2p::P2pNetworkSchedulerEffectfulAction);
+impl_from_p2p!(effectful mina_p2p::P2pNetworkPnetEffectfulAction);
+impl_from_p2p!(effectful mina_p2p::P2pNetworkPubsubEffectfulAction);
 impl_from_p2p!(effectful P2pNetworkIdentifyStreamEffectfulAction);
 impl_from_p2p!(effectful P2pConnectionOutgoingEffectfulAction);
 impl_from_p2p!(effectful P2pDisconnectionEffectfulAction);
 impl_from_p2p!(effectful P2pChannelsEffectfulAction);
 
-impl p2p::P2pActionTrait<State> for Action {}
+impl mina_p2p::P2pActionTrait<State> for Action {}

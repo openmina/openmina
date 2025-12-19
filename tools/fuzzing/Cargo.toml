@@ -12,7 +12,7 @@ btreemultimap = { workspace = true }
 flate2 = { workspace = true }
 itertools = { workspace = true }
 leb128 = { workspace = true }
-ledger = { workspace = true, package = "mina-tree", features = ["fuzzing"] }
+ledger = { workspace = true, features = ["fuzzing"] }
 md5 = { workspace = true }
 mina-core = { workspace = true }
 mina-curves = { workspace = true }
@@ -34,7 +34,7 @@ tuple-map = { workspace = true }
 binprot = { workspace = true }
 binprot_derive = { workspace = true }
 clap = { workspace = true }
-node = { workspace = true }
+mina-node = { workspace = true }
 
 [profile.release]
 opt-level = 3

@@ -1,5 +1,5 @@
+use crate::p2p::{P2pAction, P2pEffectfulAction, P2pInitializeAction, P2pState};
 use mina_core::{bug_condition, error, Substate};
-use p2p::{P2pAction, P2pEffectfulAction, P2pInitializeAction, P2pState};
 
 use crate::{
     external_snark_worker::ExternalSnarkWorkers,
@@ -41,7 +41,7 @@ pub fn reducer(
                 }
                 P2p::Ready(_) => {
                     let time = meta.time();
-                    let result = p2p::P2pState::reducer(
+                    let result = crate::p2p::P2pState::reducer(
                         Substate::new(state, dispatcher),
                         meta.with_action(p2p_action.clone()),
                     );
@@ -62,7 +62,10 @@ pub fn reducer(
         }
         Action::LedgerEffects(_) => {}
         Action::Snark(a) => {
-            snark::SnarkState::reducer(Substate::new(state, dispatcher), meta.with_action(a));
+            crate::snark::SnarkState::reducer(
+                Substate::new(state, dispatcher),
+                meta.with_action(a),
+            );
         }
         Action::TransitionFrontier(a) => {
             crate::transition_frontier::TransitionFrontierState::reducer(

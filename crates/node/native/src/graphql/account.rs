@@ -6,6 +6,7 @@ use ledger::{
     scan_state::currency::{Balance, Magnitude, Slot},
     Account, AccountId, FpExt, Timing,
 };
+use mina_node::rpc::{AccountQuery, RpcRequest};
 use mina_node_common::rpc::RpcSender;
 use mina_p2p_messages::{
     string::{TokenSymbol, ZkAppUri},
@@ -15,7 +16,6 @@ use mina_p2p_messages::{
     },
 };
 use mina_signer::CompressedPubKey;
-use node::rpc::{AccountQuery, RpcRequest};
 
 use super::{Context, ConversionError};
 

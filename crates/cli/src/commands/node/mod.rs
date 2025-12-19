@@ -1,8 +1,6 @@
 use anyhow::Context;
 use ledger::proofs::provers::BlockProver;
-use mina_node_account::AccountPublicKey;
-use mina_node_native::{archive::config::ArchiveStorageOptions, tracing, NodeBuilder};
-use node::{
+use mina_node::{
     account::AccountSecretKey,
     core::log::inner::Level,
     p2p::{connection::outgoing::P2pConnectionOutgoingInitOpts, identity::SecretKey},
@@ -11,6 +9,8 @@ use node::{
     transition_frontier::genesis::GenesisConfig,
     SnarkerStrategy,
 };
+use mina_node_account::AccountPublicKey;
+use mina_node_native::{archive::config::ArchiveStorageOptions, tracing, NodeBuilder};
 use reqwest::Url;
 use std::{fs::File, path::PathBuf, sync::Arc};
 
@@ -310,19 +310,19 @@ impl Node {
         let (daemon_conf, genesis_conf) = match self.config {
             Some(config) => {
                 let reader = File::open(config).context("config file {config:?}")?;
-                let config: node::daemon_json::DaemonJson =
+                let config: mina_node::daemon_json::DaemonJson =
                     serde_json::from_reader(reader).context("config file {config:?}")?;
                 (
                     config
                         .daemon
                         .clone()
-                        .unwrap_or(node::daemon_json::Daemon::DEFAULT),
+                        .unwrap_or(mina_node::daemon_json::Daemon::DEFAULT),
                     Arc::new(GenesisConfig::DaemonJson(Box::new(config))),
                 )
             }
             None => (
-                node::daemon_json::Daemon::DEFAULT,
-                node::config::DEVNET_CONFIG.clone(),
+                mina_node::daemon_json::Daemon::DEFAULT,
+                mina_node::config::DEVNET_CONFIG.clone(),
             ),
         };
 
@@ -335,8 +335,8 @@ impl Node {
                 }) {
                 Ok(v) => Some(v),
                 Err(err) => {
-                    node::core::error!(
-                        node::core::log::system_time();
+                    mina_node::core::error!(
+                        mina_node::core::log::system_time();
                         summary = "bad rng seed",
                         err = err.to_string(),
                     );
@@ -349,7 +349,7 @@ impl Node {
 
         // let genesis_config = match self.config {
         //     Some(config_path) => GenesisConfig::DaemonJsonFile(config_path).into(),
-        //     None => node::config::DEVNET_CONFIG.clone(),
+        //     None => mina_node::config::DEVNET_CONFIG.clone(),
         // };
         // let mut node_builder: NodeBuilder = NodeBuilder::new(None, genesis_config);
 
@@ -362,16 +362,16 @@ impl Node {
             match SecretKey::from_encrypted_file(key_file, password) {
                 Ok(sk) => {
                     node_builder.p2p_sec_key(sk.clone());
-                    node::core::info!(
-                        node::core::log::system_time();
+                    mina_node::core::info!(
+                        mina_node::core::log::system_time();
                         summary = "read sercret key from file",
                         file_name = key_file,
                         pk = sk.public_key().to_string(),
                     )
                 }
                 Err(err) => {
-                    node::core::error!(
-                        node::core::log::system_time();
+                    mina_node::core::error!(
+                        mina_node::core::log::system_time();
                         summary = "failed to read secret key",
                         file_name = key_file,
                         err = err.to_string(),
@@ -381,8 +381,8 @@ impl Node {
             }
         } else if self.libp2p_keypair.is_some() && self.libp2p_password.is_none() {
             let error = "keyfile is specified, but `MINA_LIBP2P_PASS` is not set";
-            node::core::error!(
-                node::core::log::system_time();
+            mina_node::core::error!(
+                mina_node::core::log::system_time();
                 summary = error,
             );
             return Err(anyhow::anyhow!(error));
@@ -418,9 +418,9 @@ impl Node {
         if let Some(producer_key_path) = self.producer_key {
             let password = &self.producer_key_password;
             mina_core::thread::spawn(|| {
-                node::core::info!(node::core::log::system_time(); summary = "loading provers index");
+                mina_node::core::info!(mina_node::core::log::system_time(); summary = "loading provers index");
                 BlockProver::make(Some(block_verifier_index), Some(work_verifier_index));
-                node::core::info!(node::core::log::system_time(); summary = "loaded provers index");
+                mina_node::core::info!(mina_node::core::log::system_time(); summary = "loaded provers index");
             });
             node_builder.block_producer_from_file(producer_key_path, password, None)?;
 
@@ -456,7 +456,7 @@ impl Node {
         );
 
         if archive_storage_options.is_enabled() {
-            node::core::info!(
+            mina_node::core::info!(
                 summary = "Archive mode enabled",
                 local_storage = archive_storage_options.uses_local_precomputed_storage(),
                 archiver_process = archive_storage_options.uses_archiver_process(),

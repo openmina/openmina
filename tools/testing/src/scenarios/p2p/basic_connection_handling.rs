@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use node::{
+use mina_node::{
     event_source::Event,
     p2p::{P2pConnectionEvent, P2pEvent, P2pState, P2pTimeouts, PeerId},
 };

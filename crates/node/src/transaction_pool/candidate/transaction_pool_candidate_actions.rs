@@ -1,10 +1,10 @@
+use crate::p2p::P2pNetworkPubsubMessageCacheId;
 use mina_core::{
     transaction::{
         TransactionHash, TransactionInfo, TransactionPoolMessageSource, TransactionWithHash,
     },
     ActionEvent,
 };
-use p2p::P2pNetworkPubsubMessageCacheId;
 use serde::{Deserialize, Serialize};
 
 use crate::p2p::{channels::rpc::P2pRpcId, PeerId};

@@ -1,4 +1,4 @@
-use node::{
+use mina_node::{
     event_source::Event,
     p2p::{
         channels::{rpc::RpcChannelMsg, ChannelMsg},

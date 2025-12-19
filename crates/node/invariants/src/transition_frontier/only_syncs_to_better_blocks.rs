@@ -1,4 +1,4 @@
-use node::{
+use mina_node::{
     core::{block::ArcBlockWithHash, consensus::consensus_take},
     ActionKind, ActionWithMeta, Store,
 };

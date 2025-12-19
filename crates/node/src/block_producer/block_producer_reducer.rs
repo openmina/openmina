@@ -1,3 +1,4 @@
+use crate::p2p::P2pNetworkPubsubAction;
 use ledger::scan_state::currency::{Amount, Signed};
 use mina_core::{
     block::ArcBlockWithHash,
@@ -9,7 +10,6 @@ use mina_core::{
     constants::constraint_constants,
 };
 use mina_p2p_messages::{list::List, v2};
-use p2p::P2pNetworkPubsubAction;
 use redux::{callback, Dispatcher, Timestamp};
 
 use crate::{

@@ -261,19 +261,19 @@ jobs:
               --exclude mina-macros \
               --exclude mina-p2p-messages \
               --exclude poseidon \
-              --exclude snark \
-              --exclude p2p \
+              --exclude mina-snark \
+              --exclude mina-p2p \
               --exclude salsa-simple \
-              --exclude p2p-testing \
+              --exclude mina-p2p-testing \
               --exclude libp2p-rpc-behaviour \
-              --exclude node \
+              --exclude mina-node \
               --exclude mina-node-account \
               --exclude mina-node-common \
               --exclude mina-node-native \
               --exclude mina-node-web \
               --exclude mina-node-invariants \
               --exclude mina-node-testing \
-              --exclude cli \
+              --exclude mina-cli \
               --exclude replay_dynamic_effects \
               --exclude mina-transport \
               --exclude mina-bootstrap-sandbox \

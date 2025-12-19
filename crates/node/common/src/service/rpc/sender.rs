@@ -4,7 +4,7 @@ use serde::Serialize;
 #[cfg(target_family = "wasm")]
 use wasm_bindgen::prelude::*;
 
-use node::{
+use mina_node::{
     core::channels::{mpsc, oneshot},
     p2p::connection::outgoing::P2pConnectionOutgoingInitOpts,
     rpc::*,

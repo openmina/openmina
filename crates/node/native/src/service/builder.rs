@@ -1,12 +1,12 @@
 use ledger::proofs::provers::BlockProver;
+use mina_node::{
+    account::AccountSecretKey, core::thread, p2p::identity::SecretKey as P2pSecretKey,
+    service::Recorder,
+};
 pub use mina_node_common::NodeServiceCommonBuildError;
 use mina_node_common::{
     archive::config::ArchiveStorageOptions, p2p::TaskSpawner, rpc::RpcSender, EventSender,
     NodeServiceCommonBuilder,
-};
-use node::{
-    account::AccountSecretKey, core::thread, p2p::identity::SecretKey as P2pSecretKey,
-    service::Recorder,
 };
 
 use crate::{http_server, NodeService, P2pTaskSpawner};

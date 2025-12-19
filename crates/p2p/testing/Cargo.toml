@@ -6,8 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+mina-p2p = { workspace = true, features = ["p2p-libp2p"] }
 mina-p2p-messages = { path = "../../p2p-messages" }
-p2p = { path = "..", features = ["p2p-libp2p"] }
 redux = { workspace = true }
 
 derive_more = { workspace = true }

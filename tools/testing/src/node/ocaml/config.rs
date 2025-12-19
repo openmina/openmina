@@ -26,7 +26,7 @@ use std::{
     str::FromStr,
 };
 
-use node::{
+use mina_node::{
     account::AccountSecretKey,
     core::log::{info, system_time, warn},
     p2p::connection::outgoing::P2pConnectionOutgoingInitOpts,

@@ -1,5 +1,5 @@
 [package]
-name = "snark"
+name = "mina-snark"
 version = "0.18.1"
 edition = "2021"
 license = "Apache-2.0"

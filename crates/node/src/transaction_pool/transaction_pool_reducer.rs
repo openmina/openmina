@@ -1,3 +1,6 @@
+use crate::p2p::{
+    channels::transaction::P2pChannelsTransactionAction, BroadcastMessageId, P2pNetworkPubsubAction,
+};
 use ledger::{
     scan_state::transaction_logic::{valid, GenericCommand, UserCommand},
     transaction_pool::{
@@ -11,11 +14,8 @@ use mina_core::{
     constants::constraint_constants,
     transaction::{Transaction, TransactionPoolMessageSource, TransactionWithHash},
 };
-use p2p::{
-    channels::transaction::P2pChannelsTransactionAction, BroadcastMessageId, P2pNetworkPubsubAction,
-};
+use mina_snark::user_command_verify::{SnarkUserCommandVerifyAction, SnarkUserCommandVerifyId};
 use redux::callback;
-use snark::user_command_verify::{SnarkUserCommandVerifyAction, SnarkUserCommandVerifyId};
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::{BlockProducerAction, RpcAction};

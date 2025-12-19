@@ -3,7 +3,7 @@ use std::{
     time::Duration,
 };
 
-use node::{event_source::Event, ActionWithMeta, State};
+use mina_node::{event_source::Event, ActionWithMeta, State};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 

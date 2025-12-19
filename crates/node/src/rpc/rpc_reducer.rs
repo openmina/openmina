@@ -1,3 +1,8 @@
+use crate::p2p::{
+    connection::{incoming::P2pConnectionIncomingAction, outgoing::P2pConnectionOutgoingAction},
+    webrtc::P2pConnectionResponse,
+    PeerId,
+};
 use ledger::scan_state::transaction_logic::valid;
 use mina_core::{
     block::AppliedBlock,
@@ -8,11 +13,6 @@ use mina_core::{
 use mina_p2p_messages::v2::{
     MinaBaseSignedCommandStableV2, MinaBaseZkappCommandTStableV1WireStableV1, NonZeroCurvePoint,
     TransactionSnarkWorkTStableV2,
-};
-use p2p::{
-    connection::{incoming::P2pConnectionIncomingAction, outgoing::P2pConnectionOutgoingAction},
-    webrtc::P2pConnectionResponse,
-    PeerId,
 };
 use redux::ActionWithMeta;
 
@@ -454,7 +454,7 @@ impl RpcState {
                     .p2p
                     .ready()
                     .and_then(|p2p| p2p.network.scheduler.discovery_state())
-                    .and_then(|discovery_state: &p2p::P2pNetworkKadState| {
+                    .and_then(|discovery_state: &crate::p2p::P2pNetworkKadState| {
                         discovery_state.bootstrap_stats().cloned()
                     });
 
@@ -892,33 +892,33 @@ pub fn collect_rpc_peers_info(state: &crate::State) -> Vec<RpcPeerInfo> {
             .map(|(peer_id, state)| {
                 let best_tip = state.status.as_ready().and_then(|r| r.best_tip.as_ref());
                 let (connection_status, time, incoming, connecting_details) = match &state.status {
-                    p2p::P2pPeerStatus::Connecting(c) => match c {
-                        p2p::connection::P2pConnectionState::Outgoing(o) => (
+                    crate::p2p::P2pPeerStatus::Connecting(c) => match c {
+                        crate::p2p::connection::P2pConnectionState::Outgoing(o) => (
                             PeerConnectionStatus::Connecting,
                             o.time().into(),
                             false,
                             Some(format!("{o:?}")),
                         ),
-                        p2p::connection::P2pConnectionState::Incoming(i) => (
+                        crate::p2p::connection::P2pConnectionState::Incoming(i) => (
                             PeerConnectionStatus::Connecting,
                             i.time().into(),
                             true,
                             Some(format!("{i:?}")),
                         ),
                     },
-                    p2p::P2pPeerStatus::Disconnecting { time } => (
+                    crate::p2p::P2pPeerStatus::Disconnecting { time } => (
                         PeerConnectionStatus::Disconnecting,
                         (*time).into(),
                         false,
                         None,
                     ),
-                    p2p::P2pPeerStatus::Disconnected { time } => (
+                    crate::p2p::P2pPeerStatus::Disconnected { time } => (
                         PeerConnectionStatus::Disconnected,
                         (*time).into(),
                         false,
                         None,
                     ),
-                    p2p::P2pPeerStatus::Ready(r) => (
+                    crate::p2p::P2pPeerStatus::Ready(r) => (
                         PeerConnectionStatus::Connected,
                         r.connected_since.into(),
                         r.is_incoming,

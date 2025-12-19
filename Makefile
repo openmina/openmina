@@ -92,7 +92,7 @@ build-node-native: ## Build the package mina-node-native with all features and t
 
 .PHONY: build-release
 build-release: ## Build the project in release mode
-	@cargo build --release --package=cli --bin mina
+	@cargo build --release --package=mina-cli --bin mina
 
 .PHONY: build-testing
 build-testing: ## Build the testing binary with scenario generators
@@ -103,10 +103,10 @@ build-tests: ## Build tests for scenario testing
 	@mkdir -p target/release/tests
 	@cargo build --release --tests \
 		--package=mina-node-testing \
-		--package=cli
+		--package=mina-cli
 	@cargo build --release --tests \
 		--package=mina-node-testing \
-		--package=cli \
+		--package=mina-cli \
 		--message-format=json > cargo-build-test.json
 	@jq -r '. | select(.executable != null and (.target.kind | (contains(["test"])))) | [.target.name, .executable ] | @tsv' \
 		cargo-build-test.json > tests.tsv
@@ -119,7 +119,7 @@ build-tests-webrtc: ## Build tests for WebRTC
 	@mkdir -p target/release/tests
 	@cargo build --release --tests \
 		--package=mina-node-testing \
-		--package=cli
+		--package=mina-cli
 # Update ./.gitignore accordingly if cargo-build-test.json is changed
 	@cargo build --release \
 		--features=scenario-generators,p2p-webrtc \
@@ -345,7 +345,7 @@ test-ledger: build-ledger ## Run ledger tests in release mode, requires nightly 
 
 .PHONY: test-p2p
 test-p2p: ## Run P2P tests
-	cargo test -p p2p --tests --release
+	cargo test -p mina-p2p --tests --release
 
 .PHONY: test-release
 test-release: ## Run tests in release mode
@@ -382,7 +382,7 @@ nextest-release: ## Run tests in release mode with cargo-nextest
 
 .PHONY: nextest-p2p
 nextest-p2p: ## Run P2P tests with cargo-nextest
-	@cargo nextest run -p p2p --tests
+	@cargo nextest run -p mina-p2p --tests
 
 .PHONY: nextest-ledger
 nextest-ledger: build-ledger ## Run ledger tests with cargo-nextest, requires nightly Rust
@@ -449,7 +449,7 @@ docker-push-frontend: ## Push frontend Docker image to DockerHub
 # Node running targets
 .PHONY: run-node
 run-node: build-release ## Run a basic node (NETWORK=devnet, VERBOSITY=info)
-	@cargo run --release --package=cli --bin mina -- node --network $(NETWORK) --verbosity $(VERBOSITY)
+	@cargo run --release --package=mina-cli --bin mina -- node --network $(NETWORK) --verbosity $(VERBOSITY)
 
 # Postgres related targets + archive node
 .PHONY: run-archive
@@ -471,7 +471,7 @@ run-block-producer: build-release ## Run a block producer node on $(NETWORK) net
 	fi
 	cargo run \
 		--bin mina \
-		--package=cli \
+		--package=mina-cli \
 		--release -- \
 		node \
 		--producer-key $(PRODUCER_KEY_FILENAME) \
@@ -494,7 +494,7 @@ generate-block-producer-key: build-release ## Generate a new block producer key 
 	fi
 	@mkdir -p mina-workdir
 	@echo "Generating new encrypted block producer key..."
-	@OUTPUT=$$($(if $(MINA_PRIVKEY_PASS),MINA_PRIVKEY_PASS="$(MINA_PRIVKEY_PASS)") cargo run --release --package=cli --bin mina -- misc mina-encrypted-key --file $(PRODUCER_KEY_FILENAME)); \
+	@OUTPUT=$$($(if $(MINA_PRIVKEY_PASS),MINA_PRIVKEY_PASS="$(MINA_PRIVKEY_PASS)") cargo run --release --package=mina-cli --bin mina -- misc mina-encrypted-key --file $(PRODUCER_KEY_FILENAME)); \
 	PUBLIC_KEY=$$(echo "$$OUTPUT" | grep "public key:" | cut -d' ' -f3); \
 	chmod 600 $(PRODUCER_KEY_FILENAME); \
 	echo ""; \

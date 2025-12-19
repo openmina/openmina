@@ -52,9 +52,7 @@ use std::{
 use libp2p::futures::{stream::FuturesUnordered, StreamExt};
 
 use ledger::proofs::provers::BlockProver;
-use mina_node_invariants::{InvariantResult, Invariants};
-use mina_node_native::{http_server, NodeServiceBuilder};
-use node::{
+use mina_node::{
     account::{AccountPublicKey, AccountSecretKey},
     core::{
         consensus::ConsensusConstants,
@@ -74,6 +72,8 @@ use node::{
     BuildEnv, Config, GlobalConfig, LedgerConfig, P2pConfig, SnarkConfig, State,
     TransitionFrontierConfig,
 };
+use mina_node_invariants::{InvariantResult, Invariants};
+use mina_node_native::{http_server, NodeServiceBuilder};
 use serde::{de::DeserializeOwned, Serialize};
 use temp_dir::TempDir;
 
@@ -531,8 +531,11 @@ impl Cluster {
             service.set_replay();
         }
 
-        let state = node::State::new(config, &consensus_consts, testing_config.initial_time);
-        fn effects(store: &mut node::Store<NodeTestingService>, action: node::ActionWithMeta) {
+        let state = mina_node::State::new(config, &consensus_consts, testing_config.initial_time);
+        fn effects(
+            store: &mut mina_node::Store<NodeTestingService>,
+            action: mina_node::ActionWithMeta,
+        ) {
             // if action.action().kind().to_string().starts_with("BlockProducer") {
             //     dbg!(action.action());
             // }
@@ -558,10 +561,10 @@ impl Cluster {
                 }
             }
 
-            node::effects(store, action)
+            mina_node::effects(store, action)
         }
-        let mut store = node::Store::new(
-            node::reducer,
+        let mut store = mina_node::Store::new(
+            mina_node::reducer,
             effects,
             service,
             testing_config.initial_time.into(),
@@ -1068,7 +1071,7 @@ impl Cluster {
                     .get_mut(dialer.index())
                     .ok_or_else(|| anyhow::anyhow!("node {dialer:?} not found"))?;
 
-                let req = node::rpc::RpcRequest::P2pConnectionOutgoing(listener_addr);
+                let req = mina_node::rpc::RpcRequest::P2pConnectionOutgoing(listener_addr);
                 dialer.dispatch_event(Event::Rpc(rpc_id, Box::new(req)))
             }
             ScenarioStep::CheckTimeouts { node_id } => {

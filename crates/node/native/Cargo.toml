@@ -18,11 +18,13 @@ juniper_warp = { workspace = true }
 ledger = { workspace = true }
 libp2p-identity = { workspace = true, features = ["peerid"] }
 mina-core = { path = "../../core" }
+mina-node = { workspace = true, features = ["replay"] }
 mina-node-common = { path = "../common" }
 mina-p2p-messages = { workspace = true }
 mina-signer = { workspace = true }
+mina-snark = { workspace = true }
+mina-vrf = { workspace = true }
 nix = { workspace = true, features = ["signal"] }
-node = { path = "..", features = ["replay"] }
 o1-utils = { workspace = true }
 rand = { workspace = true }
 rayon = { workspace = true }
@@ -37,7 +39,6 @@ thiserror = { workspace = true }
 tokio = { workspace = true, features = ["process", "macros"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-vrf = { workspace = true }
 warp = { workspace = true }
 
 [features]
