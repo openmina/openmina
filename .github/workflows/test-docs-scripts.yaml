@@ -78,7 +78,7 @@ jobs:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'test-doc-scripts')
     strategy:
       matrix:
-        os: [macos-13, macos-14, macos-15, macos-latest]
+        os: [macos-14, macos-15, macos-latest]
 
     steps:
       - name: Checkout repository
@@ -203,7 +203,7 @@ jobs:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'test-doc-scripts')
     strategy:
       matrix:
-        os: [macos-13, macos-14, macos-15, macos-latest]
+        os: [macos-14, macos-15, macos-latest]
 
     steps:
       - name: Checkout repository
@@ -248,7 +248,7 @@ jobs:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'test-doc-scripts')
     strategy:
       matrix:
-        os: [macos-13, macos-14, macos-15, macos-latest, ubuntu-latest]
+        os: [macos-14, macos-15, macos-latest, ubuntu-latest]
 
     steps:
       - name: Checkout repository
