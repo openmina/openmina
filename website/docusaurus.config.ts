@@ -30,6 +30,7 @@ const config: Config = {
 
   // Markdown configuration
   markdown: {
+    format: 'detect',
     hooks: {
       onBrokenMarkdownLinks: 'throw',
     },
