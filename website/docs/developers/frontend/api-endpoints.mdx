@@ -1568,7 +1568,7 @@ query Peers {
 
 #### POST `https://us-central1-webnode-gtm-test.cloudfunctions.net/handleValidationAndStore`
 
-Store WebNode heartbeat data for analytics.
+Store web node heartbeat data for analytics.
 
 **Request body:**
 
@@ -1584,7 +1584,7 @@ Store WebNode heartbeat data for analytics.
 
 **Response:** Success/error status
 
-**Used by:** WebNode heartbeat service
+**Used by:** Web Node Heartbeat Service
 
 ## Static asset endpoints
 
@@ -1621,10 +1621,10 @@ Get fuzzing file details and coverage.
 
 **Used by:** Fuzzing file viewer
 
-## WebNode WASM API
+## Web Node WASM API
 
-When running WebNode, the frontend interacts with a WebAssembly module instead
-of making HTTP requests. These are method calls on the WASM instance:
+When running the web node, the frontend interacts with a WebAssembly module
+instead of making HTTP requests. These are method calls on the WASM instance:
 
 - `webnode.status()` - Get node status
 - `webnode.stats().block_producer()` - Get block producer statistics
@@ -1654,7 +1654,7 @@ of making HTTP requests. These are method calls on the WASM instance:
 - **GraphQL**: 1 endpoint
 - **Firebase**: 1 endpoint
 - **Static assets**: 4 endpoints
-- **WebNode WASM**: 10+ methods
+- **Web Node WASM**: 10+ methods
 
 **Total**: 40+ API endpoints
 
@@ -1667,4 +1667,5 @@ of making HTTP requests. These are method calls on the WASM instance:
 
 The frontend uses HTTP polling through RxJS observables rather than WebSocket
 connections. The `RustService` acts as a central HTTP client wrapper with
-special handling for WebNode (WASM-based) versus regular Rust node backends.
+special handling for the web node (WASM-based) versus regular Rust node
+backends.
