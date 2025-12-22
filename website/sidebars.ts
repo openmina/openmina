@@ -60,8 +60,8 @@ const sidebars: SidebarsConfig = {
       label: 'Advanced Topics',
       items: [
         'node-operators/alpha-testing',
-        'node-operators/webnode/local-webnode',
-        'node-operators/webnode/local-webnode-docker',
+        'node-operators/web-node/local-web-node',
+        'node-operators/web-node/local-web-node-docker',
         'node-operators/testing/overview',
       ],
     },
