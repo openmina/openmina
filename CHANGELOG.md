@@ -74,6 +74,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *CI*: run builds on macos-latest for each patch submission, fixing
   [#1899](https://github.com/o1-labs/mina-rust/issues/1899)
   ([#1900](https://github.com/o1-labs/mina-rust/pull/1900))
+- **Docs**: add notes in `.cargo/config.toml` about the magic RUSTFLAGS for WASM
+  [#1863](https://github.com/o1-labs/mina-rust/issues/1863)
 
 ### Removed
 
