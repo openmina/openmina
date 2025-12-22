@@ -10,7 +10,7 @@ import {
   tap,
 } from 'rxjs';
 import { ScanStateBlock } from '@shared/types/snarks/scan-state/scan-state-block.type';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import {
   ScanStateLeaf,
   ScanStateLeafStatus,
@@ -32,7 +32,7 @@ export class ScanStateService {
   ) {}
 
   getScanState(heightOrHash?: string | number): Observable<ScanStateBlock> {
-    const url = this.rust.URL + '/scan-state/summary/' + (heightOrHash ?? '');
+    const url = `${this.rust.URL}/scan-state/summary/${heightOrHash ?? ''}`;
 
     return this.http.get<any>(url).pipe(
       switchMap((response: any[]) => {
@@ -84,8 +84,22 @@ export class ScanStateService {
           map(() => response),
         );
       }),
-
       map((response: any) => this.mapScanState(response)),
+      catchError((err: HttpErrorResponse) => {
+        const response = err.error;
+        if (response === 'target block not found') {
+          return of({
+            hash: '',
+            height: 0,
+            globalSlot: 0,
+            transactions: [],
+            completedWorks: [],
+            workingSnarkers: [],
+            trees: [],
+          });
+        }
+        throw new Error(response);
+      }),
     );
   }
 

@@ -39,7 +39,9 @@
           class="h-sm w-sm fx-row-full-cent"
           [tooltip]="'Next block'"
           [showDelay]="500"
-          [disabled]="block?.trees.length === 0"
+          [disabled]="
+            block?.trees.length === 0 || block?.height >= maxBlockHeight
+          "
           (click)="clearForm(); getHeight(block?.height + 1)"
         >
           <span class="mina-icon f-18">navigate_next</span>
