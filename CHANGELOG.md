@@ -82,7 +82,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Docs**: Consistent naming of the "web node" across docs
   [#1858](https://github.com/o1-labs/mina-rust/issues/1858)
 - **Docs**: Reorganized web node docs with clear audience split
-  [#xxxx](https://github.com/o1-labs/mina-rust/pull/xxxx)
+  [#2006](https://github.com/o1-labs/mina-rust/pull/2006)
 
 ### Removed
 
