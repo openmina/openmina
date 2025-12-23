@@ -6,7 +6,7 @@ description:
   alternative Mina Protocol implementation
 ---
 
-# Why are we developing the Mina Rust Node and the Mina Web node?
+# Why are we developing the Mina Rust Node and the Mina Web Node?
 
 ## Diversifying the Mina ecosystem
 

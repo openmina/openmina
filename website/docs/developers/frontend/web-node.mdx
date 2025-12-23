@@ -1,5 +1,5 @@
 ---
-title: WebNode
+title: Web Node
 description: Run a Mina node in your web browser using WebAssembly
 sidebar_position: 4
 ---
@@ -11,17 +11,17 @@ import DeployWebnode from "!!raw-loader!../scripts/frontend/deploy-webnode.sh";
 import DockerBuildWebnode from "!!raw-loader!../scripts/frontend/docker-build-webnode.sh";
 import DockerRunWebnode from "!!raw-loader!../scripts/frontend/docker-run-webnode.sh";
 
-# WebNode
+# Web Node
 
-The WebNode is an experimental implementation of the Mina Rust node compiled to
+The web node is an experimental implementation of the Mina Rust node compiled to
 WebAssembly, enabling users to run a fully functional Mina node directly in
 their web browser. This groundbreaking approach eliminates the need for native
 software installation and pushes the boundaries of decentralized infrastructure.
 
 ## Overview
 
-WebNode leverages WebAssembly (WASM) technology to bring the full power of the
-Mina Rust node to web browsers. This enables block production, transaction
+The web node leverages WebAssembly (WASM) technology to bring the full power of
+the Mina Rust node to web browsers. This enables block production, transaction
 validation, and network participation without traditional infrastructure
 requirements.
 
@@ -34,9 +34,9 @@ requirements.
 - **Zero installation** - No software installation or system configuration
   required
 
-## Building WebNode
+## Building the web node
 
-Build the WebNode version of the frontend:
+Build the web node version of the frontend:
 
 <CodeBlock language="bash" title="scripts/frontend/build-webnode.sh">
   {BuildWebnode}
@@ -46,28 +46,28 @@ Build the WebNode version of the frontend:
 
 :::info Frontend Build Only
 
-These Makefile commands only build the frontend portion of the WebNode. The
+These Makefile commands only build the frontend portion of the web node. The
 WebAssembly module build is not included in these commands.
 
 :::
 
 <!-- prettier-ignore-stop -->
 
-## Running WebNode
+## Running the web node
 
 ### Development Mode
 
-Start the WebNode development server:
+Start the web node development server:
 
 <CodeBlock language="bash" title="scripts/frontend/start-webnode-local.sh">
   {StartWebnodeLocal}
 </CodeBlock>
 
-Access the WebNode at `http://localhost:4200`
+Access the web node at `http://localhost:4200`
 
 ### Production Deployment
 
-Deploy WebNode to a web server:
+Deploy the web node to a web server:
 
 <CodeBlock language="bash" title="scripts/frontend/deploy-webnode.sh">
   {DeployWebnode}
@@ -75,7 +75,7 @@ Deploy WebNode to a web server:
 
 ## Docker deployment
 
-WebNode can be deployed using Docker with automatic WASM file management.
+The web node can be deployed using Docker with automatic WASM file management.
 
 ### Environment configuration
 
@@ -90,7 +90,7 @@ WebAssembly-based node operation:
   circuit files for proof verification
 - **Browser optimization** - Optimizes the build for in-browser execution and
   resource management
-- **WebNode-specific APIs** - Enables WebNode-specific GraphQL endpoints and
+- **Web node-specific APIs** - Enables web node-specific GraphQL endpoints and
   state management
 
 ### Build Docker image
@@ -107,9 +107,9 @@ WebAssembly-based node operation:
 
 <!-- prettier-ignore-start -->
 
-:::info WebNode Docker Features
+:::info Web Node Docker Features
 
-The Docker image for WebNode:
+The Docker image for the web node:
 
 - **Pre-includes WASM files** - WebAssembly files are built during image
   creation

@@ -79,6 +79,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ([#1900](https://github.com/o1-labs/mina-rust/pull/1900))
 - **Docs**: add notes in `.cargo/config.toml` about the magic RUSTFLAGS for WASM
   [#1863](https://github.com/o1-labs/mina-rust/issues/1863)
+- **Docs**: Consistent naming of the "web node" across docs
+  [#1858](https://github.com/o1-labs/mina-rust/issues/1858)
 
 ### Removed
 

@@ -60,8 +60,8 @@ const sidebars: SidebarsConfig = {
       label: 'Advanced Topics',
       items: [
         'node-operators/alpha-testing',
-        'node-operators/webnode/local-webnode',
-        'node-operators/webnode/local-webnode-docker',
+        'node-operators/web-node/local-web-node',
+        'node-operators/web-node/local-web-node-docker',
         'node-operators/testing/overview',
       ],
     },
@@ -114,7 +114,7 @@ const sidebars: SidebarsConfig = {
       items: [
         'developers/frontend/index',
         'developers/frontend/node-dashboard',
-        'developers/frontend/webnode',
+        'developers/frontend/web-node',
         'developers/frontend/environment-configuration',
         'developers/frontend/api-endpoints',
       ],

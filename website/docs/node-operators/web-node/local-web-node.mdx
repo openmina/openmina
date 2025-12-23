@@ -1,13 +1,13 @@
 ---
 sidebar_position: 1
-title: Local WebNode
-description: How to build and launch webnode from source
+title: Local Web Node
+description: How to build and launch a web node from source
 ---
 
 import CodeBlock from "@theme/CodeBlock";
 import GenerateEncryptedKeypairCargo from "!!raw-loader!../scripts/generate-encrypted-keypair-cargo.sh";
 
-# How to build and launch webnode from source
+# How to build and launch a web node from source
 
 ## Steps
 
@@ -52,8 +52,8 @@ cd frontend/src/assets/webnode
 git clone --depth 1 https://github.com/o1-labs/circuit-blobs.git
 ```
 
-(Optional) Generate a block producer key if you want to produce blocks. The
-webnode runs in observer mode by default:
+(Optional) Generate a block producer key if you want to produce blocks. The web
+node runs in observer mode by default:
 
 <CodeBlock
   language="bash"
@@ -62,7 +62,7 @@ webnode runs in observer mode by default:
   {GenerateEncryptedKeypairCargo}
 </CodeBlock>
 
-Install frontend dependencies and run the webnode:
+Install frontend dependencies and run the web node:
 
 ```sh
 cd frontend
