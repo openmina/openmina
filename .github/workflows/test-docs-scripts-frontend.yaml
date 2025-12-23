@@ -56,6 +56,11 @@ jobs:
           # Create symlink for timeout command
           sudo ln -sf /usr/local/bin/gtimeout /usr/local/bin/timeout
 
+      - name: Install gsed on macOS
+        if: runner.os == 'macOS'
+        run: |
+          brew install gnu-sed
+
       # NB: commented due to risk of conflict with "Setup Node.js setup"
       # - name: Test setup nvm script
       #   run: |
