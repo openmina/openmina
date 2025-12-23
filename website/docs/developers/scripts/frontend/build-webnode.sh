@@ -1,4 +1,4 @@
-# Build the WebNode version of the frontend
+# Enter frontend directory
 cd frontend
 
 # Build with WebNode configuration

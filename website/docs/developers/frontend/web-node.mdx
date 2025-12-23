@@ -6,6 +6,7 @@ sidebar_position: 4
 
 import CodeBlock from "@theme/CodeBlock";
 import GenerateEncryptedKeypairCargo from "!!raw-loader!../scripts/generate-encrypted-keypair-cargo.sh";
+import MakeBuildWebnode from "!!raw-loader!../scripts/frontend/build-webnode.sh";
 
 # Web Node
 
@@ -145,10 +146,12 @@ Access the web node at `http://localhost:4200`
 
 Build an optimized production bundle:
 
-```bash
-cd frontend/
-make build-webnode
-```
+<CodeBlock
+  language="bash"
+  title="website/docs/developers/scripts/frontend/build-webnode.sh"
+>
+  {MakeBuildWebnode}
+</CodeBlock>
 
 The built files will be in `frontend/dist/` and can be served by any static web
 server.
