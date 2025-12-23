@@ -6,6 +6,11 @@ sidebar_position: 4
 
 import CodeBlock from "@theme/CodeBlock";
 import GenerateEncryptedKeypairCargo from "!!raw-loader!../scripts/generate-encrypted-keypair-cargo.sh";
+import SetupInstallNvm from "!!raw-loader!../scripts/setup/install-nvm.sh";
+import SetupInstallRustup from "!!raw-loader!../scripts/setup/install-rustup.sh";
+import SetupMakeSetupWasm from "!!raw-loader!../scripts/setup/make-setup-wasm.sh";
+import MakeDownloadCircuits from "!!raw-loader!../scripts/setup/download-circuits.sh";
+import MakeInstallDeps from "!!raw-loader!../scripts/frontend/install-dependencies.sh";
 import MakeBuildWebnode from "!!raw-loader!../scripts/frontend/build-webnode.sh";
 
 # Web Node
@@ -58,28 +63,21 @@ The web node consists of two main components:
 
 Install the Rust toolchain (required for WASM compilation):
 
-```bash
-# Install rustup with default stable toolchain
-curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain 1.92
-
-# Setup the current shell
-source "$HOME/.cargo/env"
-```
+<CodeBlock
+  language="bash"
+  title="website/docs/developers/scripts/setup/install-rustup.sh"
+>
+  {SetupInstallRustup}
+</CodeBlock>
 
 ### Node.js
 
-Install Node.js 24+ using nvm:
+We recommend using the latest Node.js version specified in the `.nvmrc` file at
+the root of the repository. As of this writing, You can use a Node.js version
+manager like `nvm` to easily switch to the correct version.
 
-```bash
-# Install nvm
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
-
-# Load nvm in current shell
-source "$HOME/.nvm/nvm.sh"
-
-# Install Node.js
-nvm install 24
-```
+For more information on how to install Node.js, please refer to the
+[official Node.js documentation](https://nodejs.org/en/download/package-manager/).
 
 ## Building from source
 
@@ -92,17 +90,23 @@ cd mina-rust/
 
 ### Install nightly toolchain and WASM tooling
 
-```bash
-make setup-wasm
-```
+<CodeBlock
+  language="bash"
+  title="website/docs/developers/scripts/setup/make-setup-wasm.sh"
+>
+  {SetupMakeSetupWasm}
+</CodeBlock>
 
 ### Download circuit files
 
 The web node requires circuit files for proof verification:
 
-```bash
-make download-circuits
-```
+<CodeBlock
+  language="bash"
+  title="website/docs/developers/scripts/setup/download-circuits.sh"
+>
+  {MakeDownloadCircuits}
+</CodeBlock>
 
 ### Build the WebAssembly module
 
@@ -124,10 +128,12 @@ toolchain selection.
 
 ### Install frontend dependencies
 
-```bash
-cd frontend/
-make install-deps
-```
+<CodeBlock
+  language="bash"
+  title="website/docs/developers/scripts/frontend/install-dependencies.sh"
+>
+  {MakeInstallDeps}
+</CodeBlock>
 
 ## Running the web node
 
