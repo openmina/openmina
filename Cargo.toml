@@ -180,7 +180,7 @@ pin-project-lite = "0.2.10"
 poly-commitment = { git = "https://github.com/o1-labs/proof-systems", tag = "0.2.0" }
 poseidon = { path = "poseidon" }
 postcard = { version = "1.0.9", features = ["use-std"] }
-proc-macro2 = "1.0.95"
+proc-macro2 = "1.0.103"
 prost = "0.12.4"
 prost-build = "0.14.1"
 quick-protobuf = "0.8.1"
