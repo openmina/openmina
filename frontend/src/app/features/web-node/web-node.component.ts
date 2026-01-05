@@ -72,11 +72,6 @@ export class WebNodeComponent extends StoreDispatcher implements OnInit {
       return;
     }
 
-    if (this.platform.FIREFOX) {
-      this.supported = false;
-      return;
-    }
-
     this.supported = true;
   }
 }

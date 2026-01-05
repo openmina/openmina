@@ -57,11 +57,18 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
+      label: 'Web Node',
+      items: [
+        'node-operators/web-node/index',
+        'node-operators/web-node/local-web-node-docker',
+        'node-operators/web-node/local-web-node',
+      ],
+    },
+    {
+      type: 'category',
       label: 'Advanced Topics',
       items: [
         'node-operators/alpha-testing',
-        'node-operators/web-node/local-web-node',
-        'node-operators/web-node/local-web-node-docker',
         'node-operators/testing/overview',
       ],
     },

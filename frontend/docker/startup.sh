@@ -24,13 +24,17 @@ build_frontend() {
             # Uses Angular production configuration and production.js runtime
             make build-production
             ;;
-        "webnode")
+        "webnode-local")
             # Uses Angular webnode-local configuration and webnode.js runtime
             make build-webnode
             ;;
+        "webnode")
+            # Uses Angular webnode-production configuration and webnode.js runtime
+            make build-webnode-production
+            ;;
         *)
             echo "Error: Unknown environment '$environment'"
-            echo "Available environments: local, production, webnode"
+            echo "Available environments: local, production, webnode-local, webnode"
             exit 1
             ;;
     esac

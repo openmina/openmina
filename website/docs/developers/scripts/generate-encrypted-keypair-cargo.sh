@@ -2,7 +2,7 @@
 
 set -eou pipefail
 
-# This creates `webnode-key.zip` containing:
+# This creates `web-node-key.zip` containing:
 #
 # - `producer-key` (encrypted private key)
 # - `producer-key.pub` (public key)
@@ -21,7 +21,7 @@ cargo run -r --bin mina -- misc mina-encrypted-key \
 
 # Package into ZIP for upload through the web interface and clean up intermediates
 cd producer-key-tmp
-zip webnode-key.zip producer-key producer-key.pub producer-key-password
-mv webnode-key.zip ../
+zip web-node-key.zip producer-key producer-key.pub producer-key-password
+mv web-node-key.zip ../
 cd ../
 rm -rf producer-key-tmp
