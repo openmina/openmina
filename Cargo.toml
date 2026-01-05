@@ -229,7 +229,7 @@ time = { version = "0.3.36", features = ["formatting", "macros", "parsing"] }
 tokio = { version = "1.26.0" }
 toml = "0.5.9"
 tower-http = { version = "0.6", features = ["cors", "fs"] }
-tracing = "0.1.40"
+tracing = "0.1.44"
 tracing-appender = "0.2.3"
 tracing-log = "0.2.0"
 tracing-subscriber = { version = "0.3.18", features = ["json", "env-filter"] }
