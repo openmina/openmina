@@ -319,7 +319,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Download mina binary
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: bin-${{ github.sha }}
 
@@ -477,7 +477,7 @@ jobs:
             rm -rf /var/lib/apt/lists/*
 
       - name: Download tests
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           pattern: tests*-${{ github.sha }}
           merge-multiple: true
@@ -534,13 +534,13 @@ jobs:
             rm -rf /var/lib/apt/lists/*
 
       - name: Download tests
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           pattern: tests*-${{ github.sha }}
           merge-multiple: true
 
       - name: Download tests
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           pattern: tests-webrtc*-${{ github.sha }}
           merge-multiple: true
@@ -580,7 +580,7 @@ jobs:
             rm -rf /var/lib/apt/lists/*
 
       - name: Download tests
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           pattern: tests*-${{ github.sha }}
           merge-multiple: true
@@ -603,12 +603,12 @@ jobs:
 
     steps:
       - name: Download binary
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: bin-${{ github.sha }}
 
       - name: Download test
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           pattern: tests*-${{ github.sha }}
           merge-multiple: true
