@@ -1,6 +1,6 @@
 # Frontend Makefile
 
-# These are threaded from the outside env into build-webnode
+# These are threaded from the outside env into build-webnode[-production]
 MINA_WEBNODE_SEED_URLS ?=
 MINA_WEBNODE_BOOTNODES ?=
 
@@ -40,6 +40,15 @@ build-webnode: ## Build the frontend with webnode configuration
 	  --define MINA_WEBNODE_SEED_URLS="\"$(MINA_WEBNODE_SEED_URLS)\"" \
 	  --define MINA_WEBNODE_BOOTNODES="\"$(MINA_WEBNODE_BOOTNODES)\"" \
 	  --configuration webnode-local
+	cp dist/frontend/browser/assets/environments/webnode.js \
+		dist/frontend/browser/assets/environments/env.js
+
+.PHONY: build-webnode-production
+build-webnode-production: ## Build the frontend with webnode configuration and optimizations
+	npx ng build \
+	  --define MINA_WEBNODE_SEED_URLS="\"$(MINA_WEBNODE_SEED_URLS)\"" \
+	  --define MINA_WEBNODE_BOOTNODES="\"$(MINA_WEBNODE_BOOTNODES)\"" \
+	  --configuration webnode-production
 	cp dist/frontend/browser/assets/environments/webnode.js \
 		dist/frontend/browser/assets/environments/env.js
 
@@ -101,6 +110,10 @@ start-production: ## Start the development server with production configuration
 .PHONY: start-webnode
 start-webnode: install-deps ## Start the webnode development server
 	npx ng serve --configuration webnode-local --open
+
+.PHONY: start-webnode-production
+start-webnode-production: install-deps ## Start the webnode development server with optimizations
+	npx ng serve --configuration webnode-production --open
 
 .PHONY: test
 test: ## Run Cypress tests

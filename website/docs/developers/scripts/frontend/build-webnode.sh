@@ -1,5 +1,5 @@
 # Enter frontend directory
 cd frontend
 
-# Build with WebNode configuration
-make build-webnode
+# Build with Web Node production configuration
+make build-webnode-production
