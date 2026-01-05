@@ -7,6 +7,7 @@
 # - rust-toolchain.toml (for rust.stable)
 # - Makefile (for rust.nightly as NIGHTLY_RUST_VERSION)
 # - website/scripts/setup/install-rust.sh
+# - website/docs/developers/scripts/setup/install-rustup.sh
 # - website/docs/developers/getting-started.mdx
 
 rust:
