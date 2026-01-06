@@ -1,4 +1,4 @@
-import { FeatureAction, TableSort } from '@openmina/shared';
+import { FeatureAction, TableSort } from '@mina-rust/shared';
 import { WorkPool } from '@shared/types/snarks/work-pool/work-pool.type';
 import { WorkPoolSpecs } from '@shared/types/snarks/work-pool/work-pool-specs.type';
 import { WorkPoolDetail } from '@shared/types/snarks/work-pool/work-pool-detail.type';

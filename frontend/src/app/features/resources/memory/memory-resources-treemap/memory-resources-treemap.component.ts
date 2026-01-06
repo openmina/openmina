@@ -44,7 +44,7 @@ import {
   isDesktop,
   safelyExecuteInBrowser,
   TooltipService,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { AppSelectors } from '@app/app.state';
 
 @Component({

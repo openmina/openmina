@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { Store } from '@ngrx/store';
-import { Effect } from '@openmina/shared';
+import { Effect } from '@mina-rust/shared';
 import { EMPTY, map, switchMap, tap } from 'rxjs';
 import { MinaRustBaseEffect } from '@shared/base-classes/mina-rust-base.effect';
 import {

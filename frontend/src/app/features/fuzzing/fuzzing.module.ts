@@ -12,7 +12,7 @@ import { FuzzingDirectoriesTableComponent } from '@fuzzing/fuzzing-directories-t
 import {
   CopyComponent,
   HorizontalResizableContainerComponent,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { LoadingSpinnerComponent } from '@shared/loading-spinner/loading-spinner.component';
 
 @NgModule({

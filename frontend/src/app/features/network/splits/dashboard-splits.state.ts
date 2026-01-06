@@ -1,5 +1,5 @@
 import { createSelector, MemoizedSelector } from '@ngrx/store';
-import { TableSort } from '@openmina/shared';
+import { TableSort } from '@mina-rust/shared';
 import { DashboardSplitsPeer } from '@shared/types/network/splits/dashboard-splits-peer.type';
 import { DashboardSplitsSet } from '@shared/types/network/splits/dashboard-splits-set.type';
 import { DashboardSplitsLink } from '@shared/types/network/splits/dashboard-splits-link.type';

@@ -13,7 +13,7 @@ import { NodesLiveStatusCountsComponent } from '@nodes/live/nodes-live-status-co
 import {
   CopyComponent,
   HorizontalResizableContainerComponent,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 
 @NgModule({
   declarations: [

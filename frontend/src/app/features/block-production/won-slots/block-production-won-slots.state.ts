@@ -3,7 +3,7 @@ import { MinaState } from '@app/app.setup';
 import { BlockProductionSelectors } from '@block-production/block-production.state';
 import { BlockProductionWonSlotsFilters } from '@shared/types/block-production/won-slots/block-production-won-slots-filters.type';
 import { BlockProductionWonSlotsSlot } from '@shared/types/block-production/won-slots/block-production-won-slots-slot.type';
-import { TableSort } from '@openmina/shared';
+import { TableSort } from '@mina-rust/shared';
 import { BlockProductionWonSlotsEpoch } from '@shared/types/block-production/won-slots/block-production-won-slots-epoch.type';
 
 export interface BlockProductionWonSlotsState {

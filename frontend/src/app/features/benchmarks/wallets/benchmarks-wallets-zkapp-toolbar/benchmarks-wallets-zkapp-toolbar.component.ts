@@ -9,7 +9,7 @@ import {
 } from '@angular/core';
 import { UntilDestroy, untilDestroyed } from '@ngneat/until-destroy';
 import { FormBuilder, FormControl, FormGroup } from '@angular/forms';
-import { isMobile, ManualDetection } from '@openmina/shared';
+import { isMobile, ManualDetection } from '@mina-rust/shared';
 import { BenchmarksWallet } from '@shared/types/benchmarks/wallets/benchmarks-wallet.type';
 import { Overlay, OverlayRef } from '@angular/cdk/overlay';
 import { Store } from '@ngrx/store';

@@ -8,7 +8,7 @@ import {
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { selectSnarksWorkPools } from '@snarks/work-pool/snarks-work-pool.state';
 import { WorkPool } from '@shared/types/snarks/work-pool/work-pool.type';
-import { BarGraphComponent } from '@openmina/shared';
+import { BarGraphComponent } from '@mina-rust/shared';
 
 @Component({
   selector: 'mina-snarks-work-pool-statistics',
@@ -34,7 +34,7 @@ export class SnarksWorkPoolStatisticsComponent
   private component2: BarGraphComponent;
 
   async ngOnInit(): Promise<void> {
-    await import('@openmina/shared').then(c => {
+    await import('@mina-rust/shared').then(c => {
       this.component1 =
         this.minaBarGraphRef1.createComponent<BarGraphComponent>(
           c.BarGraphComponent,
@@ -43,7 +43,7 @@ export class SnarksWorkPoolStatisticsComponent
       this.addBarGraphProperties(this.component1);
       this.component1.ngOnInit();
     });
-    await import('@openmina/shared').then(c => {
+    await import('@mina-rust/shared').then(c => {
       this.component2 =
         this.minaBarGraphRef2.createComponent<BarGraphComponent>(
           c.BarGraphComponent,

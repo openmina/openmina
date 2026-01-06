@@ -4,7 +4,7 @@ import {
   EventEmitter,
 } from '@angular/core';
 import { AppEnvBuild } from '@shared/types/app/app-env-build.type';
-import { ManualDetection, MinaJsonViewerComponent } from '@openmina/shared';
+import { ManualDetection, MinaJsonViewerComponent } from '@mina-rust/shared';
 
 @Component({
   selector: 'mina-env-build-modal',

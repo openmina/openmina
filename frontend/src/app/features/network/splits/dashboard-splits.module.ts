@@ -11,7 +11,7 @@ import {
   CopyComponent,
   HorizontalMenuComponent,
   HorizontalResizableContainerComponent,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { DashboardSplitsComponent } from '@network/splits/dashboard-splits.component';
 import { SharedModule } from '@shared/shared.module';
 import { DashboardSplitsEffects } from '@network/splits/dashboard-splits.effects';

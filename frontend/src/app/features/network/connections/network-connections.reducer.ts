@@ -1,5 +1,5 @@
 import { NetworkMessagesDirection } from '@shared/types/network/messages/network-messages-direction.enum';
-import { ONE_THOUSAND } from '@openmina/shared';
+import { ONE_THOUSAND } from '@mina-rust/shared';
 import { NetworkConnectionsState } from '@network/connections/network-connections.state';
 import {
   NETWORK_CONNECTIONS_CLOSE,

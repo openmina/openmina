@@ -1,4 +1,4 @@
-import { sort, SortDirection, TableSort } from '@openmina/shared';
+import { sort, SortDirection, TableSort } from '@mina-rust/shared';
 import { NodesBootstrapState } from '@nodes/bootstrap/nodes-bootstrap.state';
 import {
   NODES_BOOTSTRAP_CLOSE,
@@ -9,7 +9,7 @@ import {
   NodesBootstrapActions,
 } from '@nodes/bootstrap/nodes-bootstrap.actions';
 import { NodesBootstrapNode } from '@shared/types/nodes/bootstrap/nodes-bootstrap-node.type';
-import { isDesktop } from '@openmina/shared';
+import { isDesktop } from '@mina-rust/shared';
 
 const initialState: NodesBootstrapState = {
   nodes: [],

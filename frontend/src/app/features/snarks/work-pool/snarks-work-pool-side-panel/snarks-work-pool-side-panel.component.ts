@@ -17,7 +17,7 @@ import { Router } from '@angular/router';
 import { Routes } from '@shared/enums/routes.enum';
 import { Overlay, OverlayRef } from '@angular/cdk/overlay';
 import { TemplatePortal } from '@angular/cdk/portal';
-import { getWindow } from '@openmina/shared';
+import { getWindow } from '@mina-rust/shared';
 
 @Component({
   selector: 'mina-snarks-work-pool-side-panel',

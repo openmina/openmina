@@ -31,7 +31,7 @@ import {
   MergedRoute,
   TableColumnList,
   TimestampInterval,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { Params, Router } from '@angular/router';
 import { Routes } from '@shared/enums/routes.enum';
 import { NetworkMessagesDirection } from '@shared/types/network/messages/network-messages-direction.enum';

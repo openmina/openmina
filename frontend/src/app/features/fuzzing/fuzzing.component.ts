@@ -11,7 +11,7 @@ import {
 import { take, timer } from 'rxjs';
 import { untilDestroyed } from '@ngneat/until-destroy';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
-import { getMergedRoute } from '@openmina/shared';
+import { getMergedRoute } from '@mina-rust/shared';
 import { FuzzingFile } from '@shared/types/fuzzing/fuzzing-file.type';
 
 @Component({

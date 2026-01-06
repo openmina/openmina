@@ -1,4 +1,4 @@
-import { FeatureAction } from '@openmina/shared';
+import { FeatureAction } from '@mina-rust/shared';
 import { BenchmarksWallet } from '@shared/types/benchmarks/wallets/benchmarks-wallet.type';
 import { BenchmarksWalletTransaction } from '@shared/types/benchmarks/wallets/benchmarks-wallet-transaction.type';
 import { MempoolTransaction } from '@shared/types/mempool/mempool-transaction.type';

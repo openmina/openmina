@@ -10,7 +10,7 @@ import {
   MergedRoute,
   SecDurationConfig,
   TableColumnList,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { Router } from '@angular/router';
 import { take } from 'rxjs';
 import { Routes } from '@shared/enums/routes.enum';

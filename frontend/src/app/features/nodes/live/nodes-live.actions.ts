@@ -1,4 +1,4 @@
-import { FeatureAction, TableSort } from '@openmina/shared';
+import { FeatureAction, TableSort } from '@mina-rust/shared';
 import { NodesLiveNode } from '@shared/types/nodes/live/nodes-live-node.type';
 import { NodesLiveBlockEvent } from '@shared/types/nodes/live/nodes-live-block-event.type';
 

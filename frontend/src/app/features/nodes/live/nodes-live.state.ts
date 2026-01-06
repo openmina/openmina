@@ -2,7 +2,7 @@ import { createSelector, MemoizedSelector } from '@ngrx/store';
 import { MinaState } from '@app/app.setup';
 import { NodesLiveNode } from '@shared/types/nodes/live/nodes-live-node.type';
 import { NodesLiveBlockEvent } from '@shared/types/nodes/live/nodes-live-block-event.type';
-import { TableSort } from '@openmina/shared';
+import { TableSort } from '@mina-rust/shared';
 import { selectNodesLiveState } from '@nodes/nodes.state';
 
 export interface NodesLiveState {

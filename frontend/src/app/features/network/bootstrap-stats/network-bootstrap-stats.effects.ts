@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { MinaState, selectMinaState } from '@app/app.setup';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
-import { Effect } from '@openmina/shared';
+import { Effect } from '@mina-rust/shared';
 import { EMPTY, filter, map, switchMap, tap } from 'rxjs';
 import { catchErrorAndRepeat } from '@shared/constants/store-functions';
 import { MinaErrorType } from '@shared/types/error-preview/mina-error-type.enum';

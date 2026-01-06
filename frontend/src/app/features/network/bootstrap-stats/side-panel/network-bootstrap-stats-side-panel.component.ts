@@ -9,7 +9,7 @@ import {
   downloadJson,
   ExpandTracking,
   MinaJsonViewerComponent,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { NetworkBootstrapStatsRequest } from '@shared/types/network/bootstrap-stats/network-bootstrap-stats-request.type';
 import { selectNetworkBootstrapStatsActiveBootstrapRequest } from '@network/bootstrap-stats/network-bootstrap-stats.state';
 import { NetworkBootstrapStatsSetActiveBootstrapRequest } from '@network/bootstrap-stats/network-bootstrap-stats.actions';

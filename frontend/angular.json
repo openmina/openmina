@@ -58,7 +58,7 @@
                 "src/assets/styles",
                 "src/assets/styles/utilities",
                 "src/assets/images",
-                "vendor/openmina-shared/src/assets/styles"
+                "vendor/mina-rust-shared/src/assets/styles"
               ]
             },
             "scripts": [

@@ -21,7 +21,7 @@ import {
   isBrowser,
   safelyExecuteInBrowser,
   getLocalStorage,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { sendSentryEvent } from '@shared/helpers/webnode.helper';
 import { DashboardPeerStatus } from '@shared/types/dashboard/dashboard.peer';
 import { FileProgressHelper } from '@core/helpers/file-progress.helper';

@@ -12,7 +12,7 @@ import { NetworkBlocksToolbarComponent } from './network-blocks-toolbar/network-
 import {
   CopyComponent,
   HorizontalResizableContainerComponent,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 
 @NgModule({
   declarations: [

@@ -5,7 +5,7 @@ import {
   Input,
   OnInit,
 } from '@angular/core';
-import { isDesktop, TableColumnList } from '@openmina/shared';
+import { isDesktop, TableColumnList } from '@mina-rust/shared';
 import { Router } from '@angular/router';
 import { DashboardSplitsPeer } from '@shared/types/network/splits/dashboard-splits-peer.type';
 import { MinaTableRustWrapper } from '@shared/base-classes/mina-table-rust-wrapper.class';

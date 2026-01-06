@@ -10,7 +10,7 @@ import {
   hasValue,
   isBrowser,
   safelyExecuteInBrowser,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 
 // NOTE: When modifying CONFIG or related functions, update the documentation at:
 // website/docs/developers/frontend/environment-configuration.mdx

@@ -1,4 +1,4 @@
-import { FeatureAction } from '@openmina/shared';
+import { FeatureAction } from '@mina-rust/shared';
 import { MemoryResource } from '@shared/types/resources/memory/memory-resource.type';
 import { TreemapView } from '@shared/types/resources/memory/treemap-view.type';
 

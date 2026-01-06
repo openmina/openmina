@@ -6,7 +6,7 @@ import {
   createNonDispatchableEffect,
   Effect,
   removeParamsFromURL,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { filter, map, mergeMap, of, switchMap, tap } from 'rxjs';
 import { AppActions } from '@app/app.actions';
 import { Router } from '@angular/router';

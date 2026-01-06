@@ -6,7 +6,7 @@ import {
   ONE_BILLION,
   ONE_THOUSAND,
   safelyExecuteInBrowser,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { getTimeDiff } from '@shared/helpers/date.helper';
 import { filter } from 'rxjs';
 import {

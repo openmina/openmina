@@ -12,7 +12,7 @@ import {
   HorizontalMenuComponent,
   HorizontalResizableContainerComponent,
   MinaJsonViewerComponent,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { LoadingSpinnerComponent } from '@shared/loading-spinner/loading-spinner.component';
 
 @NgModule({

@@ -16,7 +16,7 @@ import {
   SecDurationConfig,
   TableColumnList,
   TableSort,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { DOCUMENT } from '@angular/common';
 import { distinctUntilChanged } from 'rxjs';
 import { StateActionsStats } from '@shared/types/state/actions/state-actions-stats.type';

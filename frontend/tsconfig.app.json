@@ -10,6 +10,6 @@
   ],
   "include": [
     "src/**/*.d.ts",
-    "vendor/openmina-shared/src/**/*.ts"
+    "vendor/mina-rust-shared/src/**/*.ts"
   ]
 }

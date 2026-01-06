@@ -25,7 +25,7 @@ import {
   safelyExecuteInBrowser,
   SecDurationConfig,
   toReadableDate,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { filter } from 'rxjs';
 import { BlockProductionWonSlotsActions } from '@block-production/won-slots/block-production-won-slots.actions';
 import { AppSelectors } from '@app/app.state';

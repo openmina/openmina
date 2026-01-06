@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpEventType, HttpRequest } from '@angular/common/http';
 import { catchError, map, Observable, of } from 'rxjs';
-import { ONE_MILLION, ONE_THOUSAND, toReadableDate } from '@openmina/shared';
+import { ONE_MILLION, ONE_THOUSAND, toReadableDate } from '@mina-rust/shared';
 import { NetworkMessage } from '@shared/types/network/messages/network-message.type';
 import { NetworkMessageConnection } from '@shared/types/network/messages/network-messages-connection.type';
 import { NetworkMessagesFilter } from '@shared/types/network/messages/network-messages-filter.type';

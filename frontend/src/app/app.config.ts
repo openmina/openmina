@@ -30,7 +30,7 @@ import {
   MergedRouterStateSerializer,
   safelyExecuteInBrowser,
   THEME_PROVIDER,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { CONFIG } from '@shared/constants/config';
 import localeFr from '@angular/common/locales/fr';
 import localeEn from '@angular/common/locales/en';

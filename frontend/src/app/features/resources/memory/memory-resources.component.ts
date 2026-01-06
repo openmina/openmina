@@ -16,7 +16,7 @@ import { filter } from 'rxjs';
 import { MemoryResourcesState } from '@resources/memory/memory-resources.state';
 import { MemoryResource } from '@shared/types/resources/memory/memory-resource.type';
 import { selectMemoryResourcesState } from '@resources/resources.state';
-import { HorizontalMenuComponent } from '@openmina/shared';
+import { HorizontalMenuComponent } from '@mina-rust/shared';
 
 @Component({
   selector: 'app-memory-resources',

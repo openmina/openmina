@@ -12,7 +12,7 @@ import {
   MergedRoute,
   SecDurationConfig,
   TableColumnList,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { Router } from '@angular/router';
 import { SnarksWorkPoolToggleSidePanel } from '@snarks/work-pool/snarks-work-pool.actions';
 import { filter, take } from 'rxjs';

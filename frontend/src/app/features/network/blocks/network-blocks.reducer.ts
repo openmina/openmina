@@ -9,7 +9,7 @@ import {
   NETWORK_BLOCKS_TOGGLE_SIDE_PANEL,
   NetworkBlocksActions,
 } from '@network/blocks/network-blocks.actions';
-import { ONE_BILLION, sort, SortDirection, TableSort } from '@openmina/shared';
+import { ONE_BILLION, sort, SortDirection, TableSort } from '@mina-rust/shared';
 import { NetworkBlock } from '@shared/types/network/blocks/network-block.type';
 
 const initialState: NetworkBlocksState = {

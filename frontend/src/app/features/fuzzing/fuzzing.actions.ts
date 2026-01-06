@@ -1,7 +1,7 @@
 import { FuzzingFile } from '@shared/types/fuzzing/fuzzing-file.type';
 import { FuzzingFileDetails } from '@shared/types/fuzzing/fuzzing-file-details.type';
 import { FuzzingDirectory } from '@shared/types/fuzzing/fuzzing-directory.type';
-import { FeatureAction, TableSort } from '@openmina/shared';
+import { FeatureAction, TableSort } from '@mina-rust/shared';
 
 enum FuzzingActionTypes {
   FUZZING_INIT = 'FUZZING_INIT',

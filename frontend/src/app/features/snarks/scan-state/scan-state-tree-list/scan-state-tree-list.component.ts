@@ -20,7 +20,7 @@ import {
   ScanStateToggleSidePanel,
 } from '@snarks/scan-state/scan-state.actions';
 import { ScanStateLeaf } from '@shared/types/snarks/scan-state/scan-state-leaf.type';
-import { getMergedRoute, MergedRoute, isMobile } from '@openmina/shared';
+import { getMergedRoute, MergedRoute, isMobile } from '@mina-rust/shared';
 
 @Component({
   selector: 'mina-scan-state-tree-list',

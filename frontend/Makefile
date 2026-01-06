@@ -82,9 +82,9 @@ rebuild: clean install-deps build ## Clean, reinstall dependencies, and rebuild
 
 .PHONY: sentry-sourcemaps
 sentry-sourcemaps: ## Upload sourcemaps to Sentry
-	sentry-cli sourcemaps inject --org openmina-uv --project openmina \
+	sentry-cli sourcemaps inject --org mina-rust-uv --project mina-rust \
 		./dist/frontend/browser
-	sentry-cli sourcemaps upload --org openmina-uv --project openmina \
+	sentry-cli sourcemaps upload --org mina-rust-uv --project mina-rust \
 		./dist/frontend/browser
 
 .PHONY: start

@@ -15,7 +15,7 @@ import {
   getTimeFromMemo,
   removeUnicodeEscapes,
 } from '@shared/helpers/transaction.helper';
-import { getLocalStorage, ONE_BILLION } from '@openmina/shared';
+import { getLocalStorage, ONE_BILLION } from '@mina-rust/shared';
 import { MempoolTransactionResponseKind } from '@app/features/mempool/mempool.service';
 
 export const WALLETS: { privateKey: string; publicKey: string }[] = [

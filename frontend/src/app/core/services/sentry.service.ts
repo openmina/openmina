@@ -8,7 +8,7 @@ import {
   NodesOverviewBlock,
   NodesOverviewNodeBlockStatus,
 } from '@shared/types/nodes/dashboard/nodes-overview-block.type';
-import { lastItem, ONE_BILLION } from '@openmina/shared';
+import { lastItem, ONE_BILLION } from '@mina-rust/shared';
 import { getElapsedTime } from '@shared/helpers/date.helper';
 import { BlockProductionWonSlotsSlot } from '@shared/types/block-production/won-slots/block-production-won-slots-slot.type';
 import { BlockProductionAttempt } from '@app/app.service';

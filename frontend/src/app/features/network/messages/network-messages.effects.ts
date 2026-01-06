@@ -40,7 +40,7 @@ import {
   createNonDispatchableEffect,
   Effect,
   NonDispatchableEffect,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import {
   catchError,
   EMPTY,

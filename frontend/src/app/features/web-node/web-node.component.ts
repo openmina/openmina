@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { Platform } from '@angular/cdk/platform';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
-import { getMergedRoute, MergedRoute } from '@openmina/shared';
+import { getMergedRoute, MergedRoute } from '@mina-rust/shared';
 import { filter } from 'rxjs';
 import { WebNodeService } from '@core/services/web-node.service';
 import { iOSversion } from '@shared/helpers/webnode.helper';
