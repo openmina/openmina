@@ -1,4 +1,5 @@
 use crate::p2p::P2pEffectfulAction;
+use mina_core::bug_condition;
 use serde::{Deserialize, Serialize};
 
 pub type ActionWithMeta = redux::ActionWithMeta<Action>;
@@ -35,6 +36,7 @@ static_assertions::const_assert!(std::mem::size_of::<Action>() <= 512);
 #[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum Action {
     CheckTimeouts(CheckTimeoutsAction),
+    CheckInvalidPeersAction(CheckInvalidPeersAction),
     EventSource(EventSourceAction),
 
     P2p(P2pAction),
@@ -73,10 +75,50 @@ pub struct CheckTimeoutsAction {}
 
 impl redux::EnablingCondition<crate::State> for CheckTimeoutsAction {}
 
+/// Checks if node has been started with invalid peers, and depending on feature flags exits/logs
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CheckInvalidPeersAction {}
+
+impl redux::EnablingCondition<crate::State> for CheckInvalidPeersAction {
+    fn is_enabled(&self, state: &crate::State, time: redux::Timestamp) -> bool {
+        /// This is starting block height, loaded from state, if node doesn't connect to any other nodes this will be best height
+        const STARTING_BLOCK_HEIGHT: u32 = 296_372;
+        const GRACE_PERIOD: u64 = 60 * 1_000 * 1_000 * 1000;
+
+        let Some(grace_period) = state.start_time().checked_add(GRACE_PERIOD) else {
+            bug_condition!("Failed to add duration");
+            return false;
+        };
+        if grace_period > time {
+            return false;
+        }
+
+        let Some(p2p_state) = state.p2p.ready() else {
+            return false;
+        };
+
+        let Some(kad_state) = p2p_state.network.scheduler.discovery_state() else {
+            return false;
+        };
+
+        let has_bootstrapped = kad_state.has_bootstrapped && p2p_state.ready_peers().is_empty();
+        if !has_bootstrapped {
+            return false;
+        }
+
+        let Some(tip) = &state.transition_frontier.best_tip_breadcrumb() else {
+            return false;
+        };
+
+        tip.height() == STARTING_BLOCK_HEIGHT
+    }
+}
+
 impl redux::EnablingCondition<crate::State> for Action {
     fn is_enabled(&self, state: &crate::State, time: redux::Timestamp) -> bool {
         match self {
             Action::CheckTimeouts(a) => a.is_enabled(state, time),
+            Action::CheckInvalidPeersAction(a) => a.is_enabled(state, time),
             Action::EventSource(a) => a.is_enabled(state, time),
             Action::P2p(a) => match a {
                 P2pAction::Initialization(a) => a.is_enabled(state, time),

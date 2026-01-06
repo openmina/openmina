@@ -59,8 +59,11 @@ redux = { workspace = true, features = ["serializable_callbacks"] }
 wasm-bindgen = { workspace = true }
 
 [features]
+default = []
+
 serializable_callbacks = []
 replay = []
 p2p-webrtc = ["mina-p2p/p2p-webrtc"]
 p2p-libp2p = ["mina-p2p/p2p-libp2p"]
 fuzzing = ["mina-p2p/fuzzing"]
+exit-on-invalid-peers = []

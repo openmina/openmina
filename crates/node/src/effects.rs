@@ -16,7 +16,8 @@ use crate::{
     snark_pool::{candidate::SnarkPoolCandidateAction, snark_pool_effects, SnarkPoolAction},
     transaction_pool::candidate::TransactionPoolCandidateAction,
     transition_frontier::{genesis::TransitionFrontierGenesisAction, transition_frontier_effects},
-    Action, ActionWithMeta, ExternalSnarkWorkerAction, Service, Store, TransactionPoolAction,
+    Action, ActionWithMeta, CheckInvalidPeersAction, ExternalSnarkWorkerAction, Service, Store,
+    TransactionPoolAction,
 };
 
 use crate::p2p::channels::rpc::{P2pChannelsRpcAction, P2pRpcRequest};
@@ -63,6 +64,8 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
             store.dispatch(BlockProducerAction::WonSlotProduceInit);
             store.dispatch(BlockProducerAction::BlockInject);
             store.dispatch(LedgerReadAction::FindTodos);
+
+            store.dispatch(CheckInvalidPeersAction {});
         }
         Action::EventSource(action) => {
             event_source_effects(store, meta.with_action(action));
@@ -93,6 +96,32 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
         }
         Action::RpcEffectful(action) => {
             rpc_effects(store, meta.with_action(action));
+        }
+        Action::CheckInvalidPeersAction(_) => {
+            let state = store.state();
+            let initial_peers = state
+                .p2p
+                .config()
+                .initial_peers
+                .iter()
+                .map(|opts| opts.to_string())
+                .collect::<Vec<_>>()
+                .join(", ");
+
+            crate::core::error!(
+                crate::core::log::system_time();
+                error = "Invalid initial peers",
+                initial_peers = initial_peers
+            );
+
+            #[cfg(feature = "exit-on-invalid-peers")]
+            {
+                crate::core::error!(
+                    crate::core::log::system_time();
+                    summary = "Exiting due to invalid peers",
+                );
+                std::process::exit(1);
+            }
         }
         Action::BlockProducer(_)
         | Action::SnarkPool(_)
