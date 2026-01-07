@@ -543,14 +543,14 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
             let fee = config.fee.clone();
             let input = match input {
                     Ok(instances) => RpcSnarkerJobSpecResponse::Ok(
-                        mina_p2p_messages::v2::SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse(Some((
+                        Box::new(mina_p2p_messages::v2::SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse(Some((
                             mina_p2p_messages::v2::SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0 {
                                 instances,
                                 fee,
                             },
                             public_key,
                         )))
-                    ),
+                    )),
                     Err(err) => RpcSnarkerJobSpecResponse::Err(err),
                 };
 

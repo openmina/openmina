@@ -1,7 +1,7 @@
 import { createSelector, MemoizedSelector } from '@ngrx/store';
 import { MinaState } from '@app/app.setup';
 import { StateActionGroup } from '@shared/types/state/actions/state-action-group.type';
-import { TableSort } from '@openmina/shared';
+import { TableSort } from '@mina-rust/shared';
 import { StateActionsStats } from '@shared/types/state/actions/state-actions-stats.type';
 import { selectStateActionsState } from '@state/state.state';
 

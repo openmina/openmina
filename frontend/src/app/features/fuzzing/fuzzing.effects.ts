@@ -16,7 +16,7 @@ import {
   FuzzingSetActiveDirectory,
 } from '@fuzzing/fuzzing.actions';
 import { FuzzingService } from '@fuzzing/fuzzing.service';
-import { Effect } from '@openmina/shared';
+import { Effect } from '@mina-rust/shared';
 import { FuzzingDirectory } from '@shared/types/fuzzing/fuzzing-directory.type';
 import { addError } from '@shared/constants/store-functions';
 import { MinaErrorType } from '@shared/types/error-preview/mina-error-type.enum';

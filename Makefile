@@ -103,11 +103,10 @@ build-tests: ## Build tests for scenario testing
 	@mkdir -p target/release/tests
 	@cargo build --release --tests \
 		--package=mina-node-testing \
-		--package=mina-cli
-	@cargo build --release --tests \
-		--package=mina-node-testing \
-		--package=mina-cli \
 		--message-format=json > cargo-build-test.json
+	@cargo build --release --tests \
+		--package=mina-cli \
+		--message-format=json >> cargo-build-test.json
 	@jq -r '. | select(.executable != null and (.target.kind | (contains(["test"])))) | [.target.name, .executable ] | @tsv' \
 		cargo-build-test.json > tests.tsv
 	@while read NAME FILE; do \
@@ -262,16 +261,12 @@ format-md: ## Format all markdown and MDX files to wrap at 80 characters
 .PHONY: lint
 lint: ## Run linter (clippy)
 	cargo clippy --all-targets -- -D warnings \
-	  --allow clippy::large_enum_variant \
-	  --allow clippy::result-large-err \
-	  --allow unused
+	  --allow unused_assignments
 
 .PHONY: lint-beta
 lint-beta: ## Run linter (clippy) using beta Rust
 	cargo +beta clippy --all-targets -- -D warnings \
-	  --allow clippy::large_enum_variant \
-	  --allow clippy::result-large-err \
-	  --allow unused
+	  --allow unused_assignments
 
 .PHONY: lint-bash
 lint-bash: ## Check all shell scripts using shellcheck

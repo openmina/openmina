@@ -4,7 +4,7 @@ import {
   DashboardPeer,
   DashboardPeerStatus,
 } from '@shared/types/dashboard/dashboard.peer';
-import { TableColumnList } from '@openmina/shared';
+import { TableColumnList } from '@mina-rust/shared';
 import { DashboardPeersSort } from '@dashboard/dashboard.actions';
 import {
   selectDashboardPeers,

@@ -80,7 +80,7 @@ jobs:
         run: make docs-build
 
       - name: Upload build artifacts for testing
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: docs-build-test
           path: website/build
@@ -207,7 +207,7 @@ jobs:
           zip -r "mina-docs-${{ steps.version.outputs.version }}.zip" website/build
 
       - name: Upload versioned documentation as release asset
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: versioned-docs-${{ steps.version.outputs.version }}
           path: |

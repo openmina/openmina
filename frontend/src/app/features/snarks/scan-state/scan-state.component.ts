@@ -13,7 +13,7 @@ import {
   ScanStateSetActiveJobId,
   ScanStateSidebarResized,
 } from '@snarks/scan-state/scan-state.actions';
-import { getMergedRoute, MergedRoute } from '@openmina/shared';
+import { getMergedRoute, MergedRoute } from '@mina-rust/shared';
 import {
   selectScanStateActiveJobId,
   selectScanStateOpenSidePanel,

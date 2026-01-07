@@ -133,6 +133,7 @@ impl super::P2pNetworkKadState {
                     time: meta.time(),
                     stats: bootstrap_state.stats.clone(),
                 };
+                state.has_bootstrapped = true;
                 Ok(())
             }
             (_, P2pNetworkKademliaAction::UpdateRoutingTable { peer_id, addrs }) => {

@@ -1,0 +1,88 @@
+---
+sidebar_position: 1
+title: Web Node
+description: Run a Mina node in your web browser
+---
+
+# Web node
+
+The web node is an experimental implementation of the Mina Rust node compiled to
+WebAssembly, allowing you to run a fully functional Mina node directly in your
+web browser — no software installation required.
+
+<!-- prettier-ignore-start -->
+
+:::caution Experimental Feature
+
+The web node is currently experimental and under active development. It is not
+recommended for production use.
+
+:::
+
+<!-- prettier-ignore-stop -->
+
+## Browser compatibility
+
+The web node requires modern browser features including WebAssembly with threads
+and bulk memory operations, plus WebRTC for peer-to-peer networking. While
+Firefox meets the technical requirements, there are currently known issues with
+P2P connectivity that may prevent the web node from connecting to the network
+reliably.
+
+<!--
+Maintainers' note:
+
+Browser version requirements are based on caniuse.com compatibility data for:
+- WebAssembly: caniuse.com/wasm
+- WASM threads and atomics: caniuse.com/wasm-threads
+- WASM bulk memory operations: caniuse.com/wasm-bulk-memory
+- WebRTC: caniuse.com/rtcpeerconnection
+The minimum version for each browser is the highest requirement among these.
+
+Chromium-based browsers inherit Chrome's WebAssembly and WebRTC support from
+their underlying Chromium version. Opera 62 and Brave 0.65 were both originally
+based on Chromium 75.
+
+Brave to Chromium mappings are available here:
+https://github.com/brave/brave-browser/wiki/Brave-Release-Schedule-Archive
+-->
+
+### Desktop browsers
+
+| Browser           | Minimum Version | Status                                   |
+| ----------------- | --------------- | ---------------------------------------- |
+| Chrome            | 75+             | Supported                                |
+| Edge              | 79+             | Supported                                |
+| Safari            | 15+             | Supported                                |
+| Firefox           | 79+             | Limited - WebRTC/P2P connectivity issues |
+| Brave             | 0.65+           | Untested, might work with "Shields Down" |
+| Opera             | 62+             | Untested, might work                     |
+| Internet Explorer | -               | Not supported                            |
+
+### Mobile browsers
+
+| Browser         | Minimum Version | Status                                   |
+| --------------- | --------------- | ---------------------------------------- |
+| Safari iOS      | 15+             | Supported                                |
+| Chrome Android  | 75+             | Supported                                |
+| Firefox Android | 79+             | Limited - WebRTC/P2P connectivity issues |
+
+## Getting started
+
+Choose the deployment method that fits your needs:
+
+- **[Docker deployment](./local-web-node-docker)** (recommended) - Use pre-built
+  Docker images for the easiest setup. No compilation required.
+
+- **[Build from source](./local-web-node)** - Build and run the web node
+  locally. Best for development or customization.
+
+## Learn more
+
+For technical details about the web node architecture, features, and
+development:
+
+- [Web node developer documentation](../../developers/frontend/web-node) -
+  Architecture overview, WebAssembly integration, and development workflow
+- [Web node WASM API](../../developers/frontend/api-endpoints#web-node-wasm-api) -
+  JavaScript API for interacting with the web node

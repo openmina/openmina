@@ -9,7 +9,7 @@ import {
   downloadJson,
   ExpandTracking,
   MinaJsonViewerComponent,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { Router } from '@angular/router';
 import { Routes } from '@shared/enums/routes.enum';
 import { MempoolActions } from '@app/features/mempool/mempool.actions';
@@ -61,7 +61,7 @@ export class MempoolSidePanelComponent
   }
 
   downloadJson(): void {
-    downloadJson(this.jsonString, 'openmina-transaction.json');
+    downloadJson(this.jsonString, 'mina-rust-transaction.json');
   }
 
   expandEntireJSON(): void {

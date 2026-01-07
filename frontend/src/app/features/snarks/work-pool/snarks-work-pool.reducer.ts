@@ -4,7 +4,7 @@ import {
   SortDirection,
   TableSort,
   toggleItem,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { SnarksWorkPoolState } from '@snarks/work-pool/snarks-work-pool.state';
 import {
   SNARKS_WORK_POOL_CLOSE,

@@ -12,7 +12,7 @@ import { WebNodeService } from '@core/services/web-node.service';
 import {
   GlobalErrorHandlerService,
   safelyExecuteInBrowser,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { NgClass, NgOptimizedImage } from '@angular/common';
 import { Router } from '@angular/router';
 import { getFirstFeature } from '@shared/constants/config';

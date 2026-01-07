@@ -9,10 +9,10 @@
 //   GlobalErrorHandlerService,
 //   HorizontalMenuComponent,
 //   NgrxRouterStoreModule,
-//   OpenminaEagerSharedModule,
+//   MinaRustEagerSharedModule,
 //   safelyExecuteInBrowser,
 //   THEME_PROVIDER,
-// } from '@openmina/shared';
+// } from '@mina-rust/shared';
 // import { CommonModule, registerLocaleData } from '@angular/common';
 // import localeFr from '@angular/common/locales/fr';
 // import localeEn from '@angular/common/locales/en';
@@ -182,7 +182,7 @@
 //     NgrxRouterStoreModule,
 //     !CONFIG.production ? StoreDevtoolsModule.instrument({ maxAge: 150, connectInZone: true }) : [],
 //     MatSidenavModule,
-//     OpenminaEagerSharedModule,
+//     MinaRustEagerSharedModule,
 //     HorizontalMenuComponent,
 //     ReactiveFormsModule,
 //     CopyComponent,

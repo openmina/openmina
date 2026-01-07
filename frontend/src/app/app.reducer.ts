@@ -3,7 +3,7 @@ import { AppState } from '@app/app.state';
 import { MinaNode } from '@shared/types/core/environment/mina-env.type';
 import { createReducer, on } from '@ngrx/store';
 import { AppNodeStatus } from '@shared/types/app/app-node-details.type';
-import { getLocalStorage } from '@openmina/shared';
+import { getLocalStorage } from '@mina-rust/shared';
 
 const initialState: AppState = {
   menu: {

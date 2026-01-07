@@ -4,7 +4,7 @@ import { BlockProductionWonSlotsSelectors } from '@block-production/won-slots/bl
 import { filter } from 'rxjs';
 import { BlockProductionWonSlotsSlot } from '@shared/types/block-production/won-slots/block-production-won-slots-slot.type';
 import { BlockProductionWonSlotsEpoch } from '@shared/types/block-production/won-slots/block-production-won-slots-epoch.type';
-import { isMobile, ONE_BILLION, ONE_THOUSAND } from '@openmina/shared';
+import { isMobile, ONE_BILLION, ONE_THOUSAND } from '@mina-rust/shared';
 import { getTimeDiff } from '@shared/helpers/date.helper';
 
 @Component({

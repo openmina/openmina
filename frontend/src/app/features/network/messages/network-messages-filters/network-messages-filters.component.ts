@@ -20,7 +20,7 @@ import {
   getMergedRoute,
   MergedRoute,
   TimestampInterval,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import {
   animate,
   state,

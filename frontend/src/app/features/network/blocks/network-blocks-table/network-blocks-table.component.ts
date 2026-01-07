@@ -6,7 +6,7 @@ import {
   selectNetworkBlocksSorting,
 } from '@network/blocks/network-blocks.state';
 import { NetworkBlock } from '@shared/types/network/blocks/network-block.type';
-import { SecDurationConfig, TableColumnList } from '@openmina/shared';
+import { SecDurationConfig, TableColumnList } from '@mina-rust/shared';
 import { NetworkBlocksSort } from '@network/blocks/network-blocks.actions';
 import { MinaTableRustWrapper } from '@shared/base-classes/mina-table-rust-wrapper.class';
 

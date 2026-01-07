@@ -8,7 +8,7 @@ import {
   TxType,
 } from '@shared/types/ledger/ledger.type';
 import { Buffer } from 'buffer';
-import { any, safelyExecuteInBrowser } from '@openmina/shared';
+import { any, safelyExecuteInBrowser } from '@mina-rust/shared';
 
 safelyExecuteInBrowser(() => {
   // @ts-ignore

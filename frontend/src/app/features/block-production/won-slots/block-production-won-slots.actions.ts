@@ -3,7 +3,7 @@ import { createType } from '@shared/constants/store-functions';
 import { BLOCK_PRODUCTION_PREFIX } from '@block-production/block-production.actions';
 import { BlockProductionWonSlotsSlot } from '@shared/types/block-production/won-slots/block-production-won-slots-slot.type';
 import { BlockProductionWonSlotsFilters } from '@shared/types/block-production/won-slots/block-production-won-slots-filters.type';
-import { TableSort } from '@openmina/shared';
+import { TableSort } from '@mina-rust/shared';
 import { BlockProductionWonSlotsEpoch } from '@shared/types/block-production/won-slots/block-production-won-slots-epoch.type';
 
 export const BLOCK_PRODUCTION_WON_SLOTS_KEY = 'wonSlots';

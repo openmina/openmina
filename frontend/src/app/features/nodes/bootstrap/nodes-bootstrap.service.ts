@@ -7,7 +7,7 @@ import {
 } from '@shared/types/nodes/dashboard/nodes-overview-node.type';
 import { NodesBootstrapNode } from '@shared/types/nodes/bootstrap/nodes-bootstrap-node.type';
 import { NodesOverviewNodeBlockStatus } from '@shared/types/nodes/dashboard/nodes-overview-block.type';
-import { hasValue } from '@openmina/shared';
+import { hasValue } from '@mina-rust/shared';
 import { RustService } from '@core/services/rust.service';
 
 @Injectable({

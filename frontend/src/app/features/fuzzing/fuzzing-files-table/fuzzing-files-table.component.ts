@@ -17,7 +17,7 @@ import {
   MergedRoute,
   TableColumnList,
   TableSort,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { MinaTableRustWrapper } from '@shared/base-classes/mina-table-rust-wrapper.class';
 
 @Component({

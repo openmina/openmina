@@ -7,7 +7,7 @@ import {
   ONE_MILLION,
   ONE_THOUSAND,
   toReadableDate,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { WorkPoolSpecs } from '@shared/types/snarks/work-pool/work-pool-specs.type';
 import { WorkPoolDetail } from '@shared/types/snarks/work-pool/work-pool-detail.type';
 import { WorkPoolCommitment } from '@shared/types/snarks/work-pool/work-pool-commitment.type';

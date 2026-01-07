@@ -10,7 +10,7 @@ import { NetworkConnectionsEffects } from '@network/connections/network-connecti
 import {
   HorizontalResizableContainerComponent,
   MinaJsonViewerComponent,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 
 @NgModule({
   declarations: [

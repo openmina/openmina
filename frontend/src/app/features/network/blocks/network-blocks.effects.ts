@@ -5,7 +5,7 @@ import {
   createNonDispatchableEffect,
   Effect,
   NonDispatchableEffect,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { filter, map, Subject, switchMap, takeUntil, tap, timer } from 'rxjs';
 import { catchErrorAndRepeat } from '@shared/constants/store-functions';
 import { MinaErrorType } from '@shared/types/error-preview/mina-error-type.enum';

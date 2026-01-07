@@ -11,11 +11,11 @@ import {
   HorizontalMenuComponent,
   isDesktop,
   MergedRoute,
-  OpenminaEagerSharedModule,
+  MinaRustEagerSharedModule,
   removeParamsFromURL,
   ThemeSwitcherService,
   ThemeType,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { getAvailableFeatures } from '@shared/constants/config';
 import { MENU_ITEMS, MenuItem } from '@app/layout/menu/menu.component';
 import { filter, map, merge, skip, take, tap } from 'rxjs';
@@ -33,7 +33,7 @@ import { EnvBuildModalComponent } from '@app/layout/env-build-modal/env-build-mo
 @UntilDestroy()
 @Component({
   selector: 'mina-menu-tabs',
-  imports: [HorizontalMenuComponent, RouterLink, OpenminaEagerSharedModule],
+  imports: [HorizontalMenuComponent, RouterLink, MinaRustEagerSharedModule],
   templateUrl: './menu-tabs.component.html',
   styleUrl: './menu-tabs.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -172,7 +172,7 @@ export class MenuTabsComponent extends StoreDispatcher implements OnInit {
     this.closeOverlay();
     this.overlayRef = this.overlay.create({
       hasBackdrop: true,
-      backdropClass: 'openmina-backdrop',
+      backdropClass: 'mina-rust-backdrop',
       width: 'calc(100% - 8px)',
       height: 'calc(100% - 8px)',
       positionStrategy: this.overlay

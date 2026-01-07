@@ -1,0 +1,20 @@
+{
+  "name": "mina-rust-styles",
+  "version": "0.0.1",
+  "scripts": {
+    "update:styles": "npm run build:styles && npm run copy:styles",
+    "build:styles": "scss-bundle -c scss-bundle.config.json",
+    "copy:styles": "cp src/lib/styles/mina-rust.scss ../../src/assets/styles/mina-rust.scss && cp src/lib/styles/mina-rust.scss ../mina-rust-shared/src/assets/styles/mina-rust.scss"
+  },
+  "peerDependencies": {
+    "@angular/common": "^19.2.14",
+    "@angular/core": "^19.2.14"
+  },
+  "dependencies": {
+    "tslib": "^2.3.0"
+  },
+  "devDependencies": {
+    "scss-bundle": "^3.1.2"
+  },
+  "sideEffects": false
+}

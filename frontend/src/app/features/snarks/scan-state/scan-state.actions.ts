@@ -1,4 +1,4 @@
-import { FeatureAction } from '@openmina/shared';
+import { FeatureAction } from '@mina-rust/shared';
 import { ScanStateBlock } from '@shared/types/snarks/scan-state/scan-state-block.type';
 import { ScanStateLeaf } from '@shared/types/snarks/scan-state/scan-state-leaf.type';
 

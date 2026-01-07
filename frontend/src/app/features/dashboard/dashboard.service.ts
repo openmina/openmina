@@ -5,7 +5,7 @@ import {
   DashboardPeerStatus,
 } from '@shared/types/dashboard/dashboard.peer';
 import { RustService } from '@core/services/rust.service';
-import { ONE_MILLION, toReadableDate } from '@openmina/shared';
+import { ONE_MILLION, toReadableDate } from '@mina-rust/shared';
 import {
   DashboardPeerRpcResponses,
   DashboardRpcStats,

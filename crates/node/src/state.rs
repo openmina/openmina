@@ -90,6 +90,7 @@ pub struct State {
     // TODO(binier): include action kind in `last_action`.
     last_action: ActionMeta,
     applied_actions_count: u64,
+    start_time: Timestamp,
 }
 
 // Substate accessors that will be used in reducers
@@ -291,6 +292,7 @@ impl State {
 
             config: config.global,
             last_action: ActionMeta::zero_custom(now),
+            start_time: now,
             applied_actions_count: 0,
         }
     }
@@ -309,6 +311,10 @@ impl State {
 
     pub fn pseudo_rng(&self) -> StdRng {
         crate::core::pseudo_rng(self.time())
+    }
+
+    pub fn start_time(&self) -> Timestamp {
+        self.start_time
     }
 
     /// Must be called in the global reducer as the last thing only once
@@ -459,6 +465,10 @@ impl State {
 
 #[serde_with::serde_as]
 #[derive(Debug, Clone, Serialize, Deserialize, MallocSizeOf)]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "Doesn't make sense moving redux state onto heap"
+)]
 pub enum P2p {
     Pending(#[ignore_malloc_size_of = "constant"] P2pConfig),
     Ready(P2pState),

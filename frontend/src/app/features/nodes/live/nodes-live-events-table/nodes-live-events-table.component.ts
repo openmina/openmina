@@ -3,7 +3,7 @@ import {
   SEC_CONFIG_GRAY_PALETTE,
   SecDurationConfig,
   TableColumnList,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { filter } from 'rxjs';
 import { NodesLiveBlockEvent } from '@shared/types/nodes/live/nodes-live-block-event.type';
 import { NodesLiveSortEvents } from '@nodes/live/nodes-live.actions';

@@ -39,7 +39,7 @@ libp2p = { workspace = true, features = [
   "kad",
 ] }
 mina-core = { workspace = true }
-mina-node = { workspace = true }
+mina-node = { workspace = true, default-features = false }
 mina-node-invariants = { workspace = true }
 mina-node-native = { workspace = true }
 mina-p2p-messages = { workspace = true }

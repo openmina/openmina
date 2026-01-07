@@ -23,9 +23,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   webnode in Docker. ([#1778](https://github.com/o1-labs/mina-rust/pull/1778))
 - **CI**: add beta channel lint workflow to catch build issues early
   ([#1875](https://github.com/o1-labs/mina-rust/pull/1875))
+- **Feature**: Add logging if initial peers are invalid
+  ([#1703](https://github.com/o1-labs/mina-rust/pull/1703))
 
 ### Fixed
 
+- **Frontend**: Fixed a bug where user could reach a non-existent page
+  with a non-existent block height on the scan state page
+  ([#1966](https://github.com/o1-labs/mina-rust/pull/1966))
 - **Frontend**: Fixed a bug where text was overlapping in the view.
   ([#1957](https://github.com/o1-labs/mina-rust/pull/1957))
 - **CI**: fix version regex in build verification workflows to accept
@@ -36,6 +41,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Docker compose files**: replace old environment by local in
   docker-compose.block-producer.yml
   ([#1916](https://github.com/o1-labs/mina-rust/pull/1916)
+- **CI**: Remove clippy exceptions for large enum/err variants added
+  as part of the Rust 1.92 upgrade
+  [#1968](https://github.com/o1-labs/mina-rust/pull/1968)
 
 ### Changes
 
@@ -44,6 +52,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `vrf` → `mina-vrf`, `cli` → `mina-cli`) for clearer project identity, fix
   [#1902](https://github.com/o1-labs/mina-rust/issues/1902)
   ([#1925](https://github.com/o1-labs/mina-rust/pull/1925))
+- **Frontend**: Renamed `@openmina/shared` to `@mina-rust/shared` and all its references
+  ([#1953](https://github.com/o1-labs/mina-rust/pull/1953)
+- **Frontend**: Renamed `@openmina/shared` to `@mina-rust/shared` and all its references
+  ([#1953](https://github.com/o1-labs/mina-rust/pull/1953)
 - **Repository Structure**: reorganize workspace into `crates/`, `libs/`,
   `vendor/`, and `tools/` directories for clearer separation of concerns
   ([#1910](https://github.com/o1-labs/mina-rust/pull/1910))
@@ -71,6 +83,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *CI*: run builds on macos-latest for each patch submission, fixing
   [#1899](https://github.com/o1-labs/mina-rust/issues/1899)
   ([#1900](https://github.com/o1-labs/mina-rust/pull/1900))
+- **Docs**: add notes in `.cargo/config.toml` about the magic RUSTFLAGS for WASM
+  [#1863](https://github.com/o1-labs/mina-rust/issues/1863)
+- **Docs**: Consistent naming of the "web node" across docs
+  [#1858](https://github.com/o1-labs/mina-rust/issues/1858)
+- **Docs**: Reorganized web node docs with clear audience split
+  [#2006](https://github.com/o1-labs/mina-rust/pull/2006)
+- **Web Node**: Removed compatible browser gate. Web Node is experimental anyway
+  [#2006](https://github.com/o1-labs/mina-rust/pull/2006)
 
 ### Removed
 

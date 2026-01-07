@@ -2142,7 +2142,10 @@ impl ScanState {
                     }
                 };
 
-                Ok(snark_work::spec::Work::Transition((statement, witness)))
+                Ok(snark_work::spec::Work::Transition((
+                    statement,
+                    Box::new(witness),
+                )))
             }
             Extracted::Second(s) => {
                 let merged = s.0.statement().merge(&s.1.statement())?;
@@ -2196,7 +2199,10 @@ impl ScanState {
                     }
                 };
 
-                Some(snark_work::spec::Work::Transition((statement, witness)))
+                Some(snark_work::spec::Work::Transition((
+                    statement,
+                    Box::new(witness),
+                )))
             }
             Extracted::Second(s) => {
                 let merged = s.0.statement().merge(&s.1.statement()).unwrap();

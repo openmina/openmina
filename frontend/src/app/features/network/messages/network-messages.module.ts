@@ -14,7 +14,7 @@ import {
   HorizontalMenuComponent,
   HorizontalResizableContainerComponent,
   MinaJsonViewerComponent,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { MatExpansionModule } from '@angular/material/expansion';
 
 @NgModule({

@@ -7,7 +7,7 @@ import {
   ViewChild,
   ViewContainerRef,
 } from '@angular/core';
-import { isMobile, ManualDetection } from '@openmina/shared';
+import { isMobile, ManualDetection } from '@mina-rust/shared';
 import { Store } from '@ngrx/store';
 import { MinaState } from '@app/app.setup';
 import {

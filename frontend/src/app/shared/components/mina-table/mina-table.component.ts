@@ -20,7 +20,7 @@ import {
   SortDirection,
   TableColumnList,
   TableSort,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 
 const DESKTOP_ROW_HEIGHT = 36;
 

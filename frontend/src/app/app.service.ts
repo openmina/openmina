@@ -8,7 +8,7 @@ import {
   AppNodeStatus,
 } from '@shared/types/app/app-node-details.type';
 import { getNetwork } from '@shared/helpers/mina.helper';
-import { getLocalStorage, nanOrElse, ONE_MILLION } from '@openmina/shared';
+import { getLocalStorage, nanOrElse, ONE_MILLION } from '@mina-rust/shared';
 import { BlockProductionWonSlotsStatus } from '@shared/types/block-production/won-slots/block-production-won-slots-slot.type';
 import { AppEnvBuild } from '@shared/types/app/app-env-build.type';
 import { SentryService } from '@core/services/sentry.service';

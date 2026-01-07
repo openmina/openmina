@@ -111,6 +111,7 @@ pub fn reducer(
         Action::P2pCallbacks(action) => {
             State::p2p_callback_reducer(Substate::new(state, dispatcher), meta.with_action(action))
         }
+        Action::CheckInvalidPeersAction(_) => {}
     }
 
     // must be the last.

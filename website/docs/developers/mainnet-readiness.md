@@ -23,7 +23,7 @@ mainnet's scale. Persistence is required for:
 
 - Reducing memory usage to handle mainnet-sized ledgers and amount of SNARKs
 - Enabling fast node restarts without full resync
-- Supporting webnodes with browser storage constraints
+- Supporting [web nodes](frontend/web-node) with browser storage constraints
 - Providing a clean foundation for implementing SNARK verification deduplication
 
 **Note**: There is a very old implementation for on-disk storage in

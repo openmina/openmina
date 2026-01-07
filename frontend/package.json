@@ -22,7 +22,7 @@
     "start:webnode": "make start-webnode",
     "tests": "make test",
     "tests:headless": "make test-headless",
-    "vendor:styles": "cd vendor/openmina-styles && npm run update:styles"
+    "vendor:styles": "cd vendor/mina-rust-styles && npm run update:styles"
   },
   "private": true,
   "engines": {
@@ -47,7 +47,7 @@
     "@ngrx/operators": "^19.2.1",
     "@ngrx/router-store": "^19.2.1",
     "@ngrx/store": "^19.2.1",
-    "@openmina/shared": "file:./vendor/openmina-shared",
+    "@mina-rust/shared": "file:./vendor/mina-rust-shared",
     "@sentry/angular": "^8.35.0",
     "@sentry/cli": "^2.38.2",
     "@sentry/tracing": "^7.114.0",

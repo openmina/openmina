@@ -141,7 +141,6 @@ Third-party libraries with local modifications. Add vendored dependencies here.
 | ![Ubuntu][ubuntu-icon] **Ubuntu 22.04** | x64           | [![Ubuntu 22.04 x64][ubuntu-22-badge]][ubuntu-22-link]           |
 | ![Ubuntu][ubuntu-icon] **Ubuntu 24.04** | x64           | [![Ubuntu 24.04 x64][ubuntu-24-badge]][ubuntu-24-link]           |
 | ![Ubuntu][ubuntu-icon] **Ubuntu 24.04** | ARM64         | [![Ubuntu 24.04 ARM64][ubuntu-24-arm-badge]][ubuntu-24-arm-link] |
-| ![macOS][macos-icon] **macOS 13**       | Intel         | [![macOS 13 Intel][macos-13-badge]][macos-13-link]               |
 | ![macOS][macos-icon] **macOS 14**       | Apple Silicon | [![macOS 14 M1/M2][macos-14-badge]][macos-14-link]               |
 | ![macOS][macos-icon] **macOS 15**       | Apple Silicon | [![macOS 15 M1/M2/M3][macos-15-badge]][macos-15-link]            |
 | ![macOS][macos-icon] **macOS Latest**   | Apple Silicon | [![macOS Latest][macos-latest-badge]][macos-latest-link]         |
@@ -183,8 +182,6 @@ Third-party libraries with local modifications. Add vendored dependencies here.
   https://github.com/o1-labs/mina-rust/actions/workflows/build-ubuntu-24-04.yaml/badge.svg?branch=develop
 [ubuntu-24-arm-badge]:
   https://github.com/o1-labs/mina-rust/actions/workflows/build-ubuntu-24-04-arm.yaml/badge.svg?branch=develop
-[macos-13-badge]:
-  https://github.com/o1-labs/mina-rust/actions/workflows/build-macos-13.yaml/badge.svg?branch=develop
 [macos-14-badge]:
   https://github.com/o1-labs/mina-rust/actions/workflows/build-macos-14.yaml/badge.svg?branch=develop
 [macos-15-badge]:
@@ -200,8 +197,6 @@ Third-party libraries with local modifications. Add vendored dependencies here.
   https://github.com/o1-labs/mina-rust/actions/workflows/build-ubuntu-24-04.yaml
 [ubuntu-24-arm-link]:
   https://github.com/o1-labs/mina-rust/actions/workflows/build-ubuntu-24-04-arm.yaml
-[macos-13-link]:
-  https://github.com/o1-labs/mina-rust/actions/workflows/build-macos-13.yaml
 [macos-14-link]:
   https://github.com/o1-labs/mina-rust/actions/workflows/build-macos-14.yaml
 [macos-15-link]:

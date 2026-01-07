@@ -1,4 +1,4 @@
-import { FeatureAction } from '@openmina/shared';
+import { FeatureAction } from '@mina-rust/shared';
 import { NetworkNodeDhtPeer } from '@shared/types/network/node-dht/network-node-dht.type';
 import { NetworkNodeDhtBucket } from '@shared/types/network/node-dht/network-node-dht-bucket.type';
 import { NetworkBootstrapStatsRequest } from '@shared/types/network/bootstrap-stats/network-bootstrap-stats-request.type';

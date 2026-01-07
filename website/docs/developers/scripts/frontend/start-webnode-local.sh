@@ -2,4 +2,4 @@
 cd frontend
 
 # Start WebNode locally
-make start-webnodelocal
+make start-webnode

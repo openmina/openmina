@@ -6,7 +6,7 @@ import { SharedModule } from '@shared/shared.module';
 import { EffectsModule } from '@ngrx/effects';
 import { DashboardEffects } from '@dashboard/dashboard.effects';
 import { LoadingSpinnerComponent } from '@shared/loading-spinner/loading-spinner.component';
-import { CopyComponent } from '@openmina/shared';
+import { CopyComponent } from '@mina-rust/shared';
 import { DashboardNetworkComponent } from './dashboard-network/dashboard-network.component';
 import { DashboardLedgerComponent } from './dashboard-ledger/dashboard-ledger.component';
 import { DashboardBlocksSyncComponent } from './dashboard-blocks-sync/dashboard-blocks-sync.component';

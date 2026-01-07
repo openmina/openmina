@@ -15,7 +15,7 @@ import {
   JsonConsoleComponent,
   MinaJsonViewerComponent,
   MinaSidePanelStepperComponent,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { ScanStateSidePanelComponent } from './scan-state-side-panel/scan-state-side-panel.component';
 import { ScanStateDetailsComponent } from './scan-state-details/scan-state-details.component';
 import { ScanStateJobDetailsComponent } from './scan-state-job-details/scan-state-job-details.component';

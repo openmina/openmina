@@ -1,4 +1,4 @@
-import { FeatureAction, TableSort } from '@openmina/shared';
+import { FeatureAction, TableSort } from '@mina-rust/shared';
 import { NetworkBlock } from '@shared/types/network/blocks/network-block.type';
 import { MinaNode } from '@shared/types/core/environment/mina-env.type';
 

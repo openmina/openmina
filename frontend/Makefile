@@ -1,6 +1,6 @@
 # Frontend Makefile
 
-# These are threaded from the outside env into build-webnode
+# These are threaded from the outside env into build-webnode[-production]
 MINA_WEBNODE_SEED_URLS ?=
 MINA_WEBNODE_BOOTNODES ?=
 
@@ -43,6 +43,15 @@ build-webnode: ## Build the frontend with webnode configuration
 	cp dist/frontend/browser/assets/environments/webnode.js \
 		dist/frontend/browser/assets/environments/env.js
 
+.PHONY: build-webnode-production
+build-webnode-production: ## Build the frontend with webnode configuration and optimizations
+	npx ng build \
+	  --define MINA_WEBNODE_SEED_URLS="\"$(MINA_WEBNODE_SEED_URLS)\"" \
+	  --define MINA_WEBNODE_BOOTNODES="\"$(MINA_WEBNODE_BOOTNODES)\"" \
+	  --configuration webnode-production
+	cp dist/frontend/browser/assets/environments/webnode.js \
+		dist/frontend/browser/assets/environments/env.js
+
 .PHONY: check-prettify
 check-prettify: ## Check if files are formatted with Prettier
 	npx prettier --check 'src/**/*.{ts,js,html,scss,css,json}'
@@ -73,9 +82,9 @@ rebuild: clean install-deps build ## Clean, reinstall dependencies, and rebuild
 
 .PHONY: sentry-sourcemaps
 sentry-sourcemaps: ## Upload sourcemaps to Sentry
-	sentry-cli sourcemaps inject --org openmina-uv --project openmina \
+	sentry-cli sourcemaps inject --org mina-rust-uv --project mina-rust \
 		./dist/frontend/browser
-	sentry-cli sourcemaps upload --org openmina-uv --project openmina \
+	sentry-cli sourcemaps upload --org mina-rust-uv --project mina-rust \
 		./dist/frontend/browser
 
 .PHONY: start
@@ -101,6 +110,10 @@ start-production: ## Start the development server with production configuration
 .PHONY: start-webnode
 start-webnode: install-deps ## Start the webnode development server
 	npx ng serve --configuration webnode-local --open
+
+.PHONY: start-webnode-production
+start-webnode-production: install-deps ## Start the webnode development server with optimizations
+	npx ng serve --configuration webnode-production --open
 
 .PHONY: test
 test: ## Run Cypress tests

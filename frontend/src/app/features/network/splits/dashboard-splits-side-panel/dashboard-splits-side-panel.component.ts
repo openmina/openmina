@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
-import { getMergedRoute, MergedRoute, toggleItem } from '@openmina/shared';
+import { getMergedRoute, MergedRoute, toggleItem } from '@mina-rust/shared';
 import { Router } from '@angular/router';
 import { untilDestroyed } from '@ngneat/until-destroy';
 import { take } from 'rxjs';

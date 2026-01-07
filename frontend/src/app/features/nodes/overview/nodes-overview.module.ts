@@ -13,7 +13,7 @@ import {
   CopyComponent,
   HorizontalMenuComponent,
   HorizontalResizableContainerComponent,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 
 @NgModule({
   declarations: [

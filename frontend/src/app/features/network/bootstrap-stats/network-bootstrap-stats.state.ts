@@ -1,7 +1,7 @@
 import { createSelector, MemoizedSelector } from '@ngrx/store';
 import { MinaState } from '@app/app.setup';
 import { selectNetworkBootstrapStatsState } from '@network/network.state';
-import { TableSort } from '@openmina/shared';
+import { TableSort } from '@mina-rust/shared';
 import { NetworkBootstrapStatsRequest } from '@shared/types/network/bootstrap-stats/network-bootstrap-stats-request.type';
 
 export interface NetworkBootstrapStatsState {

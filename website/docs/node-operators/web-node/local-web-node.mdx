@@ -1,0 +1,54 @@
+---
+sidebar_position: 3
+title: Build from Source
+description: Build the web node from source code
+---
+
+# Build from source
+
+## Overview
+
+<!-- prettier-ignore-start -->
+
+:::tip Recommended: Use Docker
+
+For most users, we recommend the [Docker deployment](./local-web-node-docker)
+which requires no compilation and includes all dependencies.
+
+:::
+
+<!-- prettier-ignore-stop -->
+
+Building the web node from source is primarily intended for developers who want
+to modify the code or understand the build process in detail.
+
+For complete build instructions, see the
+[web node developer documentation](../../developers/frontend/web-node), which
+covers:
+
+- Prerequisites (Rust nightly, Node.js, wasm-pack)
+- Setting up circuit files
+- Building the WebAssembly module
+- Running the development server
+- Production builds
+
+## Quick reference
+
+If you're already set up for development:
+
+```bash
+cd mina-rust/
+
+# Get circuit blobs
+make download-circuits
+
+# Build WASM blob
+make build-wasm
+
+# Run frontend
+cd frontend/
+make start-webnode
+```
+
+For detailed explanations and troubleshooting, see the
+[developer documentation](../../developers/frontend/web-node).

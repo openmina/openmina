@@ -58,7 +58,7 @@
                 "src/assets/styles",
                 "src/assets/styles/utilities",
                 "src/assets/images",
-                "vendor/openmina-shared/src/assets/styles"
+                "vendor/mina-rust-shared/src/assets/styles"
               ]
             },
             "scripts": [
@@ -106,10 +106,27 @@
               "fileReplacements": [
                 {
                   "replace": "src/environments/environment.ts",
-                  "with": "src/environments/environment.webnode-local.ts"
+                  "with": "src/environments/environment.webnode.ts"
                 }
               ],
               "outputHashing": "all"
+            },
+            "webnode-production": {
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.webnode.ts"
+                }
+              ],
+              "outputHashing": "all",
+              "optimization": {
+                "scripts": true,
+                "styles": {
+                  "minify": true,
+                  "inlineCritical": false
+                },
+                "fonts": false
+              }
             }
           },
           "defaultConfiguration": "production"
@@ -125,6 +142,9 @@
             },
             "webnode-local": {
               "buildTarget": "frontend:build:webnode-local"
+            },
+            "webnode-production": {
+              "buildTarget": "frontend:build:webnode-production"
             },
             "local": {
               "buildTarget": "frontend:build:local"

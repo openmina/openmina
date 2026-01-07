@@ -375,7 +375,7 @@ _libp2p-based Network:_
 
 _WebRTC-based Network:_
 
-- Used by webnode (browser-based node)
+- Used by the web node (browser-based node)
 - Direct WebRTC transport implementation
 - Different design pattern from libp2p
 - Optimized for browser constraints

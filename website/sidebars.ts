@@ -57,11 +57,18 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
+      label: 'Web Node',
+      items: [
+        'node-operators/web-node/index',
+        'node-operators/web-node/local-web-node-docker',
+        'node-operators/web-node/local-web-node',
+      ],
+    },
+    {
+      type: 'category',
       label: 'Advanced Topics',
       items: [
         'node-operators/alpha-testing',
-        'node-operators/webnode/local-webnode',
-        'node-operators/webnode/local-webnode-docker',
         'node-operators/testing/overview',
       ],
     },
@@ -114,7 +121,7 @@ const sidebars: SidebarsConfig = {
       items: [
         'developers/frontend/index',
         'developers/frontend/node-dashboard',
-        'developers/frontend/webnode',
+        'developers/frontend/web-node',
         'developers/frontend/environment-configuration',
         'developers/frontend/api-endpoints',
       ],

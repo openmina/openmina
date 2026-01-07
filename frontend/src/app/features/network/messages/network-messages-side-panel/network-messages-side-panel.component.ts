@@ -23,7 +23,7 @@ import {
   ExpandTracking,
   MinaJsonViewerComponent,
   safelyExecuteInBrowser,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { filter } from 'rxjs';
 import { Router } from '@angular/router';
 import { Routes } from '@shared/enums/routes.enum';

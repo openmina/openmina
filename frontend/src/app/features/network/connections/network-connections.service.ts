@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { map, Observable } from 'rxjs';
-import { ONE_MILLION, ONE_THOUSAND, toReadableDate } from '@openmina/shared';
+import { ONE_MILLION, ONE_THOUSAND, toReadableDate } from '@mina-rust/shared';
 import { NetworkMessagesDirection } from '@shared/types/network/messages/network-messages-direction.enum';
 import { NetworkConnection } from '@shared/types/network/connections/network-connection.type';
 import { ConfigService } from '@core/services/config.service';

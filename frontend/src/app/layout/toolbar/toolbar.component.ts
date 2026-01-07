@@ -14,7 +14,7 @@ import {
   MergedRoute,
   removeParamsFromURL,
   TooltipService,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { AppMenu } from '@shared/types/app/app-menu.type';
 import { AppActions } from '@app/app.actions';
 import { selectLoadingStateLength } from '@app/layout/toolbar/loading.reducer';

@@ -7,7 +7,7 @@ import {
   HorizontalMenuComponent,
   HorizontalResizableContainerComponent,
   MinaJsonViewerComponent,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { MempoolTableComponent } from '@app/features/mempool/table/mempool-table.component';
 import { MempoolFiltersComponent } from '@app/features/mempool/filters/mempool-filters.component';
 import { MempoolWarningsComponent } from '@app/features/mempool/warnings/mempool-warnings.component';

@@ -6,7 +6,7 @@ import {
 import { NodesLiveNode } from '@shared/types/nodes/live/nodes-live-node.type';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { selectNodesLiveActiveNode } from '../nodes-live.state';
-import { lastItem } from '@openmina/shared';
+import { lastItem } from '@mina-rust/shared';
 
 @Component({
   selector: 'mina-nodes-live-blocks-map',

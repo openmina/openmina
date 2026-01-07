@@ -6,13 +6,13 @@ import {
 } from '@angular/core';
 import { WebNodeService } from '@core/services/web-node.service';
 import * as JSZip from 'jszip';
-import { ManualDetection, OpenminaSharedModule } from '@openmina/shared';
+import { ManualDetection, MinaRustSharedModule } from '@mina-rust/shared';
 import { animate, style, transition, trigger } from '@angular/animations';
 import { CONFIG } from '@shared/constants/config';
 
 @Component({
   selector: 'mina-web-node-file-upload',
-  imports: [OpenminaSharedModule],
+  imports: [MinaRustSharedModule],
   templateUrl: './web-node-file-upload.component.html',
   styleUrl: './web-node-file-upload.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

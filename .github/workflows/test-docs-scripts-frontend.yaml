@@ -32,7 +32,7 @@ jobs:
 
       - name: Make scripts executable
         run: |
-          chmod +x website/docs/developers/scripts/frontend/*.sh
+          chmod +x website/docs/developers/scripts/**/*.sh
 
       - name: Load versions
         id: versions
@@ -55,6 +55,28 @@ jobs:
           brew install coreutils
           # Create symlink for timeout command
           sudo ln -sf /usr/local/bin/gtimeout /usr/local/bin/timeout
+
+      - name: Install gsed on macOS
+        if: runner.os == 'macOS'
+        run: |
+          brew install gnu-sed
+
+      # NB: commented due to risk of conflict with "Setup Node.js setup"
+      # - name: Test setup nvm script
+      #   run: |
+      #     bash website/docs/developers/scripts/setup/install-nvm.sh
+
+      - name: Test setup rustup script
+        run: |
+          bash website/docs/developers/scripts/setup/install-rustup.sh
+
+      - name: Test make setup-wasm script
+        run: |
+          bash website/docs/developers/scripts/setup/make-setup-wasm.sh
+
+      - name: Test download circuits script
+        run: |
+          bash website/docs/developers/scripts/setup/download-circuits.sh
 
       - name: Test install dependencies script
         run: |

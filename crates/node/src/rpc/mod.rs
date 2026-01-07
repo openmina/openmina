@@ -326,7 +326,7 @@ pub enum RpcSnarkerJobCommitResponse {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "kind")]
 pub enum RpcSnarkerJobSpecResponse {
-    Ok(SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse),
+    Ok(Box<SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse>),
     Err(SnarkWorkSpecError),
     JobNotFound,
 }

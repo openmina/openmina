@@ -20,7 +20,7 @@ import {
   JsonConsoleComponent,
   MinaJsonViewerComponent,
   MinaSidePanelStepperComponent,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 
 @NgModule({
   declarations: [

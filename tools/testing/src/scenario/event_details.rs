@@ -8,14 +8,13 @@ use mina_node::{
 };
 
 pub fn event_details(state: &State, event: &Event) -> Option<String> {
-    if let Event::P2p(P2pEvent::Channel(P2pChannelEvent::Received(
-        peer_id,
-        Ok(ChannelMsg::Rpc(RpcChannelMsg::Response(req_id, _))),
-    ))) = event
-    {
-        let rpc_state = &state.p2p.get_ready_peer(peer_id)?.channels.rpc;
-        if *req_id == rpc_state.pending_local_rpc_id()? {
-            return Some(format!("Request: {}", rpc_state.pending_local_rpc()?));
+    // this could be a let-chain but we're on rust 2021 instead of 2024 >:(
+    if let Event::P2p(P2pEvent::Channel(P2pChannelEvent::Received(peer_id, Ok(msg)))) = event {
+        if let ChannelMsg::Rpc(RpcChannelMsg::Response(req_id, _)) = &**msg {
+            let rpc_state = &state.p2p.get_ready_peer(peer_id)?.channels.rpc;
+            if *req_id == rpc_state.pending_local_rpc_id()? {
+                return Some(format!("Request: {}", rpc_state.pending_local_rpc()?));
+            }
         }
     }
 

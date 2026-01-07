@@ -22,38 +22,48 @@ use std::collections::BTreeMap;
 /// can't be expressed in the Rust type system at the moment. For this
 /// reason this type is private while functions wrapping the whole call
 /// to the service are exposed as the service's methods.
-#[allow(dead_code)] // TODO
+#[expect(
+    clippy::large_enum_variant,
+    reason = "This is storing large messages, but size difference is only 2x between largest and second-largest variants"
+)]
 pub(super) enum LedgerRequest {
     Write(LedgerWriteRequest),
     Read(LedgerReadId, LedgerReadRequest),
+    /// expected response: `LedgerHash`
     AccountsSet {
         snarked_ledger_hash: LedgerHash,
         parent: LedgerAddress,
         accounts: Vec<MinaBaseAccountBinableArgStableV2>,
-    }, // expected response: LedgerHash
+    },
+    /// expected response: `Vec<Account>`
     AccountsGet {
         ledger_hash: LedgerHash,
         account_ids: Vec<AccountId>,
-    }, // expected response: Vec<Account>
+    },
+    /// expected response: `ChildHashes`
     ChildHashesGet {
         snarked_ledger_hash: LedgerHash,
         parent: LedgerAddress,
-    }, // expected response: ChildHashes
+    },
+    /// expected response: `Success`
     ComputeSnarkedLedgerHashes {
         snarked_ledger_hash: LedgerHash,
-    }, // expected response: Success
+    },
+    /// expected response: `SnarkedLedgerContentsCopied`
     CopySnarkedLedgerContentsForSync {
         origin_snarked_ledger_hash: Vec<LedgerHash>,
         target_snarked_ledger_hash: LedgerHash,
         overwrite: bool,
-    }, // expected response: SnarkedLedgerContentsCopied
+    },
+    /// expected response: `ProducersWithDelegatesMap`
     GetProducersWithDelegates {
         ledger_hash: LedgerHash,
         filter: fn(&CompressedPubKey) -> bool,
-    }, // expected response: ProducersWithDelegatesMap
+    },
+    /// expected response: `LedgerMask`
     GetMask {
         ledger_hash: LedgerHash,
-    }, // expected response: LedgerMask
+    },
     InsertGenesisLedger {
         mask: Mask,
     },

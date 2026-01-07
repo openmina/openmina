@@ -7,9 +7,9 @@ import {
   isDesktop,
   MAX_WIDTH_700,
   MergedRoute,
-  OpenminaEagerSharedModule,
+  MinaRustEagerSharedModule,
   safelyExecuteInBrowser,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { AppMenu } from '@shared/types/app/app-menu.type';
 import { BreakpointObserver, BreakpointState } from '@angular/cdk/layout';
 import { AppSelectors } from '@app/app.state';
@@ -51,7 +51,7 @@ declare var AOS: any;
     WebNodeLandingPageComponent,
     MenuTabsComponent,
     // Modules
-    OpenminaEagerSharedModule,
+    MinaRustEagerSharedModule,
   ],
 })
 export class AppComponent extends StoreDispatcher implements OnInit {

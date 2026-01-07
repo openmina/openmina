@@ -24,7 +24,7 @@ import {
   MergedRoute,
   MinaTooltipDirective,
   TooltipPosition,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { DOCUMENT } from '@angular/common';
 
 @Component({
