@@ -19,7 +19,7 @@ hex = { workspace = true }
 ledger = { workspace = true }
 libp2p-identity = { workspace = true, features = ["peerid"] }
 mina-core = { path = "../core" }
-mina-node = { workspace = true, features = ["replay"] }
+mina-node = { workspace = true, features = ["replay", "exit-on-invalid-peers"] }
 mina-node-account = { workspace = true }
 mina-node-native = { path = "../node/native" }
 mina-p2p-messages = { workspace = true }

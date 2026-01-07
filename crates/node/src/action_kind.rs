@@ -107,7 +107,7 @@ use crate::{
         TransitionFrontierAction,
     },
     watched_accounts::WatchedAccountsAction,
-    Action, ActionKindGet, CheckTimeoutsAction,
+    Action, ActionKindGet, CheckInvalidPeersAction, CheckTimeoutsAction,
 };
 
 /// Unified kind enum for all action types
@@ -172,6 +172,7 @@ pub enum ActionKind {
     BlockProducerVrfEvaluatorEffectfulEvaluateSlot,
     BlockProducerVrfEvaluatorEffectfulInitializeStats,
     BlockProducerVrfEvaluatorEffectfulSlotEvaluated,
+    CheckInvalidPeers,
     CheckTimeouts,
     EventSourceNewEvent,
     EventSourceProcessEvents,
@@ -757,7 +758,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 628;
+    pub const COUNT: u16 = 629;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -770,6 +771,7 @@ impl ActionKindGet for Action {
     fn kind(&self) -> ActionKind {
         match self {
             Self::CheckTimeouts(a) => a.kind(),
+            Self::CheckInvalidPeersAction(a) => a.kind(),
             Self::EventSource(a) => a.kind(),
             Self::P2p(a) => a.kind(),
             Self::P2pEffectful(a) => a.kind(),
@@ -796,6 +798,12 @@ impl ActionKindGet for Action {
 impl ActionKindGet for CheckTimeoutsAction {
     fn kind(&self) -> ActionKind {
         ActionKind::CheckTimeouts
+    }
+}
+
+impl ActionKindGet for CheckInvalidPeersAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::CheckInvalidPeers
     }
 }
 

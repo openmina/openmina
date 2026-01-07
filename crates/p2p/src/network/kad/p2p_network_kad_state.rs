@@ -60,6 +60,7 @@ pub struct P2pNetworkKadState {
     pub streams: StreamState<P2pNetworkKadStreamState>,
     pub status: P2pNetworkKadStatus,
     pub filter_addrs: bool,
+    pub has_bootstrapped: bool,
 }
 
 impl Default for P2pNetworkKadState {
@@ -74,6 +75,7 @@ impl Default for P2pNetworkKadState {
                 .ok()
                 .and_then(|s| s.parse().ok())
                 .unwrap_or(true),
+            has_bootstrapped: false,
         }
     }
 }

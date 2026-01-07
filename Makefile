@@ -103,11 +103,10 @@ build-tests: ## Build tests for scenario testing
 	@mkdir -p target/release/tests
 	@cargo build --release --tests \
 		--package=mina-node-testing \
-		--package=mina-cli
-	@cargo build --release --tests \
-		--package=mina-node-testing \
-		--package=mina-cli \
 		--message-format=json > cargo-build-test.json
+	@cargo build --release --tests \
+		--package=mina-cli \
+		--message-format=json >> cargo-build-test.json
 	@jq -r '. | select(.executable != null and (.target.kind | (contains(["test"])))) | [.target.name, .executable ] | @tsv' \
 		cargo-build-test.json > tests.tsv
 	@while read NAME FILE; do \
