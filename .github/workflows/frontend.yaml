@@ -26,3 +26,6 @@ jobs:
           run-prettier-check: 'true'
           run-tests: 'true'
           test-build-commands: 'false'
+
+      - name: Test Docker Build Script
+        run: make docker-build-frontend
