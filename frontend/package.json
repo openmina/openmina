@@ -48,7 +48,7 @@
     "@ngrx/router-store": "^19.2.1",
     "@ngrx/store": "^19.2.1",
     "@mina-rust/shared": "file:./vendor/mina-rust-shared",
-    "@sentry/angular": "^8.35.0",
+    "@sentry/angular": "^10.32.1",
     "@sentry/cli": "^2.38.2",
     "@sentry/tracing": "^7.114.0",
     "aos": "^2.3.4",

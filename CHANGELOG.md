@@ -47,6 +47,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changes
 
+- Bump @sentry/angular from 8.35.0 to 10.32.1
+  ([#1965](https://github.com/o1-labs/mina-rust/pull/1965))
 - **Build System**: rename crate packages to use `mina-` prefix consistently
   (`node` → `mina-node`, `p2p` → `mina-p2p`, `snark` → `mina-snark`,
   `vrf` → `mina-vrf`, `cli` → `mina-cli`) for clearer project identity, fix
