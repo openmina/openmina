@@ -121,7 +121,7 @@ dependencies = [
 
 [[package]]
 name = "alloc-test"
-version = "0.1.1"
+version = "0.19.0"
 dependencies = [
  "clap 4.5.20",
  "derive_builder",
@@ -3364,7 +3364,7 @@ dependencies = [
 
 [[package]]
 name = "hash-tool"
-version = "0.18.1"
+version = "0.19.0"
 dependencies = [
  "bs58 0.4.0",
  "hex",
@@ -4271,7 +4271,7 @@ checksum = "884e2677b40cc8c339eaefcb701c32ef1fd2493d71118dc0ca4b6a736c93bd67"
 
 [[package]]
 name = "ledger-tool"
-version = "0.18.1"
+version = "0.19.0"
 dependencies = [
  "anyhow",
  "mina-curves",
@@ -4607,7 +4607,7 @@ dependencies = [
 
 [[package]]
 name = "libp2p-rpc-behaviour"
-version = "0.18.1"
+version = "0.19.0"
 dependencies = [
  "libp2p",
  "log",
@@ -4892,7 +4892,7 @@ dependencies = [
 
 [[package]]
 name = "mina-archive-breadcrumb-compare"
-version = "0.18.1"
+version = "0.19.0"
 dependencies = [
  "anyhow",
  "binprot",
@@ -4907,7 +4907,7 @@ dependencies = [
 
 [[package]]
 name = "mina-bootstrap-sandbox"
-version = "0.18.1"
+version = "0.19.0"
 dependencies = [
  "base64 0.22.1",
  "binprot",
@@ -4932,7 +4932,7 @@ dependencies = [
 
 [[package]]
 name = "mina-cli"
-version = "0.18.1"
+version = "0.19.0"
 dependencies = [
  "anyhow",
  "backtrace",
@@ -4970,7 +4970,7 @@ dependencies = [
 
 [[package]]
 name = "mina-core"
-version = "0.18.1"
+version = "0.19.0"
 dependencies = [
  "argon2",
  "ark-ff",
@@ -5024,7 +5024,7 @@ dependencies = [
 
 [[package]]
 name = "mina-fuzzer"
-version = "0.18.1"
+version = "0.19.0"
 dependencies = [
  "lazy_static",
  "rand",
@@ -5035,7 +5035,7 @@ dependencies = [
 
 [[package]]
 name = "mina-gossipsub-sandbox"
-version = "0.18.1"
+version = "0.19.0"
 dependencies = [
  "bs58 0.4.0",
  "env_logger",
@@ -5062,7 +5062,7 @@ dependencies = [
 
 [[package]]
 name = "mina-macros"
-version = "0.18.1"
+version = "0.19.0"
 dependencies = [
  "anyhow",
  "mina-core",
@@ -5075,7 +5075,7 @@ dependencies = [
 
 [[package]]
 name = "mina-node"
-version = "0.18.1"
+version = "0.19.0"
 dependencies = [
  "anyhow",
  "ark-ff",
@@ -5120,7 +5120,7 @@ dependencies = [
 
 [[package]]
 name = "mina-node-account"
-version = "0.18.1"
+version = "0.19.0"
 dependencies = [
  "anyhow",
  "bs58 0.4.0",
@@ -5138,7 +5138,7 @@ dependencies = [
 
 [[package]]
 name = "mina-node-common"
-version = "0.18.1"
+version = "0.19.0"
 dependencies = [
  "anyhow",
  "ark-ff",
@@ -5180,7 +5180,7 @@ dependencies = [
 
 [[package]]
 name = "mina-node-invariants"
-version = "0.18.1"
+version = "0.19.0"
 dependencies = [
  "documented",
  "lazy_static",
@@ -5194,7 +5194,7 @@ dependencies = [
 
 [[package]]
 name = "mina-node-native"
-version = "0.18.1"
+version = "0.19.0"
 dependencies = [
  "anyhow",
  "bs58 0.4.0",
@@ -5235,7 +5235,7 @@ dependencies = [
 
 [[package]]
 name = "mina-node-testing"
-version = "0.18.1"
+version = "0.19.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -5282,7 +5282,7 @@ dependencies = [
 
 [[package]]
 name = "mina-node-web"
-version = "0.18.1"
+version = "0.19.0"
 dependencies = [
  "anyhow",
  "bytes",
@@ -5310,7 +5310,7 @@ dependencies = [
 
 [[package]]
 name = "mina-p2p"
-version = "0.18.1"
+version = "0.19.0"
 dependencies = [
  "aes-gcm 0.10.3",
  "anyhow",
@@ -5379,7 +5379,7 @@ dependencies = [
 
 [[package]]
 name = "mina-p2p-messages"
-version = "0.18.1"
+version = "0.19.0"
 dependencies = [
  "alloc-test",
  "anyhow",
@@ -5460,7 +5460,7 @@ dependencies = [
 
 [[package]]
 name = "mina-snark"
-version = "0.18.1"
+version = "0.19.0"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -5494,7 +5494,7 @@ dependencies = [
 
 [[package]]
 name = "mina-transport"
-version = "0.18.1"
+version = "0.19.0"
 dependencies = [
  "blake2",
  "hex",
@@ -5505,7 +5505,7 @@ dependencies = [
 
 [[package]]
 name = "mina-tree"
-version = "0.18.1"
+version = "0.19.0"
 dependencies = [
  "anyhow",
  "ark-ec",
@@ -5566,7 +5566,7 @@ dependencies = [
 
 [[package]]
 name = "mina-vrf"
-version = "0.18.1"
+version = "0.19.0"
 dependencies = [
  "anyhow",
  "ark-ec",
@@ -6313,7 +6313,7 @@ dependencies = [
 
 [[package]]
 name = "p2p-testing"
-version = "0.18.1"
+version = "0.19.0"
 dependencies = [
  "derive_more",
  "futures",
@@ -6784,7 +6784,7 @@ checksum = "280dc24453071f1b63954171985a0b0d30058d287960968b9b2aca264c8d4ee6"
 
 [[package]]
 name = "poseidon"
-version = "0.18.1"
+version = "0.19.0"
 dependencies = [
  "ark-ff",
  "ark-serialize",
@@ -7233,7 +7233,7 @@ dependencies = [
 
 [[package]]
 name = "redux"
-version = "0.1.0"
+version = "0.19.0"
 dependencies = [
  "enum_dispatch",
  "fuzzcheck 0.10.1",
@@ -7315,7 +7315,7 @@ checksum = "c08c74e62047bb2de4ff487b251e4a92e24f48745648451635cec7d591162d9f"
 
 [[package]]
 name = "replay_dynamic_effects"
-version = "0.18.1"
+version = "0.19.0"
 dependencies = [
  "mina-node",
  "mina-node-invariants",
@@ -7744,7 +7744,7 @@ checksum = "1ad4cc8da4ef723ed60bced201181d83791ad433213d8c24efffda1eec85d741"
 
 [[package]]
 name = "salsa-simple"
-version = "0.18.1"
+version = "0.19.0"
 dependencies = [
  "generic-array",
  "hex",
@@ -9004,7 +9004,7 @@ dependencies = [
 
 [[package]]
 name = "transaction_fuzzer"
-version = "0.18.1"
+version = "0.19.0"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -9768,7 +9768,7 @@ dependencies = [
 
 [[package]]
 name = "webrtc-sniffer"
-version = "0.18.1"
+version = "0.19.0"
 dependencies = [
  "aes 0.8.4",
  "aes-gcm 0.10.3",
