@@ -136,6 +136,12 @@ COPY frontend/httpd.conf /usr/local/apache2/conf/httpd.conf
 # Copy WASM files from build stage
 COPY --from=wasm_files . /usr/local/apache2/htdocs/assets/webnode/
 
+# For whatever reason, Angular is going to complain about not being able
+# to follow the symlink in frontend/src/assets/webnode/pkg, (even though
+# it's not actually ever served directly). To avoid this, we symlink the
+# wasm blobs to satisfy Angular building at launch time.
+RUN ln -s /usr/local/apache2/htdocs/assets/webnode pkg
+
 # Copy circuit blobs for devnet and mainnet from local directory
 COPY circuit-blobs/3.0.0mainnet /usr/local/apache2/htdocs/assets/webnode/circuit-blobs/3.0.0mainnet
 COPY circuit-blobs/berkeley-devnet /usr/local/apache2/htdocs/assets/webnode/circuit-blobs/berkeley-devnet
