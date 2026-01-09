@@ -75,8 +75,8 @@ A comma-separated list of http(s) URLs to fetch initial P2P seeds from. This is
 similar to the `--peer-list-url` flag in the native node, but can take multiple
 comma-separated values to fetch peer lists from multiple sources. Each peer list
 file must contain peer addresses in
-[WebRTC-Multiaddrish format](../../developers/webrtc.md#address-format-differences),
-separated by a newline.
+[WebRTC multiaddr format](../../developers/webrtc.md#address-formats), separated
+by a newline.
 
 Example:
 
@@ -88,15 +88,18 @@ Example:
 ### `MINA_WEBNODE_BOOTNODES`
 
 A comma separated list of
-[WebRTC-Multiaddrish](../../developers/webrtc.md#address-format-differences)
-peer addresses, to attempt to connect to in conjunction to any downloaded from
+[WebRTC multiaddr](../../developers/webrtc.md#address-formats) peer addresses,
+to attempt to connect to in conjunction to any downloaded from
 `MINA_WEBNODE_SEED_URLS`. This is akin to the `--peers` flag in the native node,
 but instead of specifying the flag multiple times, each peer is simply
-comma-separated
+comma-separated.
 
 Example:
 
 ```
--e MINA_WEBNODE_BOOTNODES=/peer_id1/https/signaling.example.com/443
--e MINA_WEBNODE_BOOTNODES=/peer_id1/https/signaling.example.com/443,/peer_id2/p2p/peer_id1
+-e MINA_WEBNODE_BOOTNODES=/dns4/signaling.example.com/tcp/443/webrtc/https/p2p/12D3KooW...
+-e MINA_WEBNODE_BOOTNODES=/dns4/signaling.example.com/tcp/443/webrtc/https/p2p/12D3KooW...,/p2p/12D3KooWRelay.../webrtc/p2p-circuit/p2p/12D3KooWTarget...
 ```
+
+The legacy format (`/{peer_id}/https/{host}/{port}`) is still accepted but
+deprecated.

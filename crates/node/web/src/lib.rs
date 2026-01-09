@@ -93,7 +93,7 @@ fn parse_bp_key(key: JsValue) -> Option<AccountSecretKey> {
 ///   to the `--peer-list-url` flag in the native node, but allows multiple URLs
 ///   to be supplied.
 /// * `seed_nodes_addresses` - Optional list of peer addresses to connect to
-///   directly, in [WebRTC Multiaddr-ish format](https://o1-labs.github.io/mina-rust/docs/developers/webrtc#address-format-differences)
+///   directly, in [WebRTC multiaddr format](https://o1-labs.github.io/mina-rust/docs/developers/webrtc#address-formats).
 ///   This is directly comparable to the `--peers` flag in the native node.
 /// * `genesis_config_url` - Optional URL to fetch genesis configuration from.
 ///   Genesis config must be in bin_prot format. If not provided, uses the default
@@ -116,7 +116,7 @@ fn parse_bp_key(key: JsValue) -> Option<AccountSecretKey> {
 /// const rpc = await run(
 ///   null,  // No block production
 ///   ["https://bootnodes.minaprotocol.com/networks/devnet-webrtc.txt"],
-///   ["/PEER_ID/https/webrtc-peer-signaling.example.com/443"],
+///   ["/dns4/webrtc-peer-signaling.example.com/tcp/443/webrtc/https/p2p/PEER_ID"],
 ///   null, // Use the default devnet configuration
 /// );
 /// ```
