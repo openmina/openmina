@@ -142,8 +142,8 @@ lazy_static = "1.4.0"
 leb128 = "0.2.1"
 ledger = { path = "crates/ledger", package = "mina-tree" }
 libc = "0.2.151"
-libp2p = { git = "https://github.com/openmina/rust-libp2p", rev = "5c44c7d9", default-features = false }
-libp2p-identity = { version = "=0.2.7", features = ["peerid"] }
+libp2p = { git = "https://github.com/o1-labs/rust-libp2p", rev = "e88cec09bd2554f4cc79ff90f200e4c864adf495", default-features = false }
+libp2p-identity = { version = "=0.2.9", features = ["peerid"] }
 linkme = "0.3.22"
 local-ip-address = "0.6.1"
 log = "0.4.25"
@@ -169,7 +169,7 @@ mina-snark = { path = "crates/snark" }
 mina-transport = { path = "tools/transport" }
 mina-vrf = { path = "crates/vrf" }
 mio = { version = "1.0.4", features = ["os-poll", "net"] }
-multiaddr = "0.18.1"
+multiaddr = { git = "https://github.com/multiformats/rust-multiaddr", rev = "a4a4fbd555bdda40a6758fa5e2e3ad69947ffcd7" }
 multihash = { version = "0.18.1", features = ["blake2b"] }
 nix = { version = "0.27.1", features = ["process", "signal"] }
 nom = "8.0.0"
@@ -184,6 +184,7 @@ once_cell = "1"
 p256 = { version = "0.13", features = ["default", "ecdh", "ecdsa"] }
 p384 = "0.13"
 pcap = "2.4"
+percent-encoding = "2.3"
 pin-project-lite = "0.2.10"
 poly-commitment = { git = "https://github.com/o1-labs/proof-systems", tag = "0.2.0" }
 poseidon = { path = "poseidon" }

@@ -19,6 +19,7 @@ ed25519-dalek = { workspace = true }
 faster-stun = { workspace = true, optional = true }
 hex = { workspace = true }
 multihash = { workspace = true }
+percent-encoding = { workspace = true }
 rand = { workspace = true, features = ["small_rng"] }
 reqwest = { workspace = true, optional = true }
 serde = { workspace = true }
