@@ -102,7 +102,7 @@ impl BinProtRead for PathPrefix {
         Self: Sized,
     {
         let bytes: Vec<u8> = BinProtRead::binprot_read(r)?;
-        let s = String::from_utf8(bytes).map_err(|e| binprot::Error::CustomError(Box::new(e)))?;
+        let s = String::from_utf8(bytes).map_err(|e| binprot::Error::from(e.utf8_error()))?;
         Ok(PathPrefix(s))
     }
 }
@@ -338,7 +338,7 @@ impl fmt::Display for SignalingMethod {
 /// The parser can fail for various reasons including missing components,
 /// invalid formats, or unsupported method types. Each error variant provides
 /// specific context about what went wrong during parsing.
-#[derive(Error, Serialize, Deserialize, Debug, Clone)]
+#[derive(Error, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum SignalingMethodParseError {
     /// Insufficient arguments provided for the signaling method.
     ///
@@ -534,7 +534,7 @@ mod tests {
                 assert_eq!(info.host, Host::Domain("example.com".to_string()));
                 assert_eq!(info.port, 8080);
             }
-            _ => panic!("Expected Http variant"),
+            x => panic!("Expected Http variant, got {x:?}"),
         }
     }
 
@@ -546,7 +546,7 @@ mod tests {
                 assert_eq!(info.host, Host::Domain("signal.example.com".to_string()));
                 assert_eq!(info.port, 443);
             }
-            _ => panic!("Expected Https variant"),
+            x => panic!("Expected Https variant, got {x:?}"),
         }
     }
 
@@ -559,7 +559,7 @@ mod tests {
                 assert_eq!(info.host, Host::Domain("proxy.example.com".to_string()));
                 assert_eq!(info.port, 443);
             }
-            _ => panic!("Expected HttpsProxy variant"),
+            x => panic!("Expected HttpsProxy variant, got {x:?}"),
         }
     }
 
@@ -572,7 +572,7 @@ mod tests {
                 assert_eq!(info.host, Host::Domain("proxy.example.com".to_string()));
                 assert_eq!(info.port, 443);
             }
-            _ => panic!("Expected HttpsProxy variant"),
+            x => panic!("Expected HttpsProxy variant, got {x:?}"),
         }
     }
 
@@ -584,7 +584,7 @@ mod tests {
                 assert_eq!(info.host, Host::Ipv4(Ipv4Addr::new(192, 168, 1, 1)));
                 assert_eq!(info.port, 8080);
             }
-            _ => panic!("Expected Http variant"),
+            x => panic!("Expected Http variant, got {x:?}"),
         }
     }
 
@@ -596,152 +596,115 @@ mod tests {
                 assert!(matches!(info.host, Host::Ipv6(_)));
                 assert_eq!(info.port, 443);
             }
-            _ => panic!("Expected Https variant"),
+            x => panic!("Expected Https variant, got {x:?}"),
         }
     }
 
     #[test]
     fn test_from_str_empty_string() {
         let result: Result<SignalingMethod, _> = "".parse();
-        assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            SignalingMethodParseError::NotEnoughArgs
-        ));
+        assert_eq!(result, Err(SignalingMethodParseError::NotEnoughArgs));
     }
 
     #[test]
     fn test_from_str_no_leading_slash() {
         let result: Result<SignalingMethod, _> = "http/example.com/8080".parse();
-        assert!(result.is_err());
-        // Without leading slash, it treats "http" as unknown method since
-        // there's no slash at start
-        assert!(matches!(
-            result.unwrap_err(),
-            SignalingMethodParseError::UnknownSignalingMethod(_)
-        ));
+        // Without leading slash, it parses "ttp" as the method (s[1..] gives
+        // "ttp/example.com/8080")
+        assert_eq!(
+            result,
+            Err(SignalingMethodParseError::UnknownSignalingMethod(
+                "ttp".to_string()
+            ))
+        );
     }
 
     #[test]
     fn test_from_str_only_slash() {
         let result: Result<SignalingMethod, _> = "/".parse();
-        assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            SignalingMethodParseError::NotEnoughArgs
-        ));
+        assert_eq!(result, Err(SignalingMethodParseError::NotEnoughArgs));
     }
 
     #[test]
     fn test_from_str_unknown_method() {
         let result: Result<SignalingMethod, _> = "/websocket/example.com/8080".parse();
-        assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            SignalingMethodParseError::UnknownSignalingMethod(_)
-        ));
+        assert_eq!(
+            result,
+            Err(SignalingMethodParseError::UnknownSignalingMethod(
+                "websocket".to_string()
+            ))
+        );
     }
 
     #[test]
     fn test_from_str_unknown_method_with_valid_format() {
         let result: Result<SignalingMethod, _> = "/ftp/example.com/21".parse();
-        assert!(result.is_err());
-        match result.unwrap_err() {
-            SignalingMethodParseError::UnknownSignalingMethod(method) => {
-                assert_eq!(method, "ftp");
-            }
-            _ => panic!("Expected UnknownSignalingMethod error"),
-        }
+        assert_eq!(
+            result,
+            Err(SignalingMethodParseError::UnknownSignalingMethod(
+                "ftp".to_string()
+            ))
+        );
     }
 
     #[test]
     fn test_from_str_http_missing_host() {
         let result: Result<SignalingMethod, _> = "/http".parse();
-        assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            SignalingMethodParseError::NotEnoughArgs
-        ));
+        assert_eq!(result, Err(SignalingMethodParseError::NotEnoughArgs));
     }
 
     #[test]
     fn test_from_str_http_missing_port() {
         let result: Result<SignalingMethod, _> = "/http/example.com".parse();
-        assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            SignalingMethodParseError::NotEnoughArgs
-        ));
+        assert_eq!(result, Err(SignalingMethodParseError::NotEnoughArgs));
     }
 
     #[test]
     fn test_from_str_http_invalid_port() {
         let result: Result<SignalingMethod, _> = "/http/example.com/abc".parse();
-        assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            SignalingMethodParseError::PortParseError(_)
-        ));
+        assert!(
+            matches!(result, Err(SignalingMethodParseError::PortParseError(_))),
+            "expected PortParseError, got {result:?}"
+        );
     }
 
     #[test]
     fn test_from_str_http_port_too_large() {
         let result: Result<SignalingMethod, _> = "/http/example.com/99999".parse();
-        assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            SignalingMethodParseError::PortParseError(_)
-        ));
+        assert!(
+            matches!(result, Err(SignalingMethodParseError::PortParseError(_))),
+            "expected PortParseError, got {result:?}"
+        );
     }
 
     #[test]
     fn test_from_str_https_proxy_missing_cluster_id() {
         let result: Result<SignalingMethod, _> = "/https_proxy".parse();
-        assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            SignalingMethodParseError::NotEnoughArgs
-        ));
+        assert_eq!(result, Err(SignalingMethodParseError::NotEnoughArgs));
     }
 
     #[test]
     fn test_from_str_https_proxy_missing_host() {
         let result: Result<SignalingMethod, _> = "/https_proxy/123".parse();
-        assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            SignalingMethodParseError::NotEnoughArgs
-        ));
+        assert_eq!(result, Err(SignalingMethodParseError::NotEnoughArgs));
     }
 
     #[test]
     fn test_from_str_https_proxy_invalid_cluster_id() {
         let result: Result<SignalingMethod, _> = "/https_proxy/abc/proxy.example.com/443".parse();
-        assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            SignalingMethodParseError::InvalidClusterId
-        ));
+        assert_eq!(result, Err(SignalingMethodParseError::InvalidClusterId));
     }
 
     #[test]
     fn test_from_str_https_proxy_cluster_id_too_large() {
         let result: Result<SignalingMethod, _> = "/https_proxy/99999/proxy.example.com/443".parse();
-        assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            SignalingMethodParseError::InvalidClusterId
-        ));
+        assert_eq!(result, Err(SignalingMethodParseError::InvalidClusterId));
     }
 
     #[test]
     fn test_from_str_https_proxy_negative_cluster_id() {
         let result: Result<SignalingMethod, _> = "/https_proxy/-1/proxy.example.com/443".parse();
-        assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            SignalingMethodParseError::InvalidClusterId
-        ));
+        assert_eq!(result, Err(SignalingMethodParseError::InvalidClusterId));
     }
 
     #[test]
@@ -749,25 +712,29 @@ mod tests {
         // This will depend on Host's parsing behavior - assuming it rejects
         // certain formats
         let result: Result<SignalingMethod, _> = "/http//8080".parse();
-        assert!(result.is_err());
         // Should be either NotEnoughArgs or HostParseError depending on
         // implementation
-        assert!(matches!(
-            result.unwrap_err(),
-            SignalingMethodParseError::NotEnoughArgs | SignalingMethodParseError::HostParseError(_)
-        ));
+        assert!(
+            matches!(
+                result,
+                Err(SignalingMethodParseError::NotEnoughArgs)
+                    | Err(SignalingMethodParseError::HostParseError(_))
+            ),
+            "expected NotEnoughArgs or HostParseError, got {result:?}"
+        );
     }
 
     #[test]
     fn test_from_str_extra_slashes() {
         let result: Result<SignalingMethod, _> = "//http//example.com//8080//".parse();
-        assert!(result.is_err());
-        // The extra slashes mean method parsing fails - "http" becomes unknown
-        // method
-        assert!(matches!(
-            result.unwrap_err(),
-            SignalingMethodParseError::UnknownSignalingMethod(_)
-        ));
+        // The double leading slashes mean s[1..] gives "/http//...", split
+        // produces empty first component
+        assert_eq!(
+            result,
+            Err(SignalingMethodParseError::UnknownSignalingMethod(
+                "".to_string()
+            ))
+        );
     }
 
     #[test]
@@ -815,29 +782,27 @@ mod tests {
     #[test]
     fn test_case_sensitivity() {
         let result: Result<SignalingMethod, _> = "/HTTP/example.com/8080".parse();
-        assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            SignalingMethodParseError::UnknownSignalingMethod(_)
-        ));
+        assert_eq!(
+            result,
+            Err(SignalingMethodParseError::UnknownSignalingMethod(
+                "HTTP".to_string()
+            ))
+        );
 
         let result: Result<SignalingMethod, _> = "/Http/example.com/8080".parse();
-        assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            SignalingMethodParseError::UnknownSignalingMethod(_)
-        ));
+        assert_eq!(
+            result,
+            Err(SignalingMethodParseError::UnknownSignalingMethod(
+                "Http".to_string()
+            ))
+        );
     }
 
     #[test]
     fn test_whitespace_handling() {
         // The parser should filter empty components from split
         let result: Result<SignalingMethod, _> = "/http/ /8080".parse();
-        assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            SignalingMethodParseError::NotEnoughArgs
-        ));
+        assert_eq!(result, Err(SignalingMethodParseError::NotEnoughArgs));
     }
 
     #[test]
@@ -849,7 +814,7 @@ mod tests {
                 assert_eq!(info.host, Host::Domain("proxy.example.com".to_string()));
                 assert_eq!(info.port, 443);
             }
-            _ => panic!("Expected HttpsProxy variant"),
+            x => panic!("Expected HttpsProxy variant, got {x:?}"),
         }
     }
 
@@ -860,7 +825,7 @@ mod tests {
             SignalingMethod::Http(info) => {
                 assert_eq!(info.port, 80);
             }
-            _ => panic!("Expected Http variant"),
+            x => panic!("Expected Http variant, got {x:?}"),
         }
 
         let method: SignalingMethod = "/https/localhost/443".parse().unwrap();
@@ -868,7 +833,7 @@ mod tests {
             SignalingMethod::Https(info) => {
                 assert_eq!(info.port, 443);
             }
-            _ => panic!("Expected Https variant"),
+            x => panic!("Expected Https variant, got {x:?}"),
         }
     }
 
@@ -881,7 +846,7 @@ mod tests {
                 assert_eq!(info.host, Host::Ipv4(Ipv4Addr::new(192, 168, 1, 1)));
                 assert_eq!(info.port, 8443);
             }
-            _ => panic!("Expected HttpsProxy variant"),
+            x => panic!("Expected HttpsProxy variant, got {x:?}"),
         }
     }
 
@@ -899,7 +864,7 @@ mod tests {
                 assert_eq!(info.host, Host::Domain("proxy.example.com".to_string()));
                 assert_eq!(info.port, 443);
             }
-            _ => panic!("Expected Proxied variant"),
+            x => panic!("Expected Proxied variant, got {x:?}"),
         }
     }
 
@@ -916,7 +881,7 @@ mod tests {
                 assert_eq!(info.host, Host::Domain("gateway.example.com".to_string()));
                 assert_eq!(info.port, 8443);
             }
-            _ => panic!("Expected Proxied variant"),
+            x => panic!("Expected Proxied variant, got {x:?}"),
         }
     }
 
@@ -932,9 +897,10 @@ mod tests {
         );
 
         let serialized = original.to_string();
-        // Verify the serialized format contains scheme and URL-encoded path
-        assert!(serialized.contains("/proxied/https/"));
-        assert!(serialized.contains("%2F")); // URL-encoded slashes
+        assert_eq!(
+            serialized,
+            "/proxied/https/%2Fclusters%2F789/proxy.example.com/443"
+        );
 
         let deserialized: SignalingMethod = serialized.parse().unwrap();
         assert_eq!(original, deserialized);
@@ -1012,21 +978,13 @@ mod tests {
     #[test]
     fn test_proxied_missing_prefix() {
         let result: Result<SignalingMethod, _> = "/proxied".parse();
-        assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            SignalingMethodParseError::NotEnoughArgs
-        ));
+        assert_eq!(result, Err(SignalingMethodParseError::NotEnoughArgs));
     }
 
     #[test]
     fn test_proxied_missing_host() {
         let result: Result<SignalingMethod, _> = "/proxied/https/%2Fprefix".parse();
-        assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            SignalingMethodParseError::NotEnoughArgs
-        ));
+        assert_eq!(result, Err(SignalingMethodParseError::NotEnoughArgs));
     }
 
     // HttpsProxy vs Proxied equivalency tests
@@ -1176,7 +1134,7 @@ mod tests {
                 assert_eq!(info.host, Host::Domain("example.com".to_string()));
                 assert_eq!(info.port, 443);
             }
-            _ => panic!("Expected Proxied variant"),
+            x => panic!("Expected Proxied variant, got {x:?}"),
         }
 
         // Roundtrip
@@ -1259,19 +1217,18 @@ mod tests {
                 assert_eq!(info.host, Host::Domain("localhost".to_string()));
                 assert_eq!(info.port, 3000);
             }
-            _ => panic!("Expected Proxied variant with Http scheme"),
+            x => panic!("Expected Proxied variant with Http scheme, got {x:?}"),
         }
     }
 
     #[test]
     fn test_proxied_invalid_scheme() {
         let result: Result<SignalingMethod, _> = "/proxied/ftp/%2Fpath/example.com/21".parse();
-        assert!(result.is_err());
-        match result.unwrap_err() {
-            SignalingMethodParseError::UnknownSignalingMethod(method) => {
-                assert_eq!(method, "proxied/ftp");
-            }
-            _ => panic!("Expected UnknownSignalingMethod error"),
-        }
+        assert_eq!(
+            result,
+            Err(SignalingMethodParseError::UnknownSignalingMethod(
+                "proxied/ftp".to_string()
+            ))
+        );
     }
 }
