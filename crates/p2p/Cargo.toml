@@ -30,6 +30,7 @@ smallvec = { workspace = true }
 strum = { workspace = true }
 strum_macros = { workspace = true }
 thiserror = { workspace = true }
+tracing = { workspace = true }
 unsigned-varint = { workspace = true }
 url = { workspace = true }
 x25519-dalek = { workspace = true }

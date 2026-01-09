@@ -5367,6 +5367,7 @@ dependencies = [
  "strum_macros",
  "thiserror 1.0.60",
  "tokio",
+ "tracing",
  "unsigned-varint 0.8.0",
  "url",
  "warp",
