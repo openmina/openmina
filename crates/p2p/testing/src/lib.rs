@@ -1,3 +1,5 @@
+#![allow(clippy::result_large_err, reason = "non-prod code")]
+
 pub mod event;
 pub mod libp2p_node;
 mod log;
