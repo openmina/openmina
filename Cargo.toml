@@ -226,7 +226,7 @@ text-diff = "0.4.0"
 thiserror = "1.0.60"
 tikv-jemallocator = "0.6"
 time = { version = "0.3.36", features = ["formatting", "macros", "parsing"] }
-tokio = { version = "1.26.0" }
+tokio = { version = "1.46.1" }
 toml = "0.5.9"
 tower-http = { version = "0.6", features = ["cors", "fs"] }
 tracing = "0.1.44"

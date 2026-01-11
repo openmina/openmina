@@ -91,6 +91,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   [#2006](https://github.com/o1-labs/mina-rust/pull/2006)
 - **Web Node**: Removed compatible browser gate. Web Node is experimental anyway
   [#2006](https://github.com/o1-labs/mina-rust/pull/2006)
+- **Dependencies**: bump up tokio from 1.26.0 to 1.46.1
+  ([#2053](https://github.com/o1-labs/mina-rust/pull/2053))
 
 ### Removed
 
