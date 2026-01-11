@@ -190,6 +190,7 @@ const sidebars: SidebarsConfig = {
       label: 'Protocol',
       items: [
         'researchers/protocol',
+        'researchers/block-production',
         'researchers/scan-state',
       ],
     },
