@@ -590,7 +590,7 @@ impl TryFrom<&multiaddr::Multiaddr> for P2pConnectionOutgoingInitOpts {
                     Some(Protocol::HttpPath(path)) => {
                         let signaling = webrtc::SignalingMethod::Proxied(
                             scheme,
-                            webrtc::PathPrefix(path.to_string()),
+                            path.into(),
                             signaling_info,
                         );
                         let peer_id = Self::parse_p2p_peer_id(iter.next(), "webrtc")?;
@@ -703,7 +703,7 @@ impl From<&P2pConnectionOutgoingInitOpts> for Multiaddr {
                             .with(Protocol::HttpPath(path.into()))
                             .with(peer_id_proto)
                     }
-                    SignalingMethod::Proxied(scheme, webrtc::PathPrefix(path), info) => {
+                    SignalingMethod::Proxied(scheme, path, info) => {
                         let host_proto = match &info.host {
                             Host::Domain(v) => Protocol::Dns4(v.into()),
                             Host::Ipv4(v) => Protocol::Ip4(*v),
@@ -905,9 +905,9 @@ mod tests {
 
         match opts {
             P2pConnectionOutgoingInitOpts::WebRTC { signaling, .. } => match signaling {
-                webrtc::SignalingMethod::Proxied(scheme, webrtc::PathPrefix(path), info) => {
+                webrtc::SignalingMethod::Proxied(scheme, path, info) => {
                     assert_eq!(scheme, webrtc::ProxyScheme::Https);
-                    assert_eq!(path, "cluster/123/mina/webrtc/signal");
+                    assert_eq!(path.as_ref(), "cluster/123/mina/webrtc/signal");
                     assert_eq!(info.host, Host::Domain("proxy.example.com".to_string()));
                     assert_eq!(info.port, 443);
                 }

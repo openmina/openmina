@@ -68,8 +68,44 @@ use crate::PeerId;
 /// The legacy `HttpsProxy(u16, HttpSignalingInfo)` is preserved for BinProt
 /// backward compatibility.
 #[derive(Eq, PartialEq, Ord, PartialOrd, Debug, Clone, derive_more::Display)]
-#[display(fmt = "{_0}")]
-pub struct PathPrefix(pub String);
+pub struct PathPrefix(String);
+
+impl PathPrefix {
+    /// Consumes the PathPrefix and returns the inner String.
+    pub fn into_inner(self) -> String {
+        self.0
+    }
+}
+
+impl From<String> for PathPrefix {
+    fn from(s: String) -> Self {
+        Self(s)
+    }
+}
+
+impl From<&str> for PathPrefix {
+    fn from(s: &str) -> Self {
+        Self(s.to_string())
+    }
+}
+
+impl From<Cow<'_, str>> for PathPrefix {
+    fn from(s: Cow<'_, str>) -> Self {
+        Self(s.into_owned())
+    }
+}
+
+impl<'a> From<&'a PathPrefix> for Cow<'a, str> {
+    fn from(p: &'a PathPrefix) -> Self {
+        Cow::Borrowed(p.as_ref())
+    }
+}
+
+impl AsRef<str> for PathPrefix {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
 
 /// Proxy connection scheme (HTTP or HTTPS).
 ///
@@ -103,13 +139,13 @@ impl BinProtRead for PathPrefix {
     {
         let bytes: Vec<u8> = BinProtRead::binprot_read(r)?;
         let s = String::from_utf8(bytes).map_err(|e| binprot::Error::from(e.utf8_error()))?;
-        Ok(PathPrefix(s))
+        Ok(s.into())
     }
 }
 
 impl BinProtWrite for PathPrefix {
     fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
-        self.0.as_bytes().to_vec().binprot_write(w)
+        self.as_ref().as_bytes().to_vec().binprot_write(w)
     }
 }
 
@@ -239,17 +275,18 @@ impl SignalingMethod {
                 Cow::Owned(format!("/clusters/{cluster_id}/")),
                 info,
             ),
-            Self::Proxied(scheme, PathPrefix(prefix), info) => {
+            Self::Proxied(scheme, prefix, info) => {
                 // Handle empty prefix or just "/" as equivalent to no prefix
-                let prefix_cow = if prefix.is_empty() || prefix == "/" {
+                let prefix_str = prefix.as_ref();
+                let prefix_cow = if prefix_str.is_empty() || prefix_str == "/" {
                     slash
                 } else {
-                    let needs_start_slash = !prefix.starts_with('/');
-                    let needs_end_slash = !prefix.ends_with('/');
+                    let needs_start_slash = !prefix_str.starts_with('/');
+                    let needs_end_slash = !prefix_str.ends_with('/');
                     Cow::Owned(format!(
                         "{}{}{}",
                         if needs_start_slash { "/" } else { "" },
-                        prefix,
+                        prefix_str,
                         if needs_end_slash { "/" } else { "" }
                     ))
                 };
@@ -315,8 +352,8 @@ impl fmt::Display for SignalingMethod {
                 write!(f, "/https_proxy/{cluster_id}")?;
                 signaling.fmt(f)
             }
-            Self::Proxied(scheme, PathPrefix(path_prefix), signaling) => {
-                let encoded = utf8_percent_encode(path_prefix, NON_ALPHANUMERIC);
+            Self::Proxied(scheme, path_prefix, signaling) => {
+                let encoded = utf8_percent_encode(path_prefix.as_ref(), NON_ALPHANUMERIC);
                 write!(f, "/proxied/{scheme}/{encoded}")?;
                 signaling.fmt(f)
             }
@@ -468,11 +505,7 @@ impl FromStr for SignalingMethod {
                     .decode_utf8()
                     .map_err(|e| SignalingMethodParseError::HostParseError(e.to_string()))?
                     .into_owned();
-                Ok(Self::Proxied(
-                    scheme,
-                    PathPrefix(path_prefix),
-                    rest.parse()?,
-                ))
+                Ok(Self::Proxied(scheme, path_prefix.into(), rest.parse()?))
             }
             method => Err(SignalingMethodParseError::UnknownSignalingMethod(
                 method.to_owned(),
@@ -859,8 +892,8 @@ mod tests {
             .parse()
             .unwrap();
         match method {
-            SignalingMethod::Proxied(ProxyScheme::Https, PathPrefix(prefix), info) => {
-                assert_eq!(prefix, "/clusters/123");
+            SignalingMethod::Proxied(ProxyScheme::Https, prefix, info) => {
+                assert_eq!(prefix.as_ref(), "/clusters/123");
                 assert_eq!(info.host, Host::Domain("proxy.example.com".to_string()));
                 assert_eq!(info.port, 443);
             }
@@ -876,8 +909,8 @@ mod tests {
                 .parse()
                 .unwrap();
         match method {
-            SignalingMethod::Proxied(ProxyScheme::Https, PathPrefix(prefix), info) => {
-                assert_eq!(prefix, "/api/v2/webrtc");
+            SignalingMethod::Proxied(ProxyScheme::Https, prefix, info) => {
+                assert_eq!(prefix.as_ref(), "/api/v2/webrtc");
                 assert_eq!(info.host, Host::Domain("gateway.example.com".to_string()));
                 assert_eq!(info.port, 8443);
             }
@@ -889,7 +922,7 @@ mod tests {
     fn test_roundtrip_proxied() {
         let original = SignalingMethod::Proxied(
             ProxyScheme::Https,
-            PathPrefix("/clusters/789".to_string()),
+            "/clusters/789".into(),
             HttpSignalingInfo {
                 host: Host::Domain("proxy.example.com".to_string()),
                 port: 443,
@@ -910,7 +943,7 @@ mod tests {
     fn test_proxied_https_url() {
         let method = SignalingMethod::Proxied(
             ProxyScheme::Https,
-            PathPrefix("/custom/path".to_string()),
+            "/custom/path".into(),
             HttpSignalingInfo {
                 host: Host::Domain("gateway.example.com".to_string()),
                 port: 443,
@@ -928,7 +961,7 @@ mod tests {
     fn test_proxied_https_url_no_leading_slash() {
         let method = SignalingMethod::Proxied(
             ProxyScheme::Https,
-            PathPrefix("custom/path".to_string()),
+            "custom/path".into(),
             HttpSignalingInfo {
                 host: Host::Domain("gateway.example.com".to_string()),
                 port: 443,
@@ -947,7 +980,7 @@ mod tests {
     fn test_proxied_https_url_trailing_slash() {
         let method = SignalingMethod::Proxied(
             ProxyScheme::Https,
-            PathPrefix("/custom/path/".to_string()),
+            "/custom/path/".into(),
             HttpSignalingInfo {
                 host: Host::Domain("gateway.example.com".to_string()),
                 port: 443,
@@ -966,8 +999,8 @@ mod tests {
     fn test_proxied_with_ipv4() {
         let method: SignalingMethod = "/proxied/https/%2Ftest/192.168.1.1/8443".parse().unwrap();
         match method {
-            SignalingMethod::Proxied(ProxyScheme::Https, PathPrefix(prefix), info) => {
-                assert_eq!(prefix, "/test");
+            SignalingMethod::Proxied(ProxyScheme::Https, prefix, info) => {
+                assert_eq!(prefix.as_ref(), "/test");
                 assert_eq!(info.host, Host::Ipv4(Ipv4Addr::new(192, 168, 1, 1)));
                 assert_eq!(info.port, 8443);
             }
@@ -997,11 +1030,7 @@ mod tests {
         };
 
         let legacy = SignalingMethod::HttpsProxy(123, info.clone());
-        let proxied = SignalingMethod::Proxied(
-            ProxyScheme::Https,
-            PathPrefix("/clusters/123".to_string()),
-            info,
-        );
+        let proxied = SignalingMethod::Proxied(ProxyScheme::Https, "/clusters/123".into(), info);
 
         assert_eq!(legacy.http_url(), proxied.http_url());
         assert_eq!(
@@ -1014,7 +1043,7 @@ mod tests {
     fn test_proxied_empty_prefix() {
         let method = SignalingMethod::Proxied(
             ProxyScheme::Https,
-            PathPrefix("".to_string()),
+            "".into(),
             HttpSignalingInfo {
                 host: Host::Domain("gateway.example.com".to_string()),
                 port: 443,
@@ -1030,7 +1059,7 @@ mod tests {
     fn test_proxied_just_slash() {
         let method = SignalingMethod::Proxied(
             ProxyScheme::Https,
-            PathPrefix("/".to_string()),
+            "/".into(),
             HttpSignalingInfo {
                 host: Host::Domain("gateway.example.com".to_string()),
                 port: 443,
@@ -1050,44 +1079,28 @@ mod tests {
         };
 
         // No slashes
-        let m1 = SignalingMethod::Proxied(
-            ProxyScheme::Https,
-            PathPrefix("path".to_string()),
-            info.clone(),
-        );
+        let m1 = SignalingMethod::Proxied(ProxyScheme::Https, "path".into(), info.clone());
         assert_eq!(
             m1.http_url().unwrap(),
             "https://example.com:443/path/mina/webrtc/signal"
         );
 
         // Leading slash only
-        let m2 = SignalingMethod::Proxied(
-            ProxyScheme::Https,
-            PathPrefix("/path".to_string()),
-            info.clone(),
-        );
+        let m2 = SignalingMethod::Proxied(ProxyScheme::Https, "/path".into(), info.clone());
         assert_eq!(
             m2.http_url().unwrap(),
             "https://example.com:443/path/mina/webrtc/signal"
         );
 
         // Trailing slash only
-        let m3 = SignalingMethod::Proxied(
-            ProxyScheme::Https,
-            PathPrefix("path/".to_string()),
-            info.clone(),
-        );
+        let m3 = SignalingMethod::Proxied(ProxyScheme::Https, "path/".into(), info.clone());
         assert_eq!(
             m3.http_url().unwrap(),
             "https://example.com:443/path/mina/webrtc/signal"
         );
 
         // Both slashes
-        let m4 = SignalingMethod::Proxied(
-            ProxyScheme::Https,
-            PathPrefix("/path/".to_string()),
-            info.clone(),
-        );
+        let m4 = SignalingMethod::Proxied(ProxyScheme::Https, "/path/".into(), info.clone());
         assert_eq!(
             m4.http_url().unwrap(),
             "https://example.com:443/path/mina/webrtc/signal"
@@ -1104,7 +1117,7 @@ mod tests {
         // No outer slashes
         let m1 = SignalingMethod::Proxied(
             ProxyScheme::Https,
-            PathPrefix("api/v2/clusters/123".to_string()),
+            "api/v2/clusters/123".into(),
             info.clone(),
         );
         assert_eq!(
@@ -1115,7 +1128,7 @@ mod tests {
         // Both outer slashes
         let m2 = SignalingMethod::Proxied(
             ProxyScheme::Https,
-            PathPrefix("/api/v2/clusters/123/".to_string()),
+            "/api/v2/clusters/123/".into(),
             info.clone(),
         );
         assert_eq!(
@@ -1129,8 +1142,8 @@ mod tests {
         // %2F is URL-encoded "/"
         let method: SignalingMethod = "/proxied/https/%2F/example.com/443".parse().unwrap();
         match &method {
-            SignalingMethod::Proxied(ProxyScheme::Https, PathPrefix(prefix), info) => {
-                assert_eq!(prefix, "/");
+            SignalingMethod::Proxied(ProxyScheme::Https, prefix, info) => {
+                assert_eq!(prefix.as_ref(), "/");
                 assert_eq!(info.host, Host::Domain("example.com".to_string()));
                 assert_eq!(info.port, 443);
             }
@@ -1150,7 +1163,7 @@ mod tests {
         // the same URL as Https variant. Test verifies the expected parse error.
         let original = SignalingMethod::Proxied(
             ProxyScheme::Https,
-            PathPrefix("".to_string()),
+            "".into(),
             HttpSignalingInfo {
                 host: Host::Domain("example.com".to_string()),
                 port: 443,
@@ -1174,7 +1187,7 @@ mod tests {
     fn test_proxied_http_scheme() {
         let method = SignalingMethod::Proxied(
             ProxyScheme::Http,
-            PathPrefix("/api/proxy".to_string()),
+            "/api/proxy".into(),
             HttpSignalingInfo {
                 host: Host::Domain("gateway.example.com".to_string()),
                 port: 8080,
@@ -1192,7 +1205,7 @@ mod tests {
     fn test_proxied_http_scheme_roundtrip() {
         let original = SignalingMethod::Proxied(
             ProxyScheme::Http,
-            PathPrefix("/dev/proxy".to_string()),
+            "/dev/proxy".into(),
             HttpSignalingInfo {
                 host: Host::Domain("localhost".to_string()),
                 port: 3000,
@@ -1212,8 +1225,8 @@ mod tests {
             .parse()
             .unwrap();
         match method {
-            SignalingMethod::Proxied(ProxyScheme::Http, PathPrefix(prefix), info) => {
-                assert_eq!(prefix, "/dev/proxy");
+            SignalingMethod::Proxied(ProxyScheme::Http, prefix, info) => {
+                assert_eq!(prefix.as_ref(), "/dev/proxy");
                 assert_eq!(info.host, Host::Domain("localhost".to_string()));
                 assert_eq!(info.port, 3000);
             }
