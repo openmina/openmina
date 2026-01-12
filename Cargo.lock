@@ -121,7 +121,7 @@ dependencies = [
 
 [[package]]
 name = "alloc-test"
-version = "0.1.1"
+version = "0.18.1"
 dependencies = [
  "clap 4.5.20",
  "derive_builder",
@@ -7222,7 +7222,7 @@ dependencies = [
 
 [[package]]
 name = "redux"
-version = "0.1.0"
+version = "0.18.1"
 dependencies = [
  "enum_dispatch",
  "fuzzcheck 0.10.1",

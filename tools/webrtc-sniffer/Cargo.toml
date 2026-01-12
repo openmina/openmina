@@ -1,7 +1,7 @@
 [package]
 name = "webrtc-sniffer"
-version = "0.18.1"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 
 [dependencies]
 aes = { workspace = true }
