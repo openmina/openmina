@@ -91,7 +91,7 @@
     "prettier": "^3.6.2",
     "terser-webpack-plugin": "^5.3.10",
     "typescript": "~5.8.3",
-    "webpack": "^5.88.2",
+    "webpack": "^5.104.1",
     "webpack-bundle-analyzer": "^5.1.1"
   }
 }
