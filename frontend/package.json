@@ -34,7 +34,7 @@
     "@angular/common": "^19.2.14",
     "@angular/compiler": "^19.2.14",
     "@angular/core": "^19.2.14",
-    "@angular/forms": "^19.2.14",
+    "@angular/forms": "^21.0.8",
     "@angular/material": "^19.2.19",
     "@angular/platform-browser": "^19.2.14",
     "@angular/platform-browser-dynamic": "^19.2.14",
