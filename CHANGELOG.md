@@ -49,6 +49,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Bump webpack-bundle-analyzer from 4.9.0 to 5.1.1 in /frontend
   ([#1958](https://github.com/o1-labs/mina-rust/pull/1958))
+- Bump webpack from 5.88.2 to 5.104.1 in /frontend
+  ([#1960](https://github.com/o1-labs/mina-rust/pull/1960))
 - Bump @sentry/angular from 8.35.0 to 10.32.1
   ([#1965](https://github.com/o1-labs/mina-rust/pull/1965))
 - Bump typescript from 5.6.2 to 5.9.3 in /website
