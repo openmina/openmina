@@ -121,7 +121,7 @@ dependencies = [
 
 [[package]]
 name = "alloc-test"
-version = "0.18.1"
+version = "0.1.1"
 dependencies = [
  "clap 4.5.20",
  "derive_builder",
@@ -1391,9 +1391,9 @@ dependencies = [
 
 [[package]]
 name = "bs58"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5353f36341f7451062466f0b755b96ac3a9547e4d7f6b70d603fc721a7d7896"
+checksum = "bf88ba1141d185c399bee5288d850d63b8369520c1eafc32a0430b5b6c287bf4"
 dependencies = [
  "tinyvec",
 ]
@@ -2146,9 +2146,9 @@ dependencies = [
 
 [[package]]
 name = "data-encoding"
-version = "2.4.0"
+version = "2.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c2e66c9d817f1720209181c316d28635c050fa304f9c79e47a520882661b7308"
+checksum = "2a2330da5de22e8a3cb63252ce2abb30116bf5265e89c0e01bc17015ce30a476"
 
 [[package]]
 name = "data-encoding-macro"
@@ -2879,7 +2879,7 @@ dependencies = [
 [[package]]
 name = "futures-bounded"
 version = "0.1.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
+source = "git+https://github.com/o1-labs/rust-libp2p?rev=e88cec09bd2554f4cc79ff90f200e4c864adf495#e88cec09bd2554f4cc79ff90f200e4c864adf495"
 dependencies = [
  "futures-timer",
  "futures-util",
@@ -4310,7 +4310,7 @@ checksum = "f9fbbcab51052fe104eb5e5d351cf728d30a5be1fe14d9be8a3b097481fb97de"
 [[package]]
 name = "libp2p"
 version = "0.53.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
+source = "git+https://github.com/o1-labs/rust-libp2p?rev=e88cec09bd2554f4cc79ff90f200e4c864adf495#e88cec09bd2554f4cc79ff90f200e4c864adf495"
 dependencies = [
  "bytes",
  "either",
@@ -4344,7 +4344,7 @@ dependencies = [
 [[package]]
 name = "libp2p-allow-block-list"
 version = "0.3.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
+source = "git+https://github.com/o1-labs/rust-libp2p?rev=e88cec09bd2554f4cc79ff90f200e4c864adf495#e88cec09bd2554f4cc79ff90f200e4c864adf495"
 dependencies = [
  "libp2p-core",
  "libp2p-identity",
@@ -4355,7 +4355,7 @@ dependencies = [
 [[package]]
 name = "libp2p-connection-limits"
 version = "0.3.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
+source = "git+https://github.com/o1-labs/rust-libp2p?rev=e88cec09bd2554f4cc79ff90f200e4c864adf495#e88cec09bd2554f4cc79ff90f200e4c864adf495"
 dependencies = [
  "libp2p-core",
  "libp2p-identity",
@@ -4366,7 +4366,7 @@ dependencies = [
 [[package]]
 name = "libp2p-core"
 version = "0.41.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
+source = "git+https://github.com/o1-labs/rust-libp2p?rev=e88cec09bd2554f4cc79ff90f200e4c864adf495#e88cec09bd2554f4cc79ff90f200e4c864adf495"
 dependencies = [
  "either",
  "fnv",
@@ -4394,7 +4394,7 @@ dependencies = [
 [[package]]
 name = "libp2p-dns"
 version = "0.41.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
+source = "git+https://github.com/o1-labs/rust-libp2p?rev=e88cec09bd2554f4cc79ff90f200e4c864adf495#e88cec09bd2554f4cc79ff90f200e4c864adf495"
 dependencies = [
  "async-trait",
  "futures",
@@ -4409,7 +4409,7 @@ dependencies = [
 [[package]]
 name = "libp2p-gossipsub"
 version = "0.46.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
+source = "git+https://github.com/o1-labs/rust-libp2p?rev=e88cec09bd2554f4cc79ff90f200e4c864adf495#e88cec09bd2554f4cc79ff90f200e4c864adf495"
 dependencies = [
  "asynchronous-codec",
  "base64 0.21.7",
@@ -4441,7 +4441,7 @@ dependencies = [
 [[package]]
 name = "libp2p-identify"
 version = "0.44.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
+source = "git+https://github.com/o1-labs/rust-libp2p?rev=e88cec09bd2554f4cc79ff90f200e4c864adf495#e88cec09bd2554f4cc79ff90f200e4c864adf495"
 dependencies = [
  "asynchronous-codec",
  "either",
@@ -4462,27 +4462,27 @@ dependencies = [
 
 [[package]]
 name = "libp2p-identity"
-version = "0.2.7"
+version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cdd6317441f361babc74c2989c6484eb0726045399b6648de039e1805ea96972"
+checksum = "55cca1eb2bc1fd29f099f3daaab7effd01e1a54b7c577d0ed082521034d912e8"
 dependencies = [
- "bs58 0.5.0",
+ "bs58 0.5.1",
  "ed25519-dalek",
  "hkdf",
- "log",
  "multihash 0.19.1",
  "quick-protobuf",
  "rand",
  "serde",
  "sha2 0.10.8",
  "thiserror 1.0.60",
+ "tracing",
  "zeroize",
 ]
 
 [[package]]
 name = "libp2p-kad"
 version = "0.45.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
+source = "git+https://github.com/o1-labs/rust-libp2p?rev=e88cec09bd2554f4cc79ff90f200e4c864adf495#e88cec09bd2554f4cc79ff90f200e4c864adf495"
 dependencies = [
  "arrayvec",
  "asynchronous-codec",
@@ -4511,7 +4511,7 @@ dependencies = [
 [[package]]
 name = "libp2p-mdns"
 version = "0.45.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
+source = "git+https://github.com/o1-labs/rust-libp2p?rev=e88cec09bd2554f4cc79ff90f200e4c864adf495#e88cec09bd2554f4cc79ff90f200e4c864adf495"
 dependencies = [
  "data-encoding",
  "futures",
@@ -4531,7 +4531,7 @@ dependencies = [
 [[package]]
 name = "libp2p-metrics"
 version = "0.14.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
+source = "git+https://github.com/o1-labs/rust-libp2p?rev=e88cec09bd2554f4cc79ff90f200e4c864adf495#e88cec09bd2554f4cc79ff90f200e4c864adf495"
 dependencies = [
  "instant",
  "libp2p-core",
@@ -4547,7 +4547,7 @@ dependencies = [
 [[package]]
 name = "libp2p-noise"
 version = "0.44.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
+source = "git+https://github.com/o1-labs/rust-libp2p?rev=e88cec09bd2554f4cc79ff90f200e4c864adf495#e88cec09bd2554f4cc79ff90f200e4c864adf495"
 dependencies = [
  "bytes",
  "curve25519-dalek",
@@ -4572,7 +4572,7 @@ dependencies = [
 [[package]]
 name = "libp2p-pnet"
 version = "0.24.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
+source = "git+https://github.com/o1-labs/rust-libp2p?rev=e88cec09bd2554f4cc79ff90f200e4c864adf495#e88cec09bd2554f4cc79ff90f200e4c864adf495"
 dependencies = [
  "futures",
  "log",
@@ -4585,7 +4585,7 @@ dependencies = [
 [[package]]
 name = "libp2p-quic"
 version = "0.10.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
+source = "git+https://github.com/o1-labs/rust-libp2p?rev=e88cec09bd2554f4cc79ff90f200e4c864adf495#e88cec09bd2554f4cc79ff90f200e4c864adf495"
 dependencies = [
  "bytes",
  "futures",
@@ -4617,7 +4617,7 @@ dependencies = [
 [[package]]
 name = "libp2p-swarm"
 version = "0.44.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
+source = "git+https://github.com/o1-labs/rust-libp2p?rev=e88cec09bd2554f4cc79ff90f200e4c864adf495#e88cec09bd2554f4cc79ff90f200e4c864adf495"
 dependencies = [
  "either",
  "fnv",
@@ -4639,7 +4639,7 @@ dependencies = [
 [[package]]
 name = "libp2p-swarm-derive"
 version = "0.34.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
+source = "git+https://github.com/o1-labs/rust-libp2p?rev=e88cec09bd2554f4cc79ff90f200e4c864adf495#e88cec09bd2554f4cc79ff90f200e4c864adf495"
 dependencies = [
  "heck 0.4.1",
  "proc-macro-warning",
@@ -4651,7 +4651,7 @@ dependencies = [
 [[package]]
 name = "libp2p-tcp"
 version = "0.41.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
+source = "git+https://github.com/o1-labs/rust-libp2p?rev=e88cec09bd2554f4cc79ff90f200e4c864adf495#e88cec09bd2554f4cc79ff90f200e4c864adf495"
 dependencies = [
  "futures",
  "futures-timer",
@@ -4667,7 +4667,7 @@ dependencies = [
 [[package]]
 name = "libp2p-tls"
 version = "0.3.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
+source = "git+https://github.com/o1-labs/rust-libp2p?rev=e88cec09bd2554f4cc79ff90f200e4c864adf495#e88cec09bd2554f4cc79ff90f200e4c864adf495"
 dependencies = [
  "futures",
  "futures-rustls",
@@ -4685,7 +4685,7 @@ dependencies = [
 [[package]]
 name = "libp2p-upnp"
 version = "0.2.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
+source = "git+https://github.com/o1-labs/rust-libp2p?rev=e88cec09bd2554f4cc79ff90f200e4c864adf495#e88cec09bd2554f4cc79ff90f200e4c864adf495"
 dependencies = [
  "futures",
  "futures-timer",
@@ -4700,7 +4700,7 @@ dependencies = [
 [[package]]
 name = "libp2p-yamux"
 version = "0.45.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
+source = "git+https://github.com/o1-labs/rust-libp2p?rev=e88cec09bd2554f4cc79ff90f200e4c864adf495#e88cec09bd2554f4cc79ff90f200e4c864adf495"
 dependencies = [
  "futures",
  "libp2p-core",
@@ -5349,6 +5349,7 @@ dependencies = [
  "multiaddr",
  "multihash 0.18.1",
  "p2p-testing",
+ "percent-encoding",
  "prost 0.12.4",
  "prost-build",
  "quick-protobuf",
@@ -5366,6 +5367,7 @@ dependencies = [
  "strum_macros",
  "thiserror 1.0.60",
  "tokio",
+ "tracing",
  "unsigned-varint 0.8.0",
  "url",
  "warp",
@@ -5447,7 +5449,7 @@ dependencies = [
  "ark-ff",
  "bitvec",
  "blake2",
- "bs58 0.5.0",
+ "bs58 0.5.1",
  "hex",
  "mina-curves",
  "mina-hasher",
@@ -5649,12 +5651,12 @@ dependencies = [
 
 [[package]]
 name = "multiaddr"
-version = "0.18.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b852bc02a2da5feed68cd14fa50d0774b92790a5bdbfa932a813926c8472070"
+version = "0.18.2"
+source = "git+https://github.com/multiformats/rust-multiaddr?rev=a4a4fbd555bdda40a6758fa5e2e3ad69947ffcd7#a4a4fbd555bdda40a6758fa5e2e3ad69947ffcd7"
 dependencies = [
  "arrayref",
  "byteorder",
+ "bytes",
  "data-encoding",
  "libp2p-identity",
  "multibase",
@@ -5662,7 +5664,7 @@ dependencies = [
  "percent-encoding",
  "serde",
  "static_assertions",
- "unsigned-varint 0.7.2",
+ "unsigned-varint 0.8.0",
  "url",
 ]
 
@@ -5728,7 +5730,7 @@ checksum = "defc4c55412d89136f966bbb339008b474350e5e6e78d2714439c386b3137a03"
 [[package]]
 name = "multistream-select"
 version = "0.13.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
+source = "git+https://github.com/o1-labs/rust-libp2p?rev=e88cec09bd2554f4cc79ff90f200e4c864adf495#e88cec09bd2554f4cc79ff90f200e4c864adf495"
 dependencies = [
  "bytes",
  "futures",
@@ -7006,7 +7008,7 @@ dependencies = [
 [[package]]
 name = "quick-protobuf-codec"
 version = "0.2.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
+source = "git+https://github.com/o1-labs/rust-libp2p?rev=e88cec09bd2554f4cc79ff90f200e4c864adf495#e88cec09bd2554f4cc79ff90f200e4c864adf495"
 dependencies = [
  "asynchronous-codec",
  "bytes",
@@ -7222,7 +7224,7 @@ dependencies = [
 
 [[package]]
 name = "redux"
-version = "0.18.1"
+version = "0.1.0"
 dependencies = [
  "enum_dispatch",
  "fuzzcheck 0.10.1",
@@ -7718,7 +7720,7 @@ dependencies = [
 [[package]]
 name = "rw-stream-sink"
 version = "0.4.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
+source = "git+https://github.com/o1-labs/rust-libp2p?rev=e88cec09bd2554f4cc79ff90f200e4c864adf495#e88cec09bd2554f4cc79ff90f200e4c864adf495"
 dependencies = [
  "futures",
  "pin-project",

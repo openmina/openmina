@@ -19,6 +19,7 @@ ed25519-dalek = { workspace = true }
 faster-stun = { workspace = true, optional = true }
 hex = { workspace = true }
 multihash = { workspace = true }
+percent-encoding = { workspace = true }
 rand = { workspace = true, features = ["small_rng"] }
 reqwest = { workspace = true, optional = true }
 serde = { workspace = true }
@@ -29,6 +30,7 @@ smallvec = { workspace = true }
 strum = { workspace = true }
 strum_macros = { workspace = true }
 thiserror = { workspace = true }
+tracing = { workspace = true }
 unsigned-varint = { workspace = true }
 url = { workspace = true }
 x25519-dalek = { workspace = true }

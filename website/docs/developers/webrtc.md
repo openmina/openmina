@@ -181,23 +181,72 @@ The Web Node represents a significant advancement in blockchain accessibility,
 enabling truly decentralized participation without requiring users to install
 native applications or manage complex network configurations.
 
-## Address Format Differences
+## Address Formats
 
-The Mina Rust Node uses a custom Multiaddr-like format for WebRTC peer addresses
-that differs from normal Multiaddrs. These addresses are specifically designed
-to encode signaling server information rather than direct network addresses,
-reflecting the different connection model of WebRTC versus direct TCP/UDP
+WebRTC peer addresses use standard
+[multiaddr](https://multiformats.io/multiaddr/) format with the `/webrtc`
+protocol to distinguish them from libp2p addresses. The `/webrtc` protocol
+indicates the address requires WebRTC signaling rather than direct TCP/UDP
 connections.
 
 The address parsing logic is implemented in
-[`p2p/src/connection/outgoing/mod.rs`](https://github.com/o1-labs/mina-rust/blob/develop/p2p/src/connection/outgoing/mod.rs)
-through the `FromStr` implementation for `P2pConnectionOutgoingInitOpts`. The
-parser distinguishes between libp2p addresses (starting with `/ip` or `/dns`)
-and WebRTC addresses (all other formats).
+[`p2p/src/connection/outgoing/mod.rs`](https://github.com/o1-labs/mina-rust/blob/develop/crates/p2p/src/connection/outgoing/mod.rs)
+through the `TryFrom<&Multiaddr>` implementation for
+`P2pConnectionOutgoingInitOpts`.
 
-### WebRTC peer address format
+### Standard multiaddr format (recommended)
 
-WebRTC peer addresses follow this structure:
+WebRTC addresses follow standard multiaddr conventions with the `/webrtc`
+protocol indicating WebRTC signaling:
+
+**HTTP signaling:**
+
+```
+/<dns|dns4|dns6|ip4|ip6>/{host}/tcp/{port}/webrtc/http/p2p/{peer_id}
+```
+
+Example:
+`/dns4/signal.example.com/tcp/8080/webrtc/http/p2p/12D3KooWRTzN7HfmjoUBHokyRZuKdyohVVSGqKBMF24ZC3tGK74R`
+
+**HTTPS signaling:**
+
+```
+/<dns|dns4|dns6|ip4|ip6>/{host}/tcp/{port}/webrtc/https/p2p/{peer_id}
+```
+
+Example:
+`/dns4/signal.example.com/tcp/443/webrtc/https/p2p/12D3KooWRTzN7HfmjoUBHokyRZuKdyohVVSGqKBMF24ZC3tGK74R`
+
+**Proxy signaling with path prefix:**
+
+```
+/<dns|dns4|dns6|ip4|ip6>/{host}/tcp/{port}/webrtc/<http|https>/http-path/{url_encoded_path}/p2p/{peer_id}
+```
+
+Example:
+`/dns4/proxy.example.com/tcp/443/webrtc/https/http-path/clusters%2F123/p2p/12D3KooWRTzN7HfmjoUBHokyRZuKdyohVVSGqKBMF24ZC3tGK74R`
+
+**P2P relay signaling:**
+
+```
+/p2p/{relay_peer_id}/webrtc/p2p-circuit/p2p/{target_peer_id}
+```
+
+Example:
+`/p2p/12D3KooWABC.../webrtc/p2p-circuit/p2p/12D3KooWRTzN7HfmjoUBHokyRZuKdyohVVSGqKBMF24ZC3tGK74R`
+
+### Legacy format (deprecated)
+
+<!-- prettier-ignore-start -->
+
+:::caution Deprecated
+The legacy format below is deprecated and will emit warnings when used. Please
+migrate to the standard multiaddr format above.
+:::
+
+<!-- prettier-ignore-end -->
+
+The legacy format uses a custom structure that differs from standard multiaddr:
 
 ```
 /{peer_id}/{signaling_method}
@@ -206,45 +255,17 @@ WebRTC peer addresses follow this structure:
 Where `{peer_id}` is the base58-encoded peer ID and `{signaling_method}`
 specifies how to reach the signaling server.
 
-### Signaling method formats
+**Legacy signaling method formats:**
 
-The signaling method component can take several forms:
+| Method      | Format                                              | Example                                              |
+| ----------- | --------------------------------------------------- | ---------------------------------------------------- |
+| HTTP        | `/{peer_id}/http/{host}/{port}`                     | `/12D3KooW.../http/localhost/8080`                   |
+| HTTPS       | `/{peer_id}/https/{host}/{port}`                    | `/12D3KooW.../https/signal.example.com/443`          |
+| HTTPS Proxy | `/{peer_id}/https_proxy/{cluster_id}/{host}/{port}` | `/12D3KooW.../https_proxy/123/proxy.example.com/443` |
+| P2P Relay   | `/{peer_id}/p2p/{relay_peer_id}`                    | `/12D3KooW.../p2p/12D3KooWABC...`                    |
 
-**HTTP signaling:**
-
-```
-/http/{host}/{port}
-```
-
-Example:
-`/12D3KooWRTzN7HfmjoUBHokyRZuKdyohVVSGqKBMF24ZC3tGK74R/http/localhost/8080`
-
-**HTTPS signaling:**
-
-```
-/https/{host}/{port}
-```
-
-Example:
-`/12D3KooWRTzN7HfmjoUBHokyRZuKdyohVVSGqKBMF24ZC3tGK74R/https/signal.example.com/443`
-
-**HTTPS proxy signaling:**
-
-```
-/https_proxy/{cluster_id}/{host}/{port}
-```
-
-Example:
-`/12D3KooWRTzN7HfmjoUBHokyRZuKdyohVVSGqKBMF24ZC3tGK74R/https_proxy/123/proxy.example.com/443`
-
-**P2P relay signaling:**
-
-```
-/p2p/{relay_peer_id}
-```
-
-Example:
-`/12D3KooWRTzN7HfmjoUBHokyRZuKdyohVVSGqKBMF24ZC3tGK74R/p2p/12D3KooWABC...`
+The parser continues to accept this format for backward compatibility but logs a
+deprecation warning with the suggested multiaddr equivalent
 
 ## Future Considerations
 
