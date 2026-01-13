@@ -9,12 +9,14 @@ fi
 
 VERSION="$1"
 
-echo "Updating version to $VERSION in Cargo.toml files..."
+echo "Updating version to $VERSION in workspace Cargo.toml..."
 
-# Find all Cargo.toml files, exclude target directory, and update version
-find . -name "Cargo.toml" -not -path "./target/*" -exec sed -i.bak 's/^version = "[^"]*"/version = "'"$VERSION"'"/' {} \;
+# Update version in workspace package section of root Cargo.toml
+# All member crates inherit version via `version.workspace = true`
+sed -i.bak 's/^version = "[^"]*"/version = "'"$VERSION"'"/' ./Cargo.toml
 
-# Clean up backup files
-find . -name "*.bak" -delete
+# Clean up backup file
+rm -f ./Cargo.toml.bak
 
-echo "Version updated to $VERSION in all Cargo.toml files"
+echo "Version updated to $VERSION in workspace Cargo.toml"
+echo "All member crates inherit this version via workspace inheritance."

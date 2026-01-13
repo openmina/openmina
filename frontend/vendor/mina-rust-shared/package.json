@@ -10,10 +10,10 @@
     "update": "cd ../../ && npm i @mina-rust/shared@latest && cd ../mina/frontend && npm i @mina-rust/shared@latest"
   },
   "peerDependencies": {
-    "@angular/animations": "^19.2.14",
-    "@angular/common": "^19.2.14",
-    "@angular/core": "^19.2.14",
-    "@angular/forms": "^19.2.14",
+    "@angular/animations": "^19.2.18",
+    "@angular/common": "^19.2.18",
+    "@angular/core": "^19.2.18",
+    "@angular/forms": "^19.2.18",
     "@angular/material": "^19.2.19",
     "@ngneat/until-destroy": ">=10.0.0",
     "@ngrx/effects": "^19.2.1",
@@ -35,8 +35,8 @@
   "author": "Teofil Jolte",
   "license": "Apache License, Version 2.0",
   "devDependencies": {
-    "@angular/common": "^19.2.14",
-    "@angular/core": "^19.2.14",
+    "@angular/common": "^19.2.18",
+    "@angular/core": "^19.2.18",
     "@angular/material": "^19.2.19",
     "@ngrx/effects": "^19.2.1",
     "@ngrx/store": "^19.2.1"

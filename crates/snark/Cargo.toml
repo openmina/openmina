@@ -1,27 +1,27 @@
 [package]
 name = "mina-snark"
-version = "0.18.1"
-edition = "2021"
-license = "Apache-2.0"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
 
 [dependencies]
-ark-ff = { workspace = true }
-kimchi = { workspace = true }
-mina-curves = { workspace = true }
-mina-hasher = { workspace = true }
-mina-poseidon = { workspace = true }
-mina-signer = { workspace = true }
-o1-utils = { workspace = true }
-poly-commitment = { workspace = true }
-
 ark-ec = { workspace = true }
+ark-ff = { workspace = true }
 ark-poly = { workspace = true }
 derive_more = { workspace = true }
 hex = { workspace = true }
+kimchi = { workspace = true }
 ledger = { workspace = true }
+mina-core = { workspace = true }
+mina-curves = { workspace = true }
+mina-hasher = { workspace = true }
 mina-p2p-messages = { workspace = true }
+mina-poseidon = { workspace = true }
+mina-signer = { workspace = true }
 num-bigint = { workspace = true }
+o1-utils = { workspace = true }
 once_cell = { workspace = true }
+poly-commitment = { workspace = true }
 poseidon = { workspace = true }
 rand = { workspace = true }
 rayon = { workspace = true }
@@ -32,10 +32,7 @@ sha2 = { workspace = true }
 strum_macros = { workspace = true }
 thiserror = { workspace = true }
 
-mina-core = { path = "../core" }
-
 [dev-dependencies]
-
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 linkme = { workspace = true }
 redux = { workspace = true, features = ["serializable_callbacks"] }

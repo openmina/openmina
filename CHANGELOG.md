@@ -28,6 +28,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Frontend**: Fix security vulnerabilities by upgrading Angular to 19.2.18
+  to address XSS vulnerability in SVG script attributes and fix qs DoS
+  vulnerability ([#2076](https://github.com/o1-labs/mina-rust/pull/2076))
 - **Frontend**: Fixed a bug where user could reach a non-existent page
   with a non-existent block height on the scan state page
   ([#1966](https://github.com/o1-labs/mina-rust/pull/1966))
@@ -47,8 +50,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changes
 
+- Bump webpack-bundle-analyzer from 4.9.0 to 5.1.1 in /frontend
+  ([#1958](https://github.com/o1-labs/mina-rust/pull/1958))
+- Bump webpack from 5.88.2 to 5.104.1 in /frontend
+  ([#1960](https://github.com/o1-labs/mina-rust/pull/1960))
 - Bump @sentry/angular from 8.35.0 to 10.32.1
   ([#1965](https://github.com/o1-labs/mina-rust/pull/1965))
+- Bump typescript from 5.6.2 to 5.9.3 in /website
+  ([#1888](https://github.com/o1-labs/mina-rust/pull/1888))
 - **Build System**: rename crate packages to use `mina-` prefix consistently
   (`node` → `mina-node`, `p2p` → `mina-p2p`, `snark` → `mina-snark`,
   `vrf` → `mina-vrf`, `cli` → `mina-cli`) for clearer project identity, fix
@@ -95,6 +104,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   [#2006](https://github.com/o1-labs/mina-rust/pull/2006)
 - **Dependencies**: bump up tokio from 1.26.0 to 1.46.1
   ([#2053](https://github.com/o1-labs/mina-rust/pull/2053))
+- **Web Node**: Standardized WebRTC peer address to Multiaddr and deprecated
+  old "WebRTC-Multiaddrish" format [#2052](https://github.com/o1-labs/mina-rust/pull/2052)
 
 ### Removed
 
