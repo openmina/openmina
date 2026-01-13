@@ -28,6 +28,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Frontend**: Fix security vulnerabilities by upgrading Angular to 19.2.18
+  to address XSS vulnerability in SVG script attributes and fix qs DoS
+  vulnerability ([#2076](https://github.com/o1-labs/mina-rust/pull/2076))
 - **Frontend**: Fixed a bug where user could reach a non-existent page
   with a non-existent block height on the scan state page
   ([#1966](https://github.com/o1-labs/mina-rust/pull/1966))
