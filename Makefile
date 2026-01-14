@@ -397,21 +397,7 @@ docker-build-bootstrap-sandbox: ## Build bootstrap sandbox Docker image
 
 .PHONY: docker-build-frontend
 docker-build-frontend: ## Build frontend Docker image
-	@echo "Generating .env.docker file..."
-	@bash ./frontend/docker/generate-docker-env.sh
-	@ARCH=$$(uname -m); \
-	case $$ARCH in \
-		x86_64) PLATFORM="linux/amd64" ;; \
-		aarch64|arm64) PLATFORM="linux/arm64" ;; \
-		*) echo "Unsupported architecture: $$ARCH" && exit 1 ;; \
-	esac; \
-	echo "Building for platform: $$PLATFORM"; \
-	docker buildx build \
-		--build-arg NODE_VERSION=$(NODE_VERSION) \
-		--platform $$PLATFORM \
-		--tag $(DOCKER_ORG)/mina-rust-frontend:$(GIT_COMMIT) \
-		--file ./frontend/Dockerfile \
-		./
+	@bash ./frontend/docker/build.sh $(DOCKER_ORG)/mina-rust-frontend:$(GIT_COMMIT)
 
 .PHONY: docker-build-fuzzing
 docker-build-fuzzing: ## Build fuzzing Docker image

@@ -32,16 +32,13 @@
 # MINA_WEBNODE_BOOTNODES - Comma separated list of multiaddrs to use as bootnodes
 #
 # USAGE:
-# # Generate .env.docker with current git information
-# ./generate-docker-env.sh
-#
-# # Build frontend image
-# docker build -t mina-frontend -f frontend/Dockerfile .
+# # Build frontend image using the recommended Makefile command (from project root)
+# make docker-build-frontend
 #
 # # Run with specific environment (MINA_FRONTEND_ENVIRONMENT is REQUIRED)
-# docker run -p 80:80 -e MINA_FRONTEND_ENVIRONMENT=webnode mina-frontend
-# docker run -p 80:80 -e MINA_FRONTEND_ENVIRONMENT=local mina-frontend
-# docker run -p 80:80 -e MINA_FRONTEND_ENVIRONMENT=production mina-frontend
+# docker run -p 80:80 -e MINA_FRONTEND_ENVIRONMENT=webnode o1labs/mina-rust-frontend:<TAG>
+# docker run -p 80:80 -e MINA_FRONTEND_ENVIRONMENT=local o1labs/mina-rust-frontend:<TAG>
+# docker run -p 80:80 -e MINA_FRONTEND_ENVIRONMENT=production o1labs/mina-rust-frontend:<TAG>
 #
 # =============================================================================
 

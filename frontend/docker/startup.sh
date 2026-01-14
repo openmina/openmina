@@ -51,7 +51,7 @@ build_frontend() {
 if [ -z "$MINA_FRONTEND_ENVIRONMENT" ]; then
     echo "Error: MINA_FRONTEND_ENVIRONMENT environment variable is required."
     echo "Available environments: local, production, webnode"
-    echo "Example: docker run -e MINA_FRONTEND_ENVIRONMENT=webnode mina-frontend"
+    echo "Example: docker run -e MINA_FRONTEND_ENVIRONMENT=webnode o1labs/mina-rust-frontend:<TAG>"
     exit 1
 fi
 
