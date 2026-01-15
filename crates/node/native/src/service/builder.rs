@@ -9,12 +9,13 @@ use mina_node_common::{
     NodeServiceCommonBuilder,
 };
 
-use crate::{http_server_warp, NodeService, P2pTaskSpawner};
+use crate::{http_server, http_server_warp, NodeService, P2pTaskSpawner};
 
 pub struct NodeServiceBuilder {
     common: NodeServiceCommonBuilder,
     pub(super) recorder: Recorder,
     http_server_port: Option<u16>,
+    http_server_axum_port: Option<u16>,
 }
 
 #[derive(thiserror::Error, derive_more::From, Debug, Clone)]
@@ -29,6 +30,7 @@ impl NodeServiceBuilder {
             common: NodeServiceCommonBuilder::new(rng_seed),
             recorder: Default::default(),
             http_server_port: None,
+            http_server_axum_port: None,
         }
     }
 
@@ -96,6 +98,27 @@ impl NodeServiceBuilder {
         thread::Builder::new()
             .name("mina_http_server".to_owned())
             .spawn(move || runtime.block_on(http_server_warp::run(port, rpc_sender)))
+            .unwrap();
+        self
+    }
+
+    pub fn http_server_axum_init(&mut self, port: u16) -> &mut Self {
+        if let Some(cur_port) = self.http_server_axum_port {
+            panic!("trying to start axum http server on port `{port}`, when it's already running on port `{cur_port}`");
+        }
+        self.http_server_axum_port = Some(port);
+        let rpc_sender = self.rpc_sender();
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        thread::Builder::new()
+            .name("mina_http_server_axum".to_owned())
+            .spawn(move || {
+                if let Err(e) = runtime.block_on(http_server::run(port, rpc_sender)) {
+                    tracing::error!("axum http server error: {e}");
+                }
+            })
             .unwrap();
         self
     }

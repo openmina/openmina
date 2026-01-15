@@ -68,6 +68,8 @@ pub struct NodeBuilder {
     work_verifier_index: Option<TransactionVerifier>,
     /// If `Some`, starts HTTP RPC server on port. If `None`, no RPC server.
     http_port: Option<u16>,
+    /// If `Some`, starts axum HTTP server on port for migration testing.
+    http_port_axum: Option<u16>,
     /// Daemon JSON configuration.
     daemon_conf: Daemon,
 }
@@ -116,6 +118,7 @@ impl NodeBuilder {
             block_verifier_index: None,
             work_verifier_index: None,
             http_port: None,
+            http_port_axum: None,
             daemon_conf,
         }
     }
@@ -321,6 +324,12 @@ impl NodeBuilder {
     pub fn http_server(&mut self, port: u16) -> &mut Self {
         self.http_port = Some(port);
         self.service.http_server_init(port);
+        self
+    }
+
+    pub fn http_server_axum(&mut self, port: u16) -> &mut Self {
+        self.http_port_axum = Some(port);
+        self.service.http_server_axum_init(port);
         self
     }
 

@@ -73,12 +73,20 @@ pub struct Node {
     #[arg(long)]
     pub libp2p_external_ip: Vec<String>,
 
-    /// HTTP server port for RPC API and web interface
+    /// HTTP server port for RPC API and web interface (warp)
     ///
     /// The node will serve its HTTP API and dashboard on this port.
     /// Default: 3000
     #[arg(long, short, env, default_value = "3000")]
     pub port: u16,
+
+    /// HTTP server port for axum (for migration testing)
+    ///
+    /// Runs a second HTTP server using axum alongside the warp server.
+    /// Used to compare outputs during the warp-to-axum migration.
+    /// Default: 3001
+    #[arg(long, env, default_value = "3001")]
+    pub http_port_axum: u16,
 
     /// LibP2P networking port for peer-to-peer communication
     ///
@@ -479,6 +487,7 @@ impl Node {
 
         node_builder
             .http_server(self.port)
+            .http_server_axum(self.http_port_axum)
             .gather_stats()
             .record(match self.record.trim() {
                 "none" => Recorder::None,
