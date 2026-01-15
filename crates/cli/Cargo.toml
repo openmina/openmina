@@ -1,0 +1,55 @@
+[package]
+name = "mina-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "mina"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+backtrace = { workspace = true }
+bytes = { workspace = true }
+clap = { workspace = true, features = ["derive", "env"] }
+console = { workspace = true }
+dialoguer = { workspace = true }
+hex = { workspace = true }
+ledger = { workspace = true }
+libp2p-identity = { workspace = true, features = ["peerid"] }
+mina-core = { path = "../core" }
+mina-node = { workspace = true, features = ["replay", "exit-on-invalid-peers"] }
+mina-node-account = { workspace = true }
+mina-node-native = { path = "../node/native" }
+mina-p2p-messages = { workspace = true }
+mina-signer = { workspace = true }
+mina-snark = { workspace = true }
+mina-vrf = { workspace = true }
+nix = { workspace = true, features = ["signal"] }
+num_cpus = { workspace = true }
+rand = { workspace = true }
+rayon = { workspace = true }
+redux = { workspace = true }
+reqwest = { workspace = true, features = ["blocking", "json"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+shellexpand = { workspace = true }
+time = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+redux = { workspace = true, features = ["serializable_callbacks"] }
+tikv-jemallocator = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+
+[features]
+default = ["p2p-libp2p", "p2p-webrtc"]
+unsafe-signal-handlers = []
+p2p-libp2p = ["mina-node-native/p2p-libp2p"]
+p2p-webrtc = ["mina-node-native/p2p-webrtc"]
+fuzzing = ["mina-node/fuzzing", "mina-core/fuzzing"]

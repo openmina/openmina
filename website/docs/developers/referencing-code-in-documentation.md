@@ -33,10 +33,10 @@ https://github.com/o1-labs/mina-rust/blob/develop/path/to/file.rs#LStartLine-LEn
 
 Here's a real example from the zkApps documentation:
 
-<!-- CODE_REFERENCE: ledger/src/scan_state/transaction_logic/valid.rs#L80-L83-->
+<!-- CODE_REFERENCE: crates/ledger/src/scan_state/transaction_logic/valid.rs#L80-L83-->
 
-```rust reference title="ledger/src/scan_state/transaction_logic/valid.rs"
-https://github.com/o1-labs/mina-rust/blob/develop/ledger/src/scan_state/transaction_logic/valid.rs#L80-L83
+```rust reference title="crates/ledger/src/scan_state/transaction_logic/valid.rs"
+https://github.com/o1-labs/mina-rust/blob/develop/crates/ledger/src/scan_state/transaction_logic/valid.rs#L80-L83
 ```
 
 ### Components explained

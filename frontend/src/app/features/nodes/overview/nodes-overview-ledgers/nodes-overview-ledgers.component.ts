@@ -9,7 +9,7 @@ import {
   ViewContainerRef,
 } from '@angular/core';
 import { NodesOverviewLedger } from '@shared/types/nodes/dashboard/nodes-overview-ledger.type';
-import { SecDurationConfig } from '@openmina/shared';
+import { SecDurationConfig } from '@mina-rust/shared';
 import { Overlay, OverlayRef } from '@angular/cdk/overlay';
 import { TemplatePortal } from '@angular/cdk/portal';
 

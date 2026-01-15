@@ -1,0 +1,65 @@
+@import 'variables';
+
+.bg-base {
+	background-color: $base-background;
+}
+
+.bg-surface {
+	background-color: $base-surface;
+}
+
+.bg-surface-top {
+	background-color: $base-surface-top;
+}
+
+.bg-container {
+	background-color: $base-container;
+}
+
+.bg-tertiary2 {
+  background-color: $base-tertiary2;
+}
+
+.bg-selected-container {
+	background-color: $selected-container;
+}
+
+.bg-transparent {
+	background-color: transparent;
+}
+
+.bg-success-container {
+	background-color: $success-container;
+}
+
+.bg-success-primary {
+	background-color: $success-primary;
+}
+
+.bg-warn-container {
+	background-color: $warn-container;
+}
+
+.bg-aware-container {
+	background-color: $aware-container;
+}
+
+.bg-container-hover:hover {
+	background-color: $base-container;
+}
+
+.bg-tertiary2-hover:hover {
+  background-color: $base-tertiary2;
+}
+
+.bg-special-selected-alt-1-container {
+  background-color: $special-selected-alt-1-container;
+}
+
+.bg-special-selected-alt-2-container {
+  background-color: $special-selected-alt-2-container;
+}
+
+.bg-special-selected-alt-3-container {
+  background-color: $special-selected-alt-3-container;
+}

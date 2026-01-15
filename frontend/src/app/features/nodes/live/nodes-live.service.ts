@@ -11,7 +11,7 @@ import {
   NodesOverviewBlock,
   NodesOverviewNodeBlockStatus,
 } from '@shared/types/nodes/dashboard/nodes-overview-block.type';
-import { ONE_MILLION, toReadableDate } from '@openmina/shared';
+import { ONE_MILLION, toReadableDate } from '@mina-rust/shared';
 import { RustService } from '@core/services/rust.service';
 
 @Injectable({

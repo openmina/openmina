@@ -1,4 +1,4 @@
-# Openmina Frontend
+# Mina Rust Frontend
 
 The frontend documentation has been moved to the main project website.
 

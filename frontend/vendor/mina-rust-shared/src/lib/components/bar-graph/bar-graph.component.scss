@@ -1,0 +1,36 @@
+@use 'mina-rust' as *;
+
+.y-grid-marks {
+  padding-right: 2px;
+
+  .y-tick-line {
+    div {
+      top: -16px;
+    }
+  }
+}
+
+.histo-col {
+  display: flex;
+  align-items: flex-end;
+  padding-left: 1.5px;
+
+  &:hover {
+    background-color: $base-container;
+
+    .histo-bar {
+      background-color: $selected-primary;
+    }
+  }
+
+  .histo-bar {
+    width: 100%;
+    max-height: 100%;
+    transition: height 400ms;
+    min-height: 4px !important;
+  }
+}
+
+.custom-tooltip-template {
+  width: 140px;
+}

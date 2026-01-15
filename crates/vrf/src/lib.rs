@@ -1,0 +1,312 @@
+use ark_ec::{AffineRepr, CurveGroup};
+use ark_ff::PrimeField;
+use ledger::AccountIndex;
+use message::VrfMessage;
+use mina_node_account::AccountPublicKey;
+use mina_p2p_messages::v2::EpochSeed;
+use num::{rational::Ratio, BigInt, ToPrimitive};
+use output::VrfOutput;
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
+
+use mina_curves::pasta::curves::pallas::Pallas as CurvePoint;
+use mina_signer::Keypair;
+use threshold::Threshold;
+
+mod message;
+pub mod output;
+mod serialize;
+mod threshold;
+
+type VrfResult<T> = std::result::Result<T, VrfError>;
+type BaseField = <CurvePoint as AffineRepr>::BaseField;
+type ScalarField = <CurvePoint as AffineRepr>::ScalarField;
+
+#[derive(Error, Debug)]
+pub enum VrfError {
+    #[error("Failed to decode field from hex string: {0}")]
+    HexDecodeError(#[from] hex::FromHexError),
+
+    #[error("Failed to parse decimal big integer from string: {0}")]
+    BigIntParseError(#[from] num::bigint::ParseBigIntError),
+
+    #[error("Field conversion error: {0}")]
+    FieldHelpersError(#[from] o1_utils::field_helpers::FieldHelpersError),
+
+    #[error("Failed to decode the base58 string: {0}")]
+    Base58DecodeError(#[from] bs58::decode::Error),
+
+    #[error("Scalar field does not exists from repr: {0:?}")]
+    ScalarFieldFromReprError(BaseField),
+
+    #[error("Cannot convert rational to f64")]
+    RationalToF64,
+
+    #[error("Cannot find a curve point for {0}")]
+    ToGroupError(BaseField),
+
+    #[error("The vrf_output is missing from the witness")]
+    NoOutputError,
+
+    #[error("The witness is invalid")]
+    IvalidWitness,
+}
+
+/// 256 bits
+pub(crate) type BigInt256 = BigInt<4>;
+
+/// 2048 bits
+pub(crate) type BigInt2048 = BigInt<32>;
+pub(crate) type BigRational2048 = Ratio<BigInt2048>;
+
+/// 4096 bits
+pub(crate) type BigInt4096 = BigInt<64>;
+pub(crate) type BigRational4096 = Ratio<BigInt4096>;
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct VrfWonSlot {
+    pub producer: AccountPublicKey,
+    pub winner_account: AccountPublicKey,
+    pub global_slot: u32,
+    pub account_index: AccountIndex,
+    pub vrf_output: Box<VrfOutput>,
+    pub value_with_threshold: Option<(f64, f64)>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum VrfEvaluationOutput {
+    SlotWon(VrfWonSlot),
+    SlotLost(u32),
+}
+
+impl VrfEvaluationOutput {
+    pub fn global_slot(&self) -> u32 {
+        match self {
+            Self::SlotWon(v) => v.global_slot,
+            Self::SlotLost(v) => *v,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct VrfEvaluationInput {
+    pub producer_key: Keypair,
+    pub global_slot: u32,
+    pub epoch_seed: EpochSeed,
+    pub account_pub_key: AccountPublicKey,
+    pub delegator_index: AccountIndex,
+    pub delegated_stake: BigInt,
+    pub total_currency: BigInt,
+}
+
+/// Generates the VRF output for the genesis block
+pub fn genesis_vrf(epoch_seed: EpochSeed) -> VrfResult<VrfOutput> {
+    let genesis_keypair =
+        keypair_from_bs58_string("EKFKgDtU3rcuFTVSEpmpXSkukjmX4cKefYREi6Sdsk7E7wsT7KRw");
+
+    calculate_vrf(&genesis_keypair, epoch_seed, 0, &AccountIndex(0))
+}
+
+/// Calculates the VRF output
+fn calculate_vrf(
+    producer_key: &Keypair,
+    epoch_seed: EpochSeed,
+    global_slot: u32,
+    delegator_index: &AccountIndex,
+) -> VrfResult<VrfOutput> {
+    use core::ops::Mul;
+    let vrf_message = VrfMessage::new(global_slot, epoch_seed, delegator_index.as_u64());
+
+    let vrf_message_hash_curve_point = vrf_message.to_group()?;
+
+    let scaled_message_hash = vrf_message_hash_curve_point
+        .mul(producer_key.secret.clone().into_scalar())
+        .into_affine();
+
+    Ok(VrfOutput::new(vrf_message, scaled_message_hash))
+}
+
+/// Evaluate vrf with a specific input. Used by the block producer
+pub fn evaluate_vrf(vrf_input: VrfEvaluationInput) -> VrfResult<VrfEvaluationOutput> {
+    let VrfEvaluationInput {
+        producer_key,
+        global_slot,
+        epoch_seed,
+        delegator_index,
+        delegated_stake,
+        total_currency,
+        account_pub_key,
+    } = vrf_input;
+
+    let vrf_output = calculate_vrf(&producer_key, epoch_seed, global_slot, &delegator_index)?;
+
+    let value = vrf_output.truncated().into_bigint();
+    let threshold = Threshold::new(delegated_stake, total_currency);
+
+    if threshold.threshold_met(value) {
+        Ok(VrfEvaluationOutput::SlotWon(VrfWonSlot {
+            producer: producer_key.public.into(),
+            vrf_output: Box::new(vrf_output),
+            winner_account: account_pub_key,
+            global_slot,
+            account_index: delegator_index,
+            value_with_threshold: None.or_else(|| {
+                Some((
+                    self::threshold::get_fractional(value).to_f64()?,
+                    threshold.threshold_rational.to_f64()?,
+                ))
+            }),
+        }))
+    } else {
+        Ok(VrfEvaluationOutput::SlotLost(global_slot))
+    }
+}
+
+pub fn keypair_from_bs58_string(str: &str) -> Keypair {
+    let mut secret_hex_vec = bs58::decode(str).into_vec().unwrap();
+    secret_hex_vec = secret_hex_vec[2..secret_hex_vec.len() - 4].to_vec();
+    secret_hex_vec.reverse();
+    let secret_hex = hex::encode(secret_hex_vec);
+    Keypair::from_hex(&secret_hex).unwrap()
+}
+
+#[cfg(test)]
+mod test {
+    use std::str::FromStr;
+
+    use ledger::AccountIndex;
+    use num::BigInt;
+
+    use mina_node_account::AccountSecretKey;
+    use mina_p2p_messages::{
+        bigint::BigInt as MinaBigInt,
+        v2::{EpochSeed, MinaBaseEpochSeedStableV1},
+    };
+
+    use crate::{genesis_vrf, keypair_from_bs58_string, VrfEvaluationInput, VrfEvaluationOutput};
+
+    use super::evaluate_vrf;
+
+    #[test]
+    fn test_genesis_vrf() {
+        let out = genesis_vrf(EpochSeed::from(MinaBaseEpochSeedStableV1(
+            MinaBigInt::zero(),
+        )))
+        .unwrap();
+        let expected = "48H9Qk4D6RzS9kAJQX9HCDjiJ5qLiopxgxaS6xbDCWNaKQMQ9Y4C";
+        assert_eq!(expected, out.to_string());
+    }
+
+    #[test]
+    fn test_evaluate_vrf_lost_slot() {
+        let vrf_input = VrfEvaluationInput {
+            producer_key: keypair_from_bs58_string(
+                "EKEEpMELfQkMbJDt2fB4cFXKwSf1x4t7YD4twREy5yuJ84HBZtF9",
+            ),
+            epoch_seed: EpochSeed::from_str("2va9BGv9JrLTtrzZttiEMDYw1Zj6a6EHzXjmP9evHDTG3oEquURA")
+                .unwrap(),
+            global_slot: 518,
+            delegator_index: AccountIndex(2),
+            delegated_stake: BigInt::from_str("1000000000000000")
+                .expect("Cannot convert to BigInt"),
+            total_currency: BigInt::from_str("6000000000001000").expect("Cannot convert to BigInt"),
+            account_pub_key: AccountSecretKey::genesis_producer().public_key(),
+        };
+        let evaluation_result = evaluate_vrf(vrf_input.clone()).expect("Failed to evaluate vrf");
+        assert_eq!(
+            evaluation_result,
+            VrfEvaluationOutput::SlotLost(vrf_input.global_slot)
+        )
+    }
+
+    #[test]
+    fn test_evaluate_vrf_won_slot() {
+        let vrf_input = VrfEvaluationInput {
+            producer_key: keypair_from_bs58_string(
+                "EKEEpMELfQkMbJDt2fB4cFXKwSf1x4t7YD4twREy5yuJ84HBZtF9",
+            ),
+            epoch_seed: EpochSeed::from_str("2va9BGv9JrLTtrzZttiEMDYw1Zj6a6EHzXjmP9evHDTG3oEquURA")
+                .unwrap(),
+            global_slot: 6,
+            delegator_index: AccountIndex(2),
+            delegated_stake: BigInt::from_str("1000000000000000")
+                .expect("Cannot convert to BigInt"),
+            total_currency: BigInt::from_str("6000000000001000").expect("Cannot convert to BigInt"),
+            account_pub_key: AccountSecretKey::genesis_producer().public_key(),
+        };
+
+        let evaluation_result = evaluate_vrf(vrf_input).expect("Failed to evaluate vrf");
+
+        if let VrfEvaluationOutput::SlotWon(won_slot) = evaluation_result {
+            assert_eq!(
+                "48HHFYbaz4d7XkJpWWJw5jN1vEBfPvU31nsX4Ljn74jDo3WyTojL",
+                won_slot.vrf_output.to_string()
+            );
+            assert_eq!(0.16978997004532187, won_slot.vrf_output.fractional());
+            assert_eq!(
+                "B62qrztYfPinaKqpXaYGY6QJ3SSW2NNKs7SajBLF1iFNXW9BoALN2Aq",
+                won_slot.producer.to_string()
+            );
+        } else {
+            panic!("Slot should have been won!")
+        }
+
+        // assert_eq!(expected, evaluation_result)
+    }
+
+    #[test]
+    fn test_slot_calculation_time_big_producer() {
+        let start = redux::Instant::now();
+        for i in 1..14403 {
+            let vrf_input = VrfEvaluationInput {
+                producer_key: keypair_from_bs58_string(
+                    "EKEEpMELfQkMbJDt2fB4cFXKwSf1x4t7YD4twREy5yuJ84HBZtF9",
+                ),
+                epoch_seed: EpochSeed::from_str(
+                    "2va9BGv9JrLTtrzZttiEMDYw1Zj6a6EHzXjmP9evHDTG3oEquURA",
+                )
+                .unwrap(),
+                global_slot: 6,
+                delegator_index: AccountIndex(i),
+                delegated_stake: BigInt::from_str("1000000000000000")
+                    .expect("Cannot convert to BigInt"),
+                total_currency: BigInt::from_str("6000000000001000")
+                    .expect("Cannot convert to BigInt"),
+                account_pub_key: AccountSecretKey::genesis_producer().public_key(),
+            };
+            let _ = evaluate_vrf(vrf_input).expect("Failed to evaluate VRF");
+            if i % 100 == 0 {
+                println!("Delegators evaluated: {}", i);
+            }
+        }
+        let elapsed = start.elapsed();
+        println!("Duration: {}", elapsed.as_secs());
+    }
+
+    #[test]
+    fn test_first_winning_slot() {
+        for i in 0..7000 {
+            let vrf_input = VrfEvaluationInput {
+                producer_key: keypair_from_bs58_string(
+                    "EKEEpMELfQkMbJDt2fB4cFXKwSf1x4t7YD4twREy5yuJ84HBZtF9",
+                ),
+                epoch_seed: EpochSeed::from_str(
+                    "2va9BGv9JrLTtrzZttiEMDYw1Zj6a6EHzXjmP9evHDTG3oEquURA",
+                )
+                .unwrap(),
+                global_slot: i,
+                delegator_index: AccountIndex(2),
+                delegated_stake: BigInt::from_str("1000000000000000")
+                    .expect("Cannot convert to BigInt"),
+                total_currency: BigInt::from_str("6000000000001000")
+                    .expect("Cannot convert to BigInt"),
+                account_pub_key: AccountSecretKey::genesis_producer().public_key(),
+            };
+            let evaluation_result =
+                evaluate_vrf(vrf_input.clone()).expect("Failed to evaluate vrf");
+            if evaluation_result != VrfEvaluationOutput::SlotLost(vrf_input.global_slot) {
+                println!("{:?}", evaluation_result);
+            }
+        }
+    }
+}

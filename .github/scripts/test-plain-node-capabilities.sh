@@ -22,7 +22,7 @@ for node_url in $plain_nodes; do
 
   # Test network ID query using website script
   network_success=false
-  if network_response=$(bash website/docs/developers/scripts/graphql-api/queries/curl/network-id.sh "$graphql_url" 2>&1); then
+  if network_response=$(bash website/docs/developers/api-and-data/scripts/graphql-api/queries/curl/network-id.sh "$graphql_url" 2>&1); then
     if echo "$network_response" | jq -e '.data.networkID' > /dev/null 2>&1; then
       network_id=$(echo "$network_response" | jq -r '.data.networkID')
       echo "✅ Network ID query successful: $network_id"
@@ -36,7 +36,7 @@ for node_url in $plain_nodes; do
 
   # Test best chain query using website script
   chain_success=false
-  if chain_response=$(bash website/docs/developers/scripts/graphql-api/queries/curl/best-chain.sh "$graphql_url" 2>&1); then
+  if chain_response=$(bash website/docs/developers/api-and-data/scripts/graphql-api/queries/curl/best-chain.sh "$graphql_url" 2>&1); then
     if echo "$chain_response" | jq -e '.data.bestChain[0].stateHash' > /dev/null 2>&1; then
       state_hash=$(echo "$chain_response" | jq -r '.data.bestChain[0].stateHash')
       echo "✅ Best chain query successful: ${state_hash:0:16}..."

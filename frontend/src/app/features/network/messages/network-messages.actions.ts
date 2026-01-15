@@ -1,4 +1,4 @@
-import { FeatureAction, TimestampInterval } from '@openmina/shared';
+import { FeatureAction, TimestampInterval } from '@mina-rust/shared';
 import { NetworkMessage } from '@shared/types/network/messages/network-message.type';
 import { NetworkMessageConnection } from '@shared/types/network/messages/network-messages-connection.type';
 import { NetworkMessagesFilter } from '@shared/types/network/messages/network-messages-filter.type';
@@ -57,8 +57,7 @@ export const NETWORK_CHANGE_TAB = NetworkMessagesActionTypes.NETWORK_CHANGE_TAB;
 export const NETWORK_GET_SPECIFIC_MESSAGE =
   NetworkMessagesActionTypes.NETWORK_GET_SPECIFIC_MESSAGE;
 
-export interface NetworkMessagesAction
-  extends FeatureAction<NetworkMessagesActionTypes> {
+export interface NetworkMessagesAction extends FeatureAction<NetworkMessagesActionTypes> {
   readonly type: NetworkMessagesActionTypes;
 }
 
@@ -74,9 +73,7 @@ export class NetworkMessagesGetMessages implements NetworkMessagesAction {
   readonly type = NETWORK_GET_MESSAGES;
 }
 
-export class NetworkMessagesGetPaginatedMessages
-  implements NetworkMessagesAction
-{
+export class NetworkMessagesGetPaginatedMessages implements NetworkMessagesAction {
   readonly type = NETWORK_GET_PAGINATED_MESSAGES;
 
   constructor(
@@ -88,9 +85,7 @@ export class NetworkMessagesGetPaginatedMessages
   ) {}
 }
 
-export class NetworkMessagesGetMessagesSuccess
-  implements NetworkMessagesAction
-{
+export class NetworkMessagesGetMessagesSuccess implements NetworkMessagesAction {
   readonly type = NETWORK_GET_MESSAGES_SUCCESS;
 
   constructor(public payload: NetworkMessage[]) {}
@@ -109,9 +104,7 @@ export class NetworkMessagesToggleFilter implements NetworkMessagesAction {
   ) {}
 }
 
-export class NetworkMessagesSetTimestampInterval
-  implements NetworkMessagesAction
-{
+export class NetworkMessagesSetTimestampInterval implements NetworkMessagesAction {
   readonly type = NETWORK_SET_TIMESTAMP_INTERVAL;
 
   constructor(
@@ -142,9 +135,7 @@ export class NetworkMessagesGetFullMessage implements NetworkMessagesAction {
   constructor(public payload: { id: number }) {}
 }
 
-export class NetworkMessagesGetFullMessageSuccess
-  implements NetworkMessagesAction
-{
+export class NetworkMessagesGetFullMessageSuccess implements NetworkMessagesAction {
   readonly type = NETWORK_GET_FULL_MESSAGE_SUCCESS;
 
   constructor(public payload: any) {}
@@ -156,9 +147,7 @@ export class NetworkMessagesGetConnection implements NetworkMessagesAction {
   constructor(public payload: { id: number }) {}
 }
 
-export class NetworkMessagesGetConnectionSuccess
-  implements NetworkMessagesAction
-{
+export class NetworkMessagesGetConnectionSuccess implements NetworkMessagesAction {
   readonly type = NETWORK_GET_CONNECTION_SUCCESS;
 
   constructor(public payload: NetworkMessageConnection) {}
@@ -170,9 +159,7 @@ export class NetworkMessagesGetMessageHex implements NetworkMessagesAction {
   constructor(public payload: { id: number }) {}
 }
 
-export class NetworkMessagesGetMessageHexSuccess
-  implements NetworkMessagesAction
-{
+export class NetworkMessagesGetMessageHexSuccess implements NetworkMessagesAction {
   readonly type = NETWORK_GET_MESSAGE_HEX_SUCCESS;
 
   constructor(public payload: string) {}
@@ -184,9 +171,7 @@ export class NetworkMessagesChangeTab implements NetworkMessagesAction {
   constructor(public payload: number) {}
 }
 
-export class NetworkMessagesGetSpecificMessage
-  implements NetworkMessagesAction
-{
+export class NetworkMessagesGetSpecificMessage implements NetworkMessagesAction {
   readonly type = NETWORK_GET_SPECIFIC_MESSAGE;
 
   constructor(

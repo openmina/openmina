@@ -26,7 +26,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Test system dependencies installation
         run: |
@@ -78,11 +78,11 @@ jobs:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'test-doc-scripts')
     strategy:
       matrix:
-        os: [macos-13, macos-14, macos-15, macos-latest]
+        os: [macos-14, macos-15, macos-latest]
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Test system dependencies installation
         run: |
@@ -136,10 +136,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@v20
+        uses: DeterminateSystems/nix-installer-action@v21
 
       - name: Setup Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@v13
@@ -184,7 +184,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Test Docker installation
         run: |
@@ -203,11 +203,11 @@ jobs:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'test-doc-scripts')
     strategy:
       matrix:
-        os: [macos-13, macos-14, macos-15, macos-latest]
+        os: [macos-14, macos-15, macos-latest]
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Test Docker installation
         run: |
@@ -226,7 +226,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Verify benchmark scripts and commands
         run: |
@@ -248,11 +248,11 @@ jobs:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'test-doc-scripts')
     strategy:
       matrix:
-        os: [macos-13, macos-14, macos-15, macos-latest, ubuntu-latest]
+        os: [macos-14, macos-15, macos-latest, ubuntu-latest]
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0 # Fetch all history
 
@@ -272,10 +272,10 @@ jobs:
           git diff --name-only | sort > actual_files.txt
           echo ".github/workflows/ci.yaml" > expected_files.txt
           echo "docker-compose.archive.devnet.compare.yml" >> expected_files.txt
-          echo "node/testing/src/node/ocaml/config.rs" >> expected_files.txt
-          echo "node/testing/src/node/ocaml/mod.rs" >> expected_files.txt
-          echo "node/testing/src/scenarios/multi_node/basic_connectivity_peer_discovery.rs" >> expected_files.txt
-          echo "node/testing/src/scenarios/solo_node/basic_connectivity_accept_incoming.rs" >> expected_files.txt
+          echo "tools/testing/src/node/ocaml/config.rs" >> expected_files.txt
+          echo "tools/testing/src/node/ocaml/mod.rs" >> expected_files.txt
+          echo "tools/testing/src/scenarios/multi_node/basic_connectivity_peer_discovery.rs" >> expected_files.txt
+          echo "tools/testing/src/scenarios/solo_node/basic_connectivity_accept_incoming.rs" >> expected_files.txt
           sort expected_files.txt > expected_files_sorted.txt
 
           # Verify the same files were modified

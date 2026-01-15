@@ -1,5 +1,5 @@
 import { BehaviorSubject } from 'rxjs';
-import { safelyExecuteInBrowser } from '@openmina/shared';
+import { safelyExecuteInBrowser } from '@mina-rust/shared';
 
 const WASM_FILE_SIZE = 31556926;
 

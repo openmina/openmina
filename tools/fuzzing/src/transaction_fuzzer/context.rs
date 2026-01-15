@@ -26,6 +26,7 @@ use ledger::{
 };
 use mina_core::{consensus::ConsensusConstants, constants::ConstraintConstants, NetworkConfig};
 use mina_curves::pasta::{Fp, Fq};
+use mina_node::DEVNET_CONFIG;
 use mina_p2p_messages::{
     bigint,
     bigint::InvalidBigInt,
@@ -37,7 +38,6 @@ use mina_p2p_messages::{
     },
 };
 use mina_signer::{CompressedPubKey, Keypair};
-use node::DEVNET_CONFIG;
 use rand::{rngs::SmallRng, seq::SliceRandom, Rng, SeedableRng};
 use ring_buffer::RingBuffer;
 use std::{

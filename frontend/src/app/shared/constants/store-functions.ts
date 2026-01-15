@@ -8,7 +8,7 @@ import {
 } from 'rxjs';
 import { ADD_ERROR, ErrorAdd } from '@error-preview/error-preview.actions';
 import { HttpErrorResponse } from '@angular/common/http';
-import { any, FeatureAction, toReadableDate } from '@openmina/shared';
+import { any, FeatureAction, toReadableDate } from '@mina-rust/shared';
 import { MinaErrorType } from '@shared/types/error-preview/mina-error-type.enum';
 import { Selector, Store, Action } from '@ngrx/store';
 import { MinaState } from '@app/app.setup';

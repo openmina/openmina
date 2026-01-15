@@ -1,0 +1,160 @@
+use ledger::proofs::provers::BlockProver;
+use mina_node::{
+    account::AccountSecretKey,
+    core::channels::mpsc,
+    ledger::{LedgerCtx, LedgerManager},
+    p2p::{
+        identity::SecretKey as P2pSecretKey,
+        service_impl::{
+            webrtc_with_libp2p::{P2pServiceCtx, P2pServiceWebrtcWithLibp2p},
+            TaskSpawner,
+        },
+    },
+    stats::Stats,
+};
+use rand::{rngs::StdRng, SeedableRng};
+use sha3::{
+    digest::{ExtendableOutput, Update},
+    Shake256,
+};
+
+use crate::{
+    rpc::{RpcSender, RpcService},
+    EventReceiver, EventSender, NodeService,
+};
+
+use super::{
+    archive::{config::ArchiveStorageOptions, ArchiveService},
+    block_producer::BlockProducerService,
+};
+
+pub struct NodeServiceCommonBuilder {
+    rng_seed: [u8; 32],
+    rng: StdRng,
+    /// Events sent on this channel are retrieved and processed in the
+    /// `event_source` state machine defined in the `mina-node` crate.
+    event_sender: EventSender,
+    event_receiver: EventReceiver,
+    ledger_manager: Option<LedgerManager>,
+    block_producer: Option<BlockProducerService>,
+    archive: Option<ArchiveService>,
+    p2p: Option<P2pServiceCtx>,
+    gather_stats: bool,
+    rpc: RpcService,
+}
+
+#[derive(thiserror::Error, Debug, Clone)]
+pub enum NodeServiceCommonBuildError {
+    #[error("ledger was never initialized! Please call: NodeServiceBuilder::ledger_init")]
+    LedgerNotInit,
+    #[error("p2p was never initialized! Please call: NodeServiceBuilder::p2p_init")]
+    P2pNotInit,
+}
+
+impl NodeServiceCommonBuilder {
+    pub fn new(rng_seed: [u8; 32]) -> Self {
+        let (event_sender, event_receiver) = mpsc::unbounded_channel();
+        Self {
+            rng_seed,
+            rng: StdRng::from_seed(rng_seed),
+            event_sender,
+            event_receiver: event_receiver.into(),
+            ledger_manager: None,
+            block_producer: None,
+            archive: None,
+            p2p: None,
+            rpc: RpcService::new(),
+            gather_stats: false,
+        }
+    }
+
+    pub fn event_sender(&self) -> &EventSender {
+        &self.event_sender
+    }
+
+    pub fn rpc_sender(&self) -> RpcSender {
+        self.rpc.req_sender()
+    }
+
+    pub fn ledger_init(&mut self) -> &mut Self {
+        let mut ctx = LedgerCtx::default();
+        ctx.set_event_sender(self.event_sender.clone());
+        if self.archive.is_some() {
+            ctx.set_archive_mode();
+        };
+        self.ledger_manager = Some(LedgerManager::spawn(ctx));
+        self
+    }
+
+    pub fn block_producer_init(
+        &mut self,
+        keypair: AccountSecretKey,
+        provers: Option<BlockProver>,
+    ) -> &mut Self {
+        self.block_producer = Some(BlockProducerService::start(
+            self.event_sender.clone(),
+            keypair,
+            provers,
+        ));
+        self
+    }
+
+    pub fn archive_init(&mut self, options: ArchiveStorageOptions, work_dir: String) -> &mut Self {
+        self.archive = Some(ArchiveService::start(options, work_dir));
+        self
+    }
+
+    pub fn p2p_init<S: TaskSpawner>(
+        &mut self,
+        secret_key: P2pSecretKey,
+        task_spawner: S,
+    ) -> &mut Self {
+        self.p2p = Some(<NodeService as P2pServiceWebrtcWithLibp2p>::init(
+            secret_key.clone(),
+            task_spawner,
+            self.rng_seed,
+        ));
+        self
+    }
+
+    pub fn gather_stats(&mut self) -> &mut Self {
+        self.gather_stats = true;
+        self
+    }
+
+    pub fn build(self) -> Result<NodeService, NodeServiceCommonBuildError> {
+        let ledger_manager = self
+            .ledger_manager
+            .ok_or(NodeServiceCommonBuildError::LedgerNotInit)?;
+        let p2p = self.p2p.ok_or(NodeServiceCommonBuildError::P2pNotInit)?;
+
+        Ok(NodeService {
+            rng_seed: self.rng_seed,
+            rng_ephemeral: Shake256::default()
+                .chain(self.rng_seed)
+                .chain(b"ephemeral")
+                .finalize_xof(),
+            rng_static: Shake256::default()
+                .chain(self.rng_seed)
+                .chain(b"static")
+                .finalize_xof(),
+            rng: self.rng,
+            event_sender: self.event_sender.clone(),
+            event_receiver: self.event_receiver,
+            snark_block_proof_verify: NodeService::snark_block_proof_verifier_spawn(
+                self.event_sender,
+            ),
+            ledger_manager,
+            block_producer: self.block_producer,
+            // initialized in state machine.
+            snark_worker: None,
+            archive: self.archive,
+            p2p,
+            stats: self.gather_stats.then(Stats::new),
+            rpc: self.rpc,
+            recorder: Default::default(),
+            replayer: None,
+            invariants_state: Default::default(),
+        })
+    }
+}

@@ -5,7 +5,7 @@ import {
   SortDirection,
   TableSort,
   toggleItem,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { NodesLiveState } from '@nodes/live/nodes-live.state';
 import {
   NODES_LIVE_CLOSE,

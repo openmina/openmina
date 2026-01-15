@@ -11,7 +11,7 @@ import {
   nanOrElse,
   ONE_BILLION,
   ONE_MILLION,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { getTimeDiff } from '@shared/helpers/date.helper';
 import { RustService } from '@core/services/rust.service';
 import { BlockProductionWonSlotsEpoch } from '@shared/types/block-production/won-slots/block-production-won-slots-epoch.type';

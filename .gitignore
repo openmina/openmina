@@ -1,6 +1,6 @@
 .env.docker
 /target
-/node/testing/res/
+/tools/testing/res/
 circuit-blobs
 .DS_Store
 *.profraw
@@ -16,7 +16,7 @@ tests.tsv
 # Generated API docs should not be committed
 website/static/api-docs/
 
-ledger/3.0.0mainnet
-ledger/berkeley-devnet
+crates/ledger/3.0.0mainnet
+crates/ledger/berkeley-devnet
 mina-workdir
 .idea/

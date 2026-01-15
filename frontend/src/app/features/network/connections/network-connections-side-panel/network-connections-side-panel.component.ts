@@ -13,7 +13,7 @@ import {
   downloadJson,
   ExpandTracking,
   MinaJsonViewerComponent,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 
 @Component({

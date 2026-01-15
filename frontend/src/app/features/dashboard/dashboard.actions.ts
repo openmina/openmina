@@ -1,4 +1,4 @@
-import { FeatureAction, TableSort } from '@openmina/shared';
+import { FeatureAction, TableSort } from '@mina-rust/shared';
 import { DashboardPeer } from '@shared/types/dashboard/dashboard.peer';
 import { NodesOverviewNode } from '@shared/types/nodes/dashboard/nodes-overview-node.type';
 import { DashboardRpcStats } from '@shared/types/dashboard/dashboard-rpc-stats.type';

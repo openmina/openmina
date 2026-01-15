@@ -1,4 +1,4 @@
-import { FeatureAction, TableSort } from '@openmina/shared';
+import { FeatureAction, TableSort } from '@mina-rust/shared';
 import { DashboardSplitsPeer } from '@shared/types/network/splits/dashboard-splits-peer.type';
 import { DashboardSplits } from '@shared/types/network/splits/dashboard-splits.type';
 
@@ -36,8 +36,7 @@ export const DASHBOARD_SPLITS_SORT_PEERS =
 export const DASHBOARD_SPLITS_TOGGLE_SIDE_PANEL =
   DashboardSplitsActionTypes.DASHBOARD_SPLITS_TOGGLE_SIDE_PANEL;
 
-export interface DashboardSplitsAction
-  extends FeatureAction<DashboardSplitsActionTypes> {
+export interface DashboardSplitsAction extends FeatureAction<DashboardSplitsActionTypes> {
   readonly type: DashboardSplitsActionTypes;
 }
 

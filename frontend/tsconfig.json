@@ -32,6 +32,12 @@
       "dom"
     ],
     "paths": {
+      "@mina-rust/shared": [
+        "vendor/mina-rust-shared/src/public-api.ts"
+      ],
+      "@mina-rust/shared/*": [
+        "vendor/mina-rust-shared/src/*"
+      ],
       "@app/*": [
         "src/app/*"
       ],
@@ -79,9 +85,6 @@
       ],
       "@fuzzing/*": [
         "src/app/features/fuzzing/*"
-      ],
-      "@leaderboard/*": [
-        "src/app/features/leaderboard/*"
       ]
     }
   },

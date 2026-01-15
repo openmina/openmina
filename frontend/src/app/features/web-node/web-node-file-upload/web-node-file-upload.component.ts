@@ -6,13 +6,13 @@ import {
 } from '@angular/core';
 import { WebNodeService } from '@core/services/web-node.service';
 import * as JSZip from 'jszip';
-import { ManualDetection, OpenminaSharedModule } from '@openmina/shared';
+import { ManualDetection, MinaRustSharedModule } from '@mina-rust/shared';
 import { animate, style, transition, trigger } from '@angular/animations';
 import { CONFIG } from '@shared/constants/config';
 
 @Component({
   selector: 'mina-web-node-file-upload',
-  imports: [OpenminaSharedModule],
+  imports: [MinaRustSharedModule],
   templateUrl: './web-node-file-upload.component.html',
   styleUrl: './web-node-file-upload.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -34,25 +34,23 @@ export class WebNodeFileUploadComponent extends ManualDetection {
   validFiles: boolean = false;
   error: boolean = false;
   uploadedFileName: string;
-  isLeaderboard: boolean = CONFIG.showLeaderboard;
 
   constructor(private webnodeService: WebNodeService) {
     super();
   }
 
-  startCustomWebNode(): void {
+  startAutoWebNode(): void {
+    this.webnodeService.blockProducerConfig = { mode: 'auto' };
+    this.startWebNode.emit();
+  }
+
+  onStartDevelopWebnodeBP(): void {
     this.startWebNode.emit();
   }
 
   onStartDevelopWebnodeNonBP(): void {
-    this.webnodeService.privateStake = null;
-    this.webnodeService.noBlockProduction = true;
+    this.webnodeService.blockProducerConfig = { mode: 'observer' };
     delete CONFIG.globalConfig.features['block-production'];
-    this.startWebNode.emit();
-  }
-
-  onStartDevelopWebnode(): void {
-    this.webnodeService.privateStake = null;
     this.startWebNode.emit();
   }
 
@@ -68,10 +66,13 @@ export class WebNodeFileUploadComponent extends ManualDetection {
       if (this.error || !publicKey || !stake) {
         this.error = true;
       } else {
-        this.webnodeService.privateStake = {
-          publicKey,
-          password,
-          stake: JSON.parse(stake),
+        this.webnodeService.blockProducerConfig = {
+          mode: 'uploaded',
+          data: {
+            publicKey,
+            password,
+            stake: JSON.parse(stake),
+          },
         };
         this.validFiles = true;
       }
@@ -111,7 +112,7 @@ export class WebNodeFileUploadComponent extends ManualDetection {
   clearFiles(): void {
     this.validFiles = false;
     this.uploadedFileName = null;
-    this.webnodeService.privateStake = null;
+    this.webnodeService.blockProducerConfig = { mode: 'auto' };
     this.error = false;
   }
 }

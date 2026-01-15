@@ -5,7 +5,7 @@ import {
   MergedRoute,
   SortDirection,
   TableSort,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { StateActionGroup } from '@shared/types/state/actions/state-action-group.type';
 import {
   StateActionsGetActions,

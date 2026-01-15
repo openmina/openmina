@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { selectNetworkBlocks } from '@network/blocks/network-blocks.state';
 import { NetworkBlock } from '@shared/types/network/blocks/network-block.type';
-import { SecDurationConfig } from '@openmina/shared';
+import { SecDurationConfig } from '@mina-rust/shared';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 
 @Component({

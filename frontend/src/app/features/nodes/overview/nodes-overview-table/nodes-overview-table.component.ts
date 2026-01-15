@@ -6,7 +6,11 @@ import {
   ViewChild,
 } from '@angular/core';
 import { NodesOverviewNode } from '@shared/types/nodes/dashboard/nodes-overview-node.type';
-import { getMergedRoute, MergedRoute, TableColumnList } from '@openmina/shared';
+import {
+  getMergedRoute,
+  MergedRoute,
+  TableColumnList,
+} from '@mina-rust/shared';
 import { Router } from '@angular/router';
 import {
   NodesOverviewSetActiveNode,

@@ -11,7 +11,7 @@ import {
 import { BenchmarksZkapp } from '@shared/types/benchmarks/transactions/benchmarks-zkapp.type';
 import { fromPromise } from 'rxjs/internal/observable/innerFrom';
 import { CONFIG } from '@shared/constants/config';
-import { any, safelyExecuteInBrowser } from '@openmina/shared';
+import { any, safelyExecuteInBrowser } from '@mina-rust/shared';
 import { DOCUMENT } from '@angular/common';
 
 @Injectable()

@@ -9,12 +9,12 @@ import {
   getMergedRoute,
   ManualDetection,
   MergedRoute,
-  OpenminaEagerSharedModule,
+  MinaRustEagerSharedModule,
   removeParamsFromURL,
   ThemeSwitcherService,
   ThemeType,
   TooltipPosition,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { MinaNode } from '@shared/types/core/environment/mina-env.type';
 import { filter, map, merge, take, tap } from 'rxjs';
 import { CONFIG, getAvailableFeatures } from '@shared/constants/config';
@@ -53,7 +53,7 @@ export const MENU_ITEMS: MenuItem[] = [
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex-column flex-between h-100 pb-5' },
   standalone: true,
-  imports: [OpenminaEagerSharedModule, RouterLink, NgIf, NgForOf],
+  imports: [MinaRustEagerSharedModule, RouterLink, NgIf, NgForOf],
 })
 export class MenuComponent extends ManualDetection implements OnInit {
   protected readonly TooltipPosition = TooltipPosition;
@@ -181,7 +181,7 @@ export class MenuComponent extends ManualDetection implements OnInit {
   openEnvBuildModal(): void {
     this.overlayRef = this.overlay.create({
       hasBackdrop: true,
-      backdropClass: 'openmina-backdrop',
+      backdropClass: 'mina-rust-backdrop',
       width: '99%',
       height: '99%',
       maxWidth: 600,

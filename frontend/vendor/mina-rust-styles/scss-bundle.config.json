@@ -1,0 +1,14 @@
+{
+  "bundlerOptions": {
+    "entryFile": "./src/lib/styles/entry.scss",
+    "rootDir": "./",
+    "outFile": "./src/lib/styles/mina-rust.scss",
+    "ignoreImports": [],
+    "dedupeGlobs": [
+      "./src/lib/styles/utilities/dimensions.scss",
+      "./src/lib/styles/utilities/flex.scss",
+      "./src/lib/styles/utilities/text.scss",
+      "./src/lib/styles/utilities/variables.scss"
+    ]
+  }
+}

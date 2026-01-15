@@ -9,8 +9,8 @@ slug: /developers/p2p-evolution
 
 This document outlines the evolution plan for Mina's P2P networking layer,
 building on the successful pull-based design already implemented for the Mina
-Rust node webnodes. The idea of using QUIC as a transport was originally
-proposed by George in his "Networking layer 2.0" document.
+Rust web nodes. The idea of using QUIC as a transport was originally proposed by
+George in his "Networking layer 2.0" document.
 
 **Status**: The pull-based P2P protocol is implemented and operational. This
 document proposes enhancements including QUIC transport, block propagation
@@ -32,21 +32,21 @@ The Mina ecosystem currently has divergent P2P implementations:
 2. **The Mina Rust node**
    - Support both libp2p (for OCaml compatibility) AND pull-based WebRTC
    - Must internally normalize between push and pull models, adding complexity
-   - Webnodes use WebRTC exclusively and require Rust nodes as bridges to libp2p
-     network
+   - Web nodes use WebRTC exclusively and require Rust nodes as bridges to
+     libp2p network
    - Maintenance burden of supporting two different protocol designs
 
 This creates significant complexity:
 
 - The Mina Rust node maintains two protocol implementations
-- Webnodes cannot directly communicate with OCaml nodes
+- Web nodes cannot directly communicate with OCaml nodes
 - Different security and performance characteristics
 - Inconsistent behavior and debugging challenges
 
 ## Vision: Unified Pull-Based P2P Layer
 
-The goal is to evolve the Mina Rust node's pull-based P2P design to improve
-webnode networking immediately and potentially become the universal networking
+The goal is to evolve the Mina Rust node's pull-based P2P design to improve web
+node networking immediately and potentially become the universal networking
 layer for all Mina nodes (both Rust and OCaml), with multiple transport options.
 Full ecosystem adoption would require coordination and agreement with the OCaml
 Mina team.
@@ -284,8 +284,8 @@ Pull-based protocol remains transport-agnostic:
 
 The P2P layer evolution builds on the Mina Rust node's successful pull-based
 design to create a more efficient, secure, and unified networking layer for the
-Mina ecosystem. While immediate improvements benefit the Mina Rust node and
-webnodes, the long-term vision of ecosystem-wide adoption would require
+Mina ecosystem. While immediate improvements benefit the Mina Rust native node
+and web nodes, the long-term vision of ecosystem-wide adoption would require
 coordination with the OCaml Mina team and careful migration planning.
 
 The phased approach allows for immediate improvements while keeping future

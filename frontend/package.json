@@ -1,9 +1,8 @@
 {
   "name": "frontend",
-  "version": "1.0.184",
+  "version": "1.0.185",
   "scripts": {
     "build": "make build",
-    "build:fuzzing": "make build-fuzzing",
     "build:local": "make build-local",
     "build:production:sentry": "make build-production-sentry",
     "build:producer": "make build-producer",
@@ -11,8 +10,6 @@
     "build:webnode": "make build-webnode",
     "check-prettify": "make check-prettify",
     "copy-env": "make copy-env",
-    "deploy": "make deploy",
-    "deploy:leaderboard": "make deploy-leaderboard",
     "install:deps": "make install-deps",
     "prebuild": "make prebuild",
     "prettify": "make prettify",
@@ -20,21 +17,23 @@
     "start": "make start",
     "start:bundle": "make start-bundle",
     "start:dev:mobile": "make start-dev-mobile",
-    "start:fuzzing": "make start-fuzzing",
     "start:local": "make start-local",
     "start:production": "make start-production",
     "start:webnode": "make start-webnode",
     "tests": "make test",
-    "tests:headless": "make test-headless"
+    "tests:headless": "make test-headless",
+    "vendor:styles": "cd vendor/mina-rust-styles && npm run update:styles"
   },
   "private": true,
+  "engines": {
+    "node": "^24.0.0"
+  },
   "dependencies": {
     "@angular/animations": "^19.2.14",
     "@angular/cdk": "^19.2.19",
     "@angular/common": "^19.2.14",
     "@angular/compiler": "^19.2.14",
     "@angular/core": "^19.2.14",
-    "@angular/fire": "^19.2.0",
     "@angular/forms": "^19.2.14",
     "@angular/material": "^19.2.19",
     "@angular/platform-browser": "^19.2.14",
@@ -48,8 +47,8 @@
     "@ngrx/operators": "^19.2.1",
     "@ngrx/router-store": "^19.2.1",
     "@ngrx/store": "^19.2.1",
-    "@openmina/shared": "^0.126.0",
-    "@sentry/angular": "^8.35.0",
+    "@mina-rust/shared": "file:./vendor/mina-rust-shared",
+    "@sentry/angular": "^10.32.1",
     "@sentry/cli": "^2.38.2",
     "@sentry/tracing": "^7.114.0",
     "aos": "^2.3.4",
@@ -59,7 +58,6 @@
     "d3": "^7.8.4",
     "eigen": "^0.2.2",
     "express": "^4.18.2",
-    "firebase": "^11.0.1",
     "jszip": "^3.10.1",
     "mathjs": "^12.3.0",
     "mina-signer": "^3.0.7",
@@ -94,6 +92,6 @@
     "terser-webpack-plugin": "^5.3.10",
     "typescript": "~5.8.3",
     "webpack": "^5.88.2",
-    "webpack-bundle-analyzer": "^4.9.0"
+    "webpack-bundle-analyzer": "^5.1.1"
   }
 }

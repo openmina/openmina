@@ -1,0 +1,71 @@
+@use 'mina-rust' as *;
+
+.stepper-header {
+  .step {
+    background-color: $base-surface;
+    color: $base-tertiary;
+
+    > span:nth-child(1) {
+      height: 20px;
+      width: 20px;
+      line-height: 20px;
+      background-color: $base-container;
+    }
+
+    &.active {
+      color: $selected-primary;
+
+      > span:nth-child(1) {
+        background-color: $selected-container;
+      }
+    }
+
+    &.passed {
+      color: $success-primary;
+
+      > span:nth-child(1) {
+        background-color: $success-container;
+      }
+    }
+  }
+
+  &::after {
+    position: absolute;
+    content: '';
+    width: 100%;
+    height: 1px;
+    left: 0;
+    top: 10px;
+    z-index: -1;
+    background-color: $base-divider;
+  }
+}
+
+.stepper-body {
+  .body-step {
+    right: -100%;
+    opacity: 0;
+    transition: right 500ms cubic-bezier(0.85, 0, 0.15, 1), opacity 200ms;
+    box-sizing: border-box;
+
+    &.active {
+      right: 0;
+      opacity: 1;
+      transition: right 500ms cubic-bezier(0.85, 0, 0.15, 1), opacity 400ms 200ms;
+    }
+
+    &.passed {
+      right: 100%;
+      opacity: 0;
+      transition: right 500ms cubic-bezier(0.85, 0, 0.15, 1), opacity 200ms;
+    }
+
+    > * {
+      box-sizing: border-box;
+    }
+  }
+}
+
+.stepper-footer {
+  height: 32px;
+}

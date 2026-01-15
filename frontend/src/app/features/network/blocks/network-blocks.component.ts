@@ -14,7 +14,7 @@ import {
 } from '@network/blocks/network-blocks.actions';
 import { filter, take } from 'rxjs';
 import { selectNetworkBlocksSidePanelOpen } from '@network/blocks/network-blocks.state';
-import { getMergedRoute, MergedRoute } from '@openmina/shared';
+import { getMergedRoute, MergedRoute } from '@mina-rust/shared';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { AppSelectors } from '@app/app.state';
 

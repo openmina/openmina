@@ -19,7 +19,7 @@ runs:
       if: runner.os == 'macOS'
       shell: bash
       run: |
-        brew install protobuf ocaml opam libpcap
+        brew install protobuf libpcap gnu-sed
 
     - name: Install cargo-nextest
       if: inputs.install-nextest == 'true'

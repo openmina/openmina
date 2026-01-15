@@ -3,7 +3,11 @@ import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { BlockProductionOverviewSelectors } from '@block-production/overview/block-production-overview.state';
 import { BlockProductionOverviewEpoch } from '@shared/types/block-production/overview/block-production-overview-epoch.type';
 import { filter } from 'rxjs';
-import { noMillisFormat, ONE_THOUSAND, toReadableDate } from '@openmina/shared';
+import {
+  noMillisFormat,
+  ONE_THOUSAND,
+  toReadableDate,
+} from '@mina-rust/shared';
 import { BlockProductionOverviewAllStats } from '@shared/types/block-production/overview/block-production-overview-all-stats.type';
 import { BlockProductionOverviewActions } from '@block-production/overview/block-production-overview.actions';
 import { BlockProductionOverviewSlot } from '@shared/types/block-production/overview/block-production-overview-slot.type';

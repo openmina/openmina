@@ -1,0 +1,105 @@
+@import 'variables';
+
+.inter {
+	font-family: $inter-font;
+}
+
+.monospace {
+	font-family: $mono-font;
+}
+
+.raleway {
+	font-family: $raleway-font;
+}
+
+.f-700 {
+	font-weight: 700;
+}
+
+.f-600 {
+	font-weight: 600;
+}
+
+.f-500 {
+	font-weight: 500;
+}
+
+.f-400 {
+	font-weight: 400;
+}
+
+.f-300 {
+	font-weight: 300;
+}
+
+.f-small {
+	font-size: 10px !important;
+}
+
+.f-base {
+	font-size: 12px !important;
+}
+
+.f-big {
+	font-size: 14px !important;
+}
+
+/* These are used only in icons */
+.f-16 {
+	font-size: 16px !important;
+}
+
+.f-18 {
+	font-size: 18px !important;
+}
+
+.f-20 {
+	font-size: 20px !important;
+}
+
+.f-22 {
+	font-size: 22px !important;
+}
+
+.f-40 {
+	font-size: 40px !important;
+}
+
+.f-48 {
+	font-size: 48px !important;
+}
+
+/* Mobile */
+@media (max-width: 700px) {
+	.f-base {
+		font-size: 14px !important;
+	}
+
+	.f-big {
+		font-size: 16px !important;
+	}
+
+	.f-16 {
+		font-size: 22px !important;
+	}
+
+	.f-18 {
+		font-size: 24px !important;
+	}
+
+	.f-20 {
+		font-size: 26px !important;
+	}
+
+	.f-22 {
+		font-size: 28px !important;
+	}
+
+	.f-40 {
+		font-size: 46px !important;
+	}
+
+	.f-48 {
+		font-size: 54px !important;
+	}
+}

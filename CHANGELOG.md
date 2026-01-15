@@ -7,12 +7,141 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.19.0] - 2026-01-08
+
+### Added
+
+- **Documentation**: add Schnorr signatures specification from MinaProtocol/mina
+  repository to Researchers section
+  ([#1918](https://github.com/o1-labs/mina-rust/pull/1918))
+- **Documentation**: add RPC API reference documentation with CI validation
+  against o1Labs node, reorganize API docs into dedicated section
+  ([#1745](https://github.com/o1-labs/mina-rust/pull/1745))
+- **Node**: add top-level documentation for the crate `node`
+  ([#1736](https://github.com/o1-labs/mina-rust/pull/1736))
+- **CI**: automatically push Docker images for `vX.Y.Z` and `vX.Y` when tag `vX.Y.Z` is created
+  ([#1838](https://github.com/o1-labs/mina-rust/pull/1838))
+- **Web Node**: fix webnode build, add quality-of-life improvements when running
+  webnode in Docker. ([#1778](https://github.com/o1-labs/mina-rust/pull/1778))
+- **CI**: add beta channel lint workflow to catch build issues early
+  ([#1875](https://github.com/o1-labs/mina-rust/pull/1875))
+- **Feature**: Add logging if initial peers are invalid
+  ([#1703](https://github.com/o1-labs/mina-rust/pull/1703))
+
+### Fixed
+
+- **Frontend**: Fixed a bug where user could reach a non-existent page
+  with a non-existent block height on the scan state page
+  ([#1966](https://github.com/o1-labs/mina-rust/pull/1966))
+- **Frontend**: Fixed a bug where text was overlapping in the view.
+  ([#1957](https://github.com/o1-labs/mina-rust/pull/1957))
+- **CI**: fix version regex in build verification workflows to accept
+  variable-length commit hashes (7+ characters) instead of exactly 7, adapting
+  to Git's dynamic abbreviation based on repository size, fix
+  [#1911](https://github.com/o1-labs/mina-rust/issues/1911)
+  ([#1912](https://github.com/o1-labs/mina-rust/pull/1912))
+- **Docker compose files**: replace old environment by local in
+  docker-compose.block-producer.yml
+  ([#1916](https://github.com/o1-labs/mina-rust/pull/1916)
+- **CI**: Remove clippy exceptions for large enum/err variants added
+  as part of the Rust 1.92 upgrade
+  [#1968](https://github.com/o1-labs/mina-rust/pull/1968)
+
+### Changes
+
+- Bump webpack-bundle-analyzer from 4.9.0 to 5.1.1 in /frontend
+  ([#1958](https://github.com/o1-labs/mina-rust/pull/1958))
+- Bump @sentry/angular from 8.35.0 to 10.32.1
+  ([#1965](https://github.com/o1-labs/mina-rust/pull/1965))
+- Bump typescript from 5.6.2 to 5.9.3 in /website
+  ([#1888](https://github.com/o1-labs/mina-rust/pull/1888))
+- **Build System**: rename crate packages to use `mina-` prefix consistently
+  (`node` → `mina-node`, `p2p` → `mina-p2p`, `snark` → `mina-snark`,
+  `vrf` → `mina-vrf`, `cli` → `mina-cli`) for clearer project identity, fix
+  [#1902](https://github.com/o1-labs/mina-rust/issues/1902)
+  ([#1925](https://github.com/o1-labs/mina-rust/pull/1925))
+- **Frontend**: Renamed `@openmina/shared` to `@mina-rust/shared` and all its references
+  ([#1953](https://github.com/o1-labs/mina-rust/pull/1953)
+- **Frontend**: Renamed `@openmina/shared` to `@mina-rust/shared` and all its references
+  ([#1953](https://github.com/o1-labs/mina-rust/pull/1953)
+- **Repository Structure**: reorganize workspace into `crates/`, `libs/`,
+  `vendor/`, and `tools/` directories for clearer separation of concerns
+  ([#1910](https://github.com/o1-labs/mina-rust/pull/1910))
+- **Dependencies**: vendor alloc-test into `vendor/alloc-test` to centralize all
+  code in the monorepo ([#1815](https://github.com/o1-labs/mina-rust/pull/1815))
+- **Dependencies**: vendor redux-rs into `vendor/redux` to centralize all code
+  in the monorepo ([#1814](https://github.com/o1-labs/mina-rust/pull/1814))
+- **Build System**: enforce GNU sed on macOS, require `brew install gnu-sed`
+  for `make fix-trailing-whitespace`, add CI test for cross-platform support,
+  fix [#1864](https://github.com/o1-labs/mina-rust/issues/1864)
+  ([#1898](https://github.com/o1-labs/mina-rust/pull/1898),
+  [#1872](https://github.com/o1-labs/mina-rust/pull/1872)).
+  ([#1872](https://github.com/o1-labs/mina-rust/pull/1872))
+- **Frontend**: Move `@openmina/shared` and `openmina-styles` from npm packages
+  to vendor directory as local file dependencies, simplifying frontend
+  dependency management and consolidating all frontend code in the monorepo
+  ([#1799](https://github.com/o1-labs/openmina/pull/1799))
+- **Dependency**: use tag instead of references of o1-labs/proof-systems, fix
+  [[#1674](https://github.com/o1-labs/mina-rust/issues/1674)]
+  ([#1673](https://github.com/o1-labs/mina-rust/pull/1673))
+- Remove ocaml-interop dependency, fix
+  [#1235](https://github.com/o1-labs/mina-rust/issues/1235)
+  ([#1646](https://github.com/o1-labs/mina-rust/pull/1646))
+- *Build** Update Rust to 1.92 [#1894](https://github.com/o1-labs/mina-rust/issues/1894)
+- *CI*: run builds on macos-latest for each patch submission, fixing
+  [#1899](https://github.com/o1-labs/mina-rust/issues/1899)
+  ([#1900](https://github.com/o1-labs/mina-rust/pull/1900))
+- **Docs**: add notes in `.cargo/config.toml` about the magic RUSTFLAGS for WASM
+  [#1863](https://github.com/o1-labs/mina-rust/issues/1863)
+- **Docs**: Consistent naming of the "web node" across docs
+  [#1858](https://github.com/o1-labs/mina-rust/issues/1858)
+- **Docs**: Reorganized web node docs with clear audience split
+  [#2006](https://github.com/o1-labs/mina-rust/pull/2006)
+- **Web Node**: Removed compatible browser gate. Web Node is experimental anyway
+  [#2006](https://github.com/o1-labs/mina-rust/pull/2006)
+- **Dependencies**: bump up tokio from 1.26.0 to 1.46.1
+  ([#2053](https://github.com/o1-labs/mina-rust/pull/2053))
+
+### Removed
+
+- **Ledger**: remove FFI codebase and `port_ocaml` module, fix
+  [#1235](https://github.com/o1-labs/mina-rust/issues/1235)
+- **Build**: remove unused Docker files from `tools/testing/docker` and
+  corresponding Makefile targets
+- **Frontend**: remove outdated `frontend/functions` directory containing unused
+  Firebase Cloud Functions
+- **CI**: remove network debugger from CI
+  ([#1700](https://github.com/o1-labs/mina-rust/pull/1700))
+- **CI**: remove setup-ocaml from CI
+  ([#1879](https://github.com/o1-labs/mina-rust/pull/1879))
+- **Web Node**: Removed web-node-secrets.json format and unified key handling
+  across documentation to use standard encrypted key format
+  ([#1917](https://github.com/o1-labs/mina-rust/issues/1971))
+- **CLI** Removed `-web-node-secrets` flag from `mina misc mina-key-pair`
+  ([#1917](https://github.com/o1-labs/mina-rust/issues/1971))
+
+
 ## [0.18.1] - 2025-11-20
+
+### Added
+
+- **Documentation**: Add comprehensive API endpoints reference for the Node
+  Dashboard, documenting all endpoints and specific data fields used by the
+  frontend ([#1566](https://github.com/o1-labs/mina-rust/issues/1566))
 
 ### Fixed
 
 - **Docker Compose**: Fix frontend black screen issue by changing environment
   from `compose` to `local` and exposing port 3000 for rust node HTTP API (hotfix `v0.18.1`)
+  from `compose` to `local` and exposing port 3000 for mina-node HTTP API
+  ([#1649](https://github.com/o1-labs/mina-rust/pull/1649))
+
+### Changed
+
+- **Dependencies/proof-systems**: bump up proof-systems to 282faf5
+  ([#1662](https://github.com/o1-labs/mina-rust/pull/1662))
+- **Tests**: removed unused tests and fixed tests
+  ([#1682](https://github.com/o1-labs/mina-rust/pull/1682))
 
 ## [0.18.0] - 2025-11-04
 
@@ -23,6 +152,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Frontend**: add production seed nodes for the production environment
+  ([#1837](https://github.com/o1-labs/mina-rust/issues/1837)
 - **Website**: Update Docusaurus to version 3.9.2 from 3.9.1 for latest
   features and bug fixes
   ([#1583](https://github.com/o1-labs/mina-rust/pull/1583))
@@ -161,6 +292,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI**: build benches for each PR with the workflow `tests`, and fix the step
   in the workflow `build` by adding the missing SQLx/SQLite setup
   ([#1548](https://github.com/o1-labs/mina-rust/pull/1548))
+- **frontend**: remove leaderboard from the frontend
+  ([#1579](https://github.com/o1-labs/mina-rust/pull/1579)
 
 ### Fixed
 

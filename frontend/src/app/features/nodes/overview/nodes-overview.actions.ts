@@ -1,4 +1,4 @@
-import { FeatureAction, TableSort } from '@openmina/shared';
+import { FeatureAction, TableSort } from '@mina-rust/shared';
 import { NodesOverviewNode } from '@shared/types/nodes/dashboard/nodes-overview-node.type';
 import { MinaNode } from '@shared/types/core/environment/mina-env.type';
 
@@ -29,8 +29,7 @@ export const NODES_OVERVIEW_SET_ACTIVE_NODE =
 export const NODES_OVERVIEW_CLOSE =
   NodesOverviewActionTypes.NODES_OVERVIEW_CLOSE;
 
-export interface NodesOverviewAction
-  extends FeatureAction<NodesOverviewActionTypes> {
+export interface NodesOverviewAction extends FeatureAction<NodesOverviewActionTypes> {
   readonly type: NodesOverviewActionTypes;
 }
 

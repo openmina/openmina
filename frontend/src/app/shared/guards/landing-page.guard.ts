@@ -3,7 +3,7 @@ import { inject } from '@angular/core';
 import { Store } from '@ngrx/store';
 import { map, take } from 'rxjs/operators';
 import { CONFIG } from '@shared/constants/config';
-import { getMergedRoute } from '@openmina/shared';
+import { getMergedRoute } from '@mina-rust/shared';
 import { Routes } from '@shared/enums/routes.enum';
 
 let isFirstLoad = true;
@@ -35,11 +35,7 @@ export const landingPageGuard: CanActivateFn = (route, state) => {
         });
       }
 
-      if (
-        !startsWith('/') &&
-        !startsWith('/?') &&
-        !startsWith('/leaderboard')
-      ) {
+      if (!startsWith('/') && !startsWith('/?')) {
         return router.createUrlTree(['']);
       }
 

@@ -1,0 +1,42 @@
+[package]
+name = "p2p-testing"
+version.workspace = true
+edition.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+mina-p2p = { workspace = true, features = ["p2p-libp2p"] }
+mina-p2p-messages = { path = "../../p2p-messages" }
+redux = { workspace = true }
+
+derive_more = { workspace = true }
+futures = { workspace = true }
+lazy_static = { workspace = true }
+libp2p = { workspace = true, features = [
+  "macros",
+  "serde",
+  "tcp",
+  "dns",
+  "tokio",
+  "yamux",
+  "pnet",
+  "noise",
+  "gossipsub",
+  "identify",
+  "kad",
+] }
+libp2p-rpc-behaviour = { path = "../libp2p-rpc-behaviour" }
+mina-core = { path = "../../core" }
+pin-project-lite = { workspace = true }
+rand = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["sync", "macros"] }
+tracing = { workspace = true }
+tracing-log = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+redux = { workspace = true, features = ["serializable_callbacks"] }
+libp2p-identity = { workspace = true, features = ["ed25519", "rand", "serde"] }

@@ -8,7 +8,11 @@ import { FuzzingSetActiveDirectory } from '@fuzzing/fuzzing.actions';
 import { filter, take } from 'rxjs';
 import { Routes } from '@shared/enums/routes.enum';
 import { FuzzingDirectory } from '@shared/types/fuzzing/fuzzing-directory.type';
-import { getMergedRoute, MergedRoute, TableColumnList } from '@openmina/shared';
+import {
+  getMergedRoute,
+  MergedRoute,
+  TableColumnList,
+} from '@mina-rust/shared';
 import { MinaTableRustWrapper } from '@shared/base-classes/mina-table-rust-wrapper.class';
 
 @Component({

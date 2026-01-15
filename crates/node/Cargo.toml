@@ -1,0 +1,69 @@
+[package]
+name = "mina-node"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow = { workspace = true }
+ark-ff = { workspace = true }
+base64 = { workspace = true }
+blake2 = { workspace = true }
+derive_more = { workspace = true }
+graphannis-malloc_size_of = { workspace = true }
+graphannis-malloc_size_of_derive = { workspace = true }
+hex = { workspace = true }
+lazy_static = { workspace = true }
+ledger = { workspace = true }
+mina-core = { path = "../core" }
+mina-curves = { workspace = true }
+mina-hasher = { workspace = true }
+mina-node-account = { workspace = true }
+mina-p2p = { workspace = true }
+mina-p2p-messages = { workspace = true }
+mina-signer = { workspace = true }
+mina-snark = { workspace = true }
+mina-vrf = { workspace = true }
+multihash = { workspace = true }
+num_enum = { workspace = true }
+poseidon = { workspace = true }
+postcard = { workspace = true }
+rand = { workspace = true }
+redux = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true, features = [
+  "unbounded_depth",
+  "arbitrary_precision",
+] }
+serde_with = { workspace = true, features = ["time_0_3"] }
+static_assertions = { workspace = true }
+strum = { workspace = true }
+strum_macros = { workspace = true }
+thiserror = { workspace = true }
+time = { workspace = true, features = ["parsing"] }
+tokio = { workspace = true }
+
+[build-dependencies]
+regex = { workspace = true }
+rust-format = { workspace = true }
+vergen = { workspace = true }
+
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+linkme = { workspace = true }
+redux = { workspace = true, features = ["serializable_callbacks"] }
+
+[target.'cfg(target_family = "wasm")'.dependencies]
+wasm-bindgen = { workspace = true }
+
+[features]
+default = []
+
+serializable_callbacks = []
+replay = []
+p2p-webrtc = ["mina-p2p/p2p-webrtc"]
+p2p-libp2p = ["mina-p2p/p2p-libp2p"]
+fuzzing = ["mina-p2p/fuzzing"]
+exit-on-invalid-peers = []

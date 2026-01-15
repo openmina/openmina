@@ -28,30 +28,25 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Make scripts executable
         run: |
-          chmod +x website/docs/developers/scripts/frontend/*.sh
+          chmod +x website/docs/developers/scripts/**/*.sh
 
-      - name: Install Node.js on Linux
-        if: runner.os == 'Linux'
-        run: |
-          bash website/docs/developers/scripts/frontend/install-nodejs-linux.sh
-          # Set up nvm environment for future steps
-          echo "NVM_DIR=$HOME/.nvm" >> $GITHUB_ENV
+      - name: Load versions
+        id: versions
+        uses: ./.github/actions/load-versions
 
-      - name: Install Node.js on macOS
-        if: runner.os == 'macOS'
-        run: |
-          bash website/docs/developers/scripts/frontend/install-nodejs-macos.sh
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ steps.versions.outputs.node-version }}
+          cache: 'npm'
+          cache-dependency-path: website/package-lock.json
 
       - name: Install Angular CLI using documentation script
         run: |
-          # Source nvm if available (Linux)
-          if [ -n "$NVM_DIR" ] && [ -s "$NVM_DIR/nvm.sh" ]; then
-            \. "$NVM_DIR/nvm.sh"
-          fi
           bash website/docs/developers/scripts/frontend/install-angular-cli.sh
 
       - name: Install gtimeout on macOS
@@ -61,44 +56,42 @@ jobs:
           # Create symlink for timeout command
           sudo ln -sf /usr/local/bin/gtimeout /usr/local/bin/timeout
 
+      - name: Install gsed on macOS
+        if: runner.os == 'macOS'
+        run: |
+          brew install gnu-sed
+
+      # NB: commented due to risk of conflict with "Setup Node.js setup"
+      # - name: Test setup nvm script
+      #   run: |
+      #     bash website/docs/developers/scripts/setup/install-nvm.sh
+
+      - name: Test setup rustup script
+        run: |
+          bash website/docs/developers/scripts/setup/install-rustup.sh
+
+      - name: Test make setup-wasm script
+        run: |
+          bash website/docs/developers/scripts/setup/make-setup-wasm.sh
+
+      - name: Test download circuits script
+        run: |
+          bash website/docs/developers/scripts/setup/download-circuits.sh
+
       - name: Test install dependencies script
         run: |
-          # Source nvm if available (Linux)
-          if [ -n "$NVM_DIR" ] && [ -s "$NVM_DIR/nvm.sh" ]; then
-            \. "$NVM_DIR/nvm.sh"
-          fi
           bash website/docs/developers/scripts/frontend/install-dependencies.sh
 
       - name: Test build production script
         run: |
-          # Source nvm if available (Linux)
-          if [ -n "$NVM_DIR" ] && [ -s "$NVM_DIR/nvm.sh" ]; then
-            \. "$NVM_DIR/nvm.sh"
-          fi
           bash website/docs/developers/scripts/frontend/build-production.sh
 
       - name: Test format code script
         run: |
-          # Source nvm if available (Linux)
-          if [ -n "$NVM_DIR" ] && [ -s "$NVM_DIR/nvm.sh" ]; then
-            \. "$NVM_DIR/nvm.sh"
-          fi
           bash website/docs/developers/scripts/frontend/format-code.sh
-
-      - name: Test build leaderboard script
-        run: |
-          # Source nvm if available (Linux)
-          if [ -n "$NVM_DIR" ] && [ -s "$NVM_DIR/nvm.sh" ]; then
-            \. "$NVM_DIR/nvm.sh"
-          fi
-          bash website/docs/developers/scripts/frontend/build-leaderboard.sh
 
       - name: Test build webnode script
         run: |
-          # Source nvm if available (Linux)
-          if [ -n "$NVM_DIR" ] && [ -s "$NVM_DIR/nvm.sh" ]; then
-            \. "$NVM_DIR/nvm.sh"
-          fi
           bash website/docs/developers/scripts/frontend/build-webnode.sh
 
       - name: Prepare for Cypress tests (Ubuntu 22.04)

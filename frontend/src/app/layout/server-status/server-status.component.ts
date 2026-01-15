@@ -14,9 +14,9 @@ import {
   isDesktop,
   isMobile,
   ONE_MILLION,
-  OpenminaEagerSharedModule,
+  MinaRustEagerSharedModule,
   PluralPipe,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { AppMenu } from '@shared/types/app/app-menu.type';
 import { MinaNode } from '@shared/types/core/environment/mina-env.type';
 import { ComponentPortal, TemplatePortal } from '@angular/cdk/portal';
@@ -69,7 +69,7 @@ import { NgClass } from '@angular/common';
     ]),
   ],
   standalone: true,
-  imports: [NgClass, PluralPipe, OpenminaEagerSharedModule],
+  imports: [NgClass, PluralPipe, MinaRustEagerSharedModule],
 })
 export class ServerStatusComponent extends StoreDispatcher implements OnInit {
   protected readonly AppNodeStatus = AppNodeStatus;

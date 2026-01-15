@@ -1,4 +1,4 @@
-import { FeatureAction } from '@openmina/shared';
+import { FeatureAction } from '@mina-rust/shared';
 import { NetworkNodeDhtPeer } from '@shared/types/network/node-dht/network-node-dht.type';
 import { NetworkNodeDhtBucket } from '@shared/types/network/node-dht/network-node-dht-bucket.type';
 import { NetworkBootstrapStatsRequest } from '@shared/types/network/bootstrap-stats/network-bootstrap-stats-request.type';
@@ -25,8 +25,7 @@ export const NETWORK_NODE_DHT_SET_ACTIVE_PEER =
 export const NETWORK_NODE_DHT_SIDE_PANEL_RESIZE =
   NetworkNodeDhtActionTypes.NETWORK_NODE_DHT_SIDE_PANEL_RESIZE;
 
-export interface NetworkNodeDhtAction
-  extends FeatureAction<NetworkNodeDhtActionTypes> {
+export interface NetworkNodeDhtAction extends FeatureAction<NetworkNodeDhtActionTypes> {
   readonly type: NetworkNodeDhtActionTypes;
 }
 

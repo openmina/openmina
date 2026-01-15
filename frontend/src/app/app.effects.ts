@@ -6,7 +6,7 @@ import {
   createNonDispatchableEffect,
   Effect,
   removeParamsFromURL,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { filter, map, mergeMap, of, switchMap, tap } from 'rxjs';
 import { AppActions } from '@app/app.actions';
 import { Router } from '@angular/router';
@@ -69,7 +69,7 @@ export class AppEffects extends BaseEffect {
           if (state.app.activeNode.isWebNode) {
             return this.webNodeService
               .loadWasm$()
-              .pipe(switchMap(() => this.webNodeService.startWasm$()));
+              .pipe(switchMap(cfg => this.webNodeService.startWasm$(cfg)));
           }
           return of({});
         }),
@@ -98,7 +98,7 @@ export class AppEffects extends BaseEffect {
           if (state.app.activeNode.isWebNode) {
             return this.webNodeService
               .loadWasm$()
-              .pipe(switchMap(() => this.webNodeService.startWasm$()));
+              .pipe(switchMap(cfg => this.webNodeService.startWasm$(cfg)));
           }
           return of({});
         }),

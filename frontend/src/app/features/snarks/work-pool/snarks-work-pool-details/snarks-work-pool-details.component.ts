@@ -3,7 +3,7 @@ import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { selectSnarksWorkPoolActiveWorkPoolDetail } from '@snarks/work-pool/snarks-work-pool.state';
 import { WorkPoolDetail } from '@shared/types/snarks/work-pool/work-pool-detail.type';
 import { Router } from '@angular/router';
-import { getMergedRoute, MergedRoute } from '@openmina/shared';
+import { getMergedRoute, MergedRoute } from '@mina-rust/shared';
 import { take } from 'rxjs';
 
 @Component({

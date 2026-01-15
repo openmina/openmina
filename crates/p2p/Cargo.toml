@@ -1,0 +1,116 @@
+[package]
+name = "mina-p2p"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+aes-gcm = { workspace = true }
+anyhow = { workspace = true }
+base64 = { workspace = true }
+binprot = { workspace = true }
+binprot_derive = { workspace = true }
+bitflags = { workspace = true, features = ["serde"] }
+bs58 = { workspace = true }
+bytes = { workspace = true }
+cfg-if = { workspace = true }
+derive_more = { workspace = true }
+ed25519-dalek = { workspace = true }
+faster-stun = { workspace = true, optional = true }
+hex = { workspace = true }
+multihash = { workspace = true }
+rand = { workspace = true, features = ["small_rng"] }
+reqwest = { workspace = true, optional = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_with = { workspace = true }
+sha2 = { workspace = true }
+smallvec = { workspace = true }
+strum = { workspace = true }
+strum_macros = { workspace = true }
+thiserror = { workspace = true }
+unsigned-varint = { workspace = true }
+url = { workspace = true }
+x25519-dalek = { workspace = true }
+
+graphannis-malloc_size_of = { workspace = true }
+graphannis-malloc_size_of_derive = { workspace = true }
+
+# crypto
+blake2 = { workspace = true }
+chacha20poly1305 = { workspace = true }
+curve25519-dalek = { workspace = true }
+hkdf = { workspace = true }
+libp2p-identity = { workspace = true, features = ["ed25519", "rand", "serde"] }
+multiaddr = { workspace = true }
+zeroize = { workspace = true }
+
+mina-p2p-messages = { workspace = true }
+redux = { workspace = true }
+
+crypto-bigint = { workspace = true }
+mina-core = { workspace = true }
+mina-macros = { workspace = true }
+quick-protobuf = { workspace = true }
+salsa-simple = { workspace = true }
+
+prost = { workspace = true }
+
+mina-fuzzer = { workspace = true, optional = true }
+
+[build-dependencies]
+prost-build = { workspace = true }
+
+[dev-dependencies]
+crypto-bigint = { workspace = true, features = ["rand_core"] }
+warp = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+clap = { workspace = true, features = ["derive", "env"] }
+p2p-testing = { path = "testing" }
+
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+redux = { workspace = true, features = ["serializable_callbacks"] }
+tokio = { workspace = true, features = ["rt"] }
+webrtc = { workspace = true, optional = true }
+datachannel = { workspace = true, optional = true }
+rcgen = { workspace = true, optional = true }
+reqwest = { workspace = true, features = ["json"] }
+mio = { workspace = true }
+libc = { workspace = true }
+local-ip-address = { workspace = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = { workspace = true }
+wasm-bindgen-futures = { workspace = true }
+gloo-timers = { workspace = true }
+gloo-utils = { workspace = true }
+js-sys = { workspace = true }
+web-sys = { workspace = true, features = [
+  "MessageEvent",
+  "RtcPeerConnection",
+  "RtcConfiguration",
+  "RtcIceTransportPolicy",
+  "RtcDataChannel",
+  "RtcDataChannelInit",
+  "RtcSessionDescription",
+  "RtcSessionDescriptionInit",
+  "RtcSdpType",
+  "RtcPeerConnectionState",
+  "RtcIceGatheringState",
+  "Window",
+  "Request",
+  "RequestInit",
+  "Headers",
+  "Response",
+] }
+tokio = { workspace = true, features = ["macros"] }
+getrandom = { workspace = true, features = ["js"] }
+
+[features]
+serializable_callbacks = []
+p2p-webrtc = ["p2p-webrtc-rs"]
+p2p-webrtc-rs = ["webrtc", "rcgen"]
+p2p-webrtc-cpp = ["datachannel"]
+p2p-libp2p = ["fuzzing", "dep:reqwest", "dep:faster-stun"]
+fuzzing = ["mina-fuzzer", "mina-core/fuzzing"]

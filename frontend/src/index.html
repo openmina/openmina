@@ -60,11 +60,11 @@
   <body class="f-base">
     <script>
       const deployment = {
-        dateUTC: '2025-03-28T10:27:50.006Z',
-        deviceIp: '5.13.60.20',
+        dateUTC: '2025-12-11T15:36:23.307Z',
+        deviceIp: '82.78.22.250',
         deviceOS: 'macOS',
-        deviceOSVersion: '24.3.0',
-        version: '1.0.184',
+        deviceOSVersion: '24.6.0',
+        version: '1.0.185',
       };
       window.deployment = deployment;
 
@@ -76,8 +76,8 @@
       if (typeof window !== 'undefined') {
         window.addEventListener('startWebNode', async () => {
           const possiblePaths = [
-            '/webnode/pkg/mina_node_web.js', // Production/CI path
-            '../public/webnode/pkg/mina_node_web.js', // Development path
+            '/assets/webnode/pkg/mina_node_web.js', // Production/CI path
+            '/webnode/pkg/mina_node_web.js', // Development path
           ];
 
           for (const path of possiblePaths) {

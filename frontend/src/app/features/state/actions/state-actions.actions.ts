@@ -1,4 +1,4 @@
-import { FeatureAction, TableSort } from '@openmina/shared';
+import { FeatureAction, TableSort } from '@mina-rust/shared';
 import { StateActionGroup } from '@shared/types/state/actions/state-action-group.type';
 import { StateActionsStats } from '@shared/types/state/actions/state-actions-stats.type';
 
@@ -28,8 +28,7 @@ export const STATE_ACTIONS_SORT = StateActionsActionTypes.STATE_ACTIONS_SORT;
 export const STATE_ACTIONS_SEARCH =
   StateActionsActionTypes.STATE_ACTIONS_SEARCH;
 
-export interface StateActionsAction
-  extends FeatureAction<StateActionsActionTypes> {
+export interface StateActionsAction extends FeatureAction<StateActionsActionTypes> {
   readonly type: StateActionsActionTypes;
 }
 

@@ -5,7 +5,7 @@ import {
   NetworkBootstrapPeerType,
   NetworkBootstrapStatsRequest,
 } from '@shared/types/network/bootstrap-stats/network-bootstrap-stats-request.type';
-import { ONE_BILLION } from '@openmina/shared';
+import { ONE_BILLION } from '@mina-rust/shared';
 
 @Injectable({
   providedIn: 'root',

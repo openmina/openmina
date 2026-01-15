@@ -2,7 +2,7 @@ import { NetworkBlock } from '@shared/types/network/blocks/network-block.type';
 import { createSelector, MemoizedSelector } from '@ngrx/store';
 import { MinaState } from '@app/app.setup';
 import { selectNetworkBlocksState } from '@network/network.state';
-import { TableSort } from '@openmina/shared';
+import { TableSort } from '@mina-rust/shared';
 
 export interface NetworkBlocksState {
   blocks: NetworkBlock[];

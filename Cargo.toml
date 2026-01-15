@@ -1,37 +1,53 @@
 [workspace]
 members = [
-  "cli",
-  "cli/replay_dynamic_effects",
-  "core",
-  "fuzzer",
-  "ledger",
-  "macros",
-  "mina-p2p-messages",
-  "node",
-  "node/account",
-  "node/common",
-  "node/invariants",
-  "node/native",
-  "node/testing",
-  "node/web",
-  "p2p",
-  "p2p/libp2p-rpc-behaviour",
-  "p2p/testing",
+  # Main crates
+  "crates/cli",
+  "crates/cli/replay_dynamic_effects",
+  "crates/core",
+  "crates/fuzzer",
+  "crates/ledger",
+  "crates/macros",
+  "crates/node",
+  "crates/node/account",
+  "crates/node/common",
+  "crates/node/invariants",
+  "crates/node/native",
+  "crates/node/web",
+  "crates/p2p",
+  "crates/p2p/libp2p-rpc-behaviour",
+  "crates/p2p/testing",
+  "crates/p2p-messages",
+  "crates/snark",
+  "crates/vrf",
+  # Crates to be removed (kept at root for now)
+  # poseidon: https://github.com/o1-labs/mina-rust/issues/1215
   "poseidon",
-  "snark",
+  # Tools
   "tools/archive-breadcrumb-compare",
   "tools/bootstrap-sandbox",
   "tools/fuzzing",
   "tools/gossipsub-sandbox",
   "tools/hash-tool",
   "tools/ledger-tool",
+  "tools/testing",
   "tools/transport",
   "tools/webrtc-sniffer",
+  # Reusable libraries (project-agnostic, potentially publishable)
+  "libs/alloc-test",
+  "libs/redux",
+  # Vendored third-party libraries
   "vendor/salsa-simple",
-  "vrf",
 ]
 
 resolver = "2"
+
+[workspace.package]
+documentation = "https://o1-labs.github.io/mina-rust/api-docs/"
+edition = "2021"
+homepage = "https://o1-labs.github.io/mina-rust/"
+license = "Apache-2.0"
+repository = "https://github.com/o1-labs/mina-rust"
+version = "0.19.0"
 
 [workspace.lints.clippy]
 #unwrap_used = "warn"
@@ -41,7 +57,7 @@ indexing_slicing = "warn"
 [workspace.dependencies]
 aes = "0.8"
 aes-gcm = "0.10.3"
-alloc-test = { git = "https://github.com/openmina/alloc-test.git" }
+alloc-test = { path = "libs/alloc-test" }
 anyhow = "1.0.81"
 argon2 = { version = "0.5.3", features = ["std"] }
 ark-ec = { version = "0.5.0", features = ["std"] }
@@ -63,7 +79,7 @@ bs58 = "0.4.0"
 btreemultimap = "0.1.1"
 bytes = "1.4.0"
 cbc = { version = "0.1", features = ["block-padding", "alloc"] }
-cfg-if = "1.0.0"
+cfg-if = "1.0.4"
 chacha20poly1305 = "0.10.1"
 chrono = "0.4"
 clap = { version = "4.5", features = ["derive"] }
@@ -84,7 +100,7 @@ datachannel = { git = "https://github.com/openmina/datachannel-rs.git", rev = "1
 ] }
 dataloader = "0.18"
 derive_more = "0.99.17"
-dialoguer = "0.10.4"
+dialoguer = "0.12.0"
 documented = { version = "0.6" }
 dotenv = "0.15"
 dotenvy = "0.15"
@@ -121,10 +137,10 @@ js-sys = "0.3.64"
 jsonpath-rust = "0.5.0"
 juniper = { version = "0.16" }
 juniper_warp = "0.8.0"
-kimchi = { git = "https://github.com/o1-labs/proof-systems", rev = "0b0fd5fe73964d2a3628c788e40ead819a8a806d" }
+kimchi = { git = "https://github.com/o1-labs/proof-systems", tag = "0.2.0" }
 lazy_static = "1.4.0"
 leb128 = "0.2.1"
-ledger = { path = "ledger", package = "mina-tree" }
+ledger = { path = "crates/ledger", package = "mina-tree" }
 libc = "0.2.151"
 libp2p = { git = "https://github.com/openmina/rust-libp2p", rev = "5c44c7d9", default-features = false }
 libp2p-identity = { version = "=0.2.7", features = ["peerid"] }
@@ -133,43 +149,46 @@ local-ip-address = "0.6.1"
 log = "0.4.25"
 md5 = "0.7.0"
 mina-bootstrap-sandbox = { path = "tools/bootstrap-sandbox" }
-mina-core = { path = "core" }
-mina-curves = { git = "https://github.com/o1-labs/proof-systems", rev = "0b0fd5fe73964d2a3628c788e40ead819a8a806d" }
-mina-fuzzer = { path = "fuzzer" }
-mina-hasher = { git = "https://github.com/o1-labs/proof-systems", rev = "0b0fd5fe73964d2a3628c788e40ead819a8a806d" }
-mina-macros = { path = "macros" }
-mina-node-account = { path = "node/account" }
-mina-node-common = { path = "node/common" }
-mina-node-invariants = { path = "node/invariants" }
-mina-node-native = { path = "node/native" }
-mina-node-testing = { path = "node/testing" }
-mina-p2p-messages = { path = "mina-p2p-messages" }
-mina-poseidon = { git = "https://github.com/o1-labs/proof-systems", rev = "0b0fd5fe73964d2a3628c788e40ead819a8a806d" }
-mina-signer = { git = "https://github.com/o1-labs/proof-systems", rev = "0b0fd5fe73964d2a3628c788e40ead819a8a806d" }
+mina-cli = { path = "crates/cli" }
+mina-core = { path = "crates/core" }
+mina-curves = { git = "https://github.com/o1-labs/proof-systems", tag = "0.2.0" }
+mina-fuzzer = { path = "crates/fuzzer" }
+mina-hasher = { git = "https://github.com/o1-labs/proof-systems", tag = "0.2.0" }
+mina-macros = { path = "crates/macros" }
+mina-node = { path = "crates/node" }
+mina-node-account = { path = "crates/node/account" }
+mina-node-common = { path = "crates/node/common" }
+mina-node-invariants = { path = "crates/node/invariants" }
+mina-node-native = { path = "crates/node/native" }
+mina-node-testing = { path = "tools/testing" }
+mina-p2p = { path = "crates/p2p" }
+mina-p2p-messages = { path = "crates/p2p-messages" }
+mina-poseidon = { git = "https://github.com/o1-labs/proof-systems", tag = "0.2.0" }
+mina-signer = { git = "https://github.com/o1-labs/proof-systems", tag = "0.2.0" }
+mina-snark = { path = "crates/snark" }
 mina-transport = { path = "tools/transport" }
+mina-vrf = { path = "crates/vrf" }
 mio = { version = "1.0.4", features = ["os-poll", "net"] }
 multiaddr = "0.18.1"
 multihash = { version = "0.18.1", features = ["blake2b"] }
 nix = { version = "0.27.1", features = ["process", "signal"] }
-node = { path = "node" }
 nom = "8.0.0"
 num = { version = "0.4", features = ["std"] }
 num-bigint = { git = "https://github.com/openmina/num-bigint", branch = "rebase-onstack" }
 num-traits = "0.2"
 num_cpus = "1.0"
 num_enum = "0.5.7"
-o1-utils = { git = "https://github.com/o1-labs/proof-systems", rev = "0b0fd5fe73964d2a3628c788e40ead819a8a806d" }
+o1-utils = { git = "https://github.com/o1-labs/proof-systems", tag = "0.2.0" }
 object = "0.37.1"
-ocaml-interop = { git = "https://github.com/sebastiencs/ocaml-interop.git", branch = "closure-values" }
 once_cell = "1"
 p256 = { version = "0.13", features = ["default", "ecdh", "ecdsa"] }
 p384 = "0.13"
-pcap = "2.3"
+pcap = "2.4"
 pin-project-lite = "0.2.10"
-poly-commitment = { git = "https://github.com/o1-labs/proof-systems", rev = "0b0fd5fe73964d2a3628c788e40ead819a8a806d" }
+poly-commitment = { git = "https://github.com/o1-labs/proof-systems", tag = "0.2.0" }
 poseidon = { path = "poseidon" }
 postcard = { version = "1.0.9", features = ["use-std"] }
-proc-macro2 = "1.0.95"
+proc-macro2 = "1.0.103"
 prost = "0.12.4"
 prost-build = "0.14.1"
 quick-protobuf = "0.8.1"
@@ -180,9 +199,7 @@ rand_pcg = "0.3"
 rand_seeder = "0.2"
 rayon = "1.5"
 rcgen = { version = "0.13", features = ["pem", "x509-parser"] }
-redux = { git = "https://github.com/o1-labs/redux-rs.git", rev = "06c8366", features = [
-  "serde",
-] }
+redux = { path = "libs/redux", features = ["serde"] }
 regex = "1"
 reqwest = { version = "0.12.8", features = ["blocking", "json"] }
 ring_buffer = "2.0.2"
@@ -199,7 +216,7 @@ serde_json = "1.0.107"
 serde_with = { version = "3.7.0", features = ["hex"] }
 sha2 = "0.10"
 sha3 = "0.10.8"
-shellexpand = "3.1.0"
+shellexpand = "3.1.1"
 similar = "2.6.0"
 slab = { version = "0.4.7", features = ["serde"] }
 sled = "0.34"
@@ -217,10 +234,10 @@ text-diff = "0.4.0"
 thiserror = "1.0.60"
 tikv-jemallocator = "0.6"
 time = { version = "0.3.36", features = ["formatting", "macros", "parsing"] }
-tokio = { version = "1.26.0" }
+tokio = { version = "1.46.1" }
 toml = "0.5.9"
 tower-http = { version = "0.6", features = ["cors", "fs"] }
-tracing = "0.1.40"
+tracing = "0.1.44"
 tracing-appender = "0.2.3"
 tracing-log = "0.2.0"
 tracing-subscriber = { version = "0.3.18", features = ["json", "env-filter"] }
@@ -236,12 +253,11 @@ vergen = { version = "8.2.4", features = [
   "gitcl",
   "rustc",
 ] }
-vrf = { path = "vrf" }
 warp = "0.3"
-wasm-bindgen = "0.2"
-wasm-bindgen-futures = "0.4"
-wasm-bindgen-test = "0.3.33"
-wasm_thread = { version = "0.3", features = ["es_modules"] }
+wasm-bindgen = "^0.2.106"
+wasm-bindgen-futures = "^0.4.56"
+wasm-bindgen-test = "^0.3.56"
+wasm_thread = { version = "^0.3.3", features = ["es_modules"] }
 web-sys = { version = "0.3.64" }
 webrtc = { git = "https://github.com/openmina/webrtc.git", rev = "aeaa62682b97f6984627bedd6e6811fe17af18eb" }
 x25519-dalek = { version = "2.0.1", features = ["static_secrets"] }

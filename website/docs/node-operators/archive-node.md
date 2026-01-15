@@ -155,10 +155,10 @@ docker exec postgres-mina-rust psql -U postgres -d archive -c "SELECT COUNT(*) a
 
 For comprehensive guides on querying and analyzing archive data:
 
-- **[Archive Database Queries](../developers/archive-database-queries)** -
+- **[Archive Database Queries](../developers/api-and-data/archive-database-queries)** -
   Complete SQL reference, schema documentation, and analysis examples
-- **[GraphQL API Reference](../developers/graphql-api)** - Full GraphQL endpoint
-  documentation and query examples
+- **[GraphQL API Reference](../developers/api-and-data/graphql-api)** - Full
+  GraphQL endpoint documentation and query examples
 
 These developer guides include:
 

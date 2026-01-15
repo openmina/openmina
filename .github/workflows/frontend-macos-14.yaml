@@ -1,8 +1,9 @@
 name: Frontend macOS 14
 
 on:
-  push:
-    branches: [main, develop]
+  schedule:
+    # Run every Monday at 6:00 AM UTC
+    - cron: '0 6 * * 1'
   workflow_dispatch:
 
 concurrency:
@@ -14,9 +15,13 @@ jobs:
     runs-on: macos-14
     steps:
       - name: Git checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
+
+      - id: versions
+        uses: ./.github/actions/load-versions
 
       - name: Frontend build
         uses: ./.github/actions/frontend-build
         with:
+          node-version: ${{ steps.versions.outputs.node-version }}
           test-build-commands: 'true'

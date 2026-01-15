@@ -67,5 +67,5 @@ The wallet commands use the node's GraphQL API:
 - **pooledUserCommands query** - Lists pending transactions in the mempool
   (`status` command)
 
-For more details on the GraphQL API, see the [GraphQL API](../graphql-api.md)
-documentation.
+For more details on the GraphQL API, see the
+[GraphQL API](../api-and-data/graphql-api.md) documentation.

@@ -6,7 +6,7 @@ import {
   NETWORK_BOOTSTRAP_STATS_SORT,
   NetworkBootstrapStatsActions,
 } from '@network/bootstrap-stats/network-bootstrap-stats.actions';
-import { sort, SortDirection, TableSort } from '@openmina/shared';
+import { sort, SortDirection, TableSort } from '@mina-rust/shared';
 import { NetworkBootstrapStatsRequest } from '@shared/types/network/bootstrap-stats/network-bootstrap-stats-request.type';
 
 const initialState: NetworkBootstrapStatsState = {

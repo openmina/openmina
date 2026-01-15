@@ -35,10 +35,10 @@ echo "Updating config_${old_hash} to config_${new_hash}"
 
 # Check if config_${old_hash} pattern exists in the files
 config_files=(
-    "${base_dir}/node/testing/src/node/ocaml/config.rs"
-    "${base_dir}/node/testing/src/node/ocaml/mod.rs"
-    "${base_dir}/node/testing/src/scenarios/multi_node/basic_connectivity_peer_discovery.rs"
-    "${base_dir}/node/testing/src/scenarios/solo_node/basic_connectivity_accept_incoming.rs"
+    "${base_dir}/tools/testing/src/node/ocaml/config.rs"
+    "${base_dir}/tools/testing/src/node/ocaml/mod.rs"
+    "${base_dir}/tools/testing/src/scenarios/multi_node/basic_connectivity_peer_discovery.rs"
+    "${base_dir}/tools/testing/src/scenarios/solo_node/basic_connectivity_accept_incoming.rs"
 )
 
 config_pattern_found=false
@@ -63,7 +63,7 @@ version_files=(
     "${base_dir}/.github/workflows/tests.yaml"
     "${base_dir}/.github/workflows/test-graphql-compatibility.yml"
     "${base_dir}/docker-compose.archive.devnet.compare.yml"
-    "${base_dir}/node/testing/src/node/ocaml/config.rs"
+    "${base_dir}/tools/testing/src/node/ocaml/config.rs"
 )
 
 version_pattern_found=false

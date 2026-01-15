@@ -1,0 +1,27 @@
+@import '../utilities/variables';
+
+.tracing-overview-overlay-small,
+.tracing-overview-overlay-big {
+	background-color: rgba(0, 0, 0, 0.3);
+	top: 76px !important;
+}
+
+.tracing-overview-overlay-small {
+	left: 160px !important;
+}
+
+.tracing-overview-overlay-big {
+	left: 44px !important;
+}
+
+.cdk-overlay-container .mina-graph {
+	box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+
+	.big-graph {
+		transition: 150ms ease-out !important;
+	}
+}
+
+.mat-mdc-dialog-container .mdc-dialog__surface {
+	background-color: unset !important;
+}

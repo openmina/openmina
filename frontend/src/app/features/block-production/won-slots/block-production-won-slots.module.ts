@@ -11,7 +11,7 @@ import {
   CopyComponent,
   HorizontalMenuComponent,
   HorizontalResizableContainerComponent,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { LoadingSpinnerComponent } from '@shared/loading-spinner/loading-spinner.component';
 import { BlockProductionWonSlotsFiltersComponent } from '@block-production/won-slots/filters/block-production-won-slots-filters.component';
 import { BlockProductionWonSlotsCardsComponent } from '@block-production/won-slots/cards/block-production-won-slots-cards.component';

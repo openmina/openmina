@@ -1,0 +1,80 @@
+[package]
+name = "mina-node-testing"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "mina_node_testing"
+path = "src/lib.rs"
+
+[[bin]]
+name = "mina-node-testing"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+axum = { workspace = true }
+base64 = { workspace = true }
+bs58 = { workspace = true }
+clap = { workspace = true, features = ["derive", "env"] }
+console = { workspace = true }
+ctrlc = { workspace = true }
+derive_more = { workspace = true }
+documented = { workspace = true, optional = true }
+hex = { workspace = true }
+lazy_static = { workspace = true }
+ledger = { workspace = true }
+libp2p = { workspace = true, features = [
+  "macros",
+  "serde",
+  "tcp",
+  "dns",
+  "tokio",
+  "yamux",
+  "pnet",
+  "noise",
+  "gossipsub",
+  "identify",
+  "kad",
+] }
+mina-core = { workspace = true }
+mina-node = { workspace = true, default-features = false }
+mina-node-invariants = { workspace = true }
+mina-node-native = { workspace = true }
+mina-p2p-messages = { workspace = true }
+mina-snark = { workspace = true }
+mina-vrf = { workspace = true }
+multiaddr = { workspace = true }
+multihash = { workspace = true }
+nix = { workspace = true }
+num_cpus = { workspace = true }
+postcard = { workspace = true }
+rand = { workspace = true }
+rayon = { workspace = true }
+redux = { workspace = true }
+reqwest = { workspace = true, features = ["blocking", "json"] }
+serde = { workspace = true }
+serde_json = { workspace = true, features = [
+  "unbounded_depth",
+  "arbitrary_precision",
+] }
+strum = { workspace = true }
+strum_macros = { workspace = true }
+temp-dir = { workspace = true }
+thiserror = { workspace = true }
+time = { workspace = true, features = ["formatting"] }
+tokio = { workspace = true }
+tower-http = { workspace = true }
+tracing = { workspace = true }
+tracing-log = { workspace = true }
+
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+redux = { workspace = true, features = ["serializable_callbacks"] }
+libp2p-identity = { workspace = true, features = ["ed25519", "rand", "serde"] }
+
+[features]
+default = ["p2p-libp2p", "scenario-generators"]
+scenario-generators = ["documented"]
+p2p-webrtc = ["mina-node-native/p2p-webrtc"]
+p2p-libp2p = ["mina-node-native/p2p-libp2p"]

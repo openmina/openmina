@@ -1,7 +1,6 @@
 @use '@angular/material' as mat;
 
 @use 'mina-rust';
-@use 'leaderboard-variables';
 
 $custom-typography: mat.m2-define-legacy-typography-config(
   $font-family: '"Inter", sans-serif',
@@ -56,7 +55,7 @@ p {
   margin-bottom: 0;
 }
 
-.openmina-backdrop {
+.mina-rust-backdrop {
   background: rgba(13, 13, 13, 0.8);
 }
 

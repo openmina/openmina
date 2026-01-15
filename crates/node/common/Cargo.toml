@@ -1,0 +1,54 @@
+[package]
+name = "mina-node-common"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow = { workspace = true }
+ark-ff = { workspace = true }
+binprot = { workspace = true }
+binprot_derive = { workspace = true }
+bitflags = { workspace = true }
+jsonpath-rust = { workspace = true }
+ledger = { workspace = true }
+mina-core = { workspace = true }
+mina-node = { workspace = true, features = ["replay"] }
+mina-p2p-messages = { workspace = true }
+mina-signer = { workspace = true }
+mina-vrf = { workspace = true }
+rand = { workspace = true }
+rayon = { workspace = true }
+rsa = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha3 = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["time", "macros"] }
+tracing = { workspace = true }
+
+[target.'cfg(target_family = "wasm")'.dependencies]
+redux = { workspace = true }
+wasm-bindgen = { workspace = true }
+wasm-bindgen-futures = { workspace = true }
+gloo-timers = { workspace = true }
+gloo-utils = { workspace = true }
+tracing-wasm = { workspace = true }
+
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+redux = { workspace = true, features = ["serializable_callbacks"] }
+tracing-subscriber = { workspace = true }
+tracing-appender = { workspace = true }
+libp2p-identity = { workspace = true, features = ["ed25519", "rand", "serde"] }
+mio = { workspace = true }
+reqwest = { workspace = true }
+aws-config = { workspace = true }
+aws-sdk-s3 = { workspace = true }
+google-cloud-storage = { workspace = true }
+google-cloud-auth = { workspace = true }
+
+[features]
+# won't compile without this on
+default = ["p2p-webrtc"]
+p2p-webrtc = ["mina-node/p2p-webrtc"]
+p2p-libp2p = ["mina-node/p2p-libp2p"]

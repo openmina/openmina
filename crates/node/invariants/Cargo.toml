@@ -1,0 +1,25 @@
+[package]
+name = "mina-node-invariants"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "mina_node_invariants"
+path = "src/lib.rs"
+
+[dependencies]
+documented = { workspace = true }
+lazy_static = { workspace = true }
+mina-node = { workspace = true }
+redux = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true, features = [
+  "unbounded_depth",
+  "arbitrary_precision",
+] }
+strum = { workspace = true }
+strum_macros = { workspace = true }
+
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+redux = { workspace = true, features = ["serializable_callbacks"] }

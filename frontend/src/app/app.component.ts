@@ -7,9 +7,9 @@ import {
   isDesktop,
   MAX_WIDTH_700,
   MergedRoute,
-  OpenminaEagerSharedModule,
+  MinaRustEagerSharedModule,
   safelyExecuteInBrowser,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { AppMenu } from '@shared/types/app/app-menu.type';
 import { BreakpointObserver, BreakpointState } from '@angular/cdk/layout';
 import { AppSelectors } from '@app/app.state';
@@ -28,7 +28,6 @@ import { ToolbarComponent } from '@app/layout/toolbar/toolbar.component';
 import { SubmenuTabsComponent } from '@app/layout/submenu-tabs/submenu-tabs.component';
 import { WebNodeLandingPageComponent } from '@app/layout/web-node-landing-page/web-node-landing-page.component';
 import { MenuTabsComponent } from '@app/layout/menu-tabs/menu-tabs.component';
-import { LeaderboardModule } from '@leaderboard/leaderboard.module';
 
 declare var AOS: any;
 
@@ -52,8 +51,7 @@ declare var AOS: any;
     WebNodeLandingPageComponent,
     MenuTabsComponent,
     // Modules
-    OpenminaEagerSharedModule,
-    LeaderboardModule,
+    MinaRustEagerSharedModule,
   ],
 })
 export class AppComponent extends StoreDispatcher implements OnInit {
@@ -74,15 +72,8 @@ export class AppComponent extends StoreDispatcher implements OnInit {
       route.url.startsWith(`/${Routes.LOADING_WEB_NODE}`),
     ),
   );
-  readonly showLeaderboardPage$: Observable<boolean> = this.select$(
-    getMergedRoute,
-  ).pipe(
-    filter(Boolean),
-    map((route: MergedRoute) => route.url.startsWith(`/${Routes.LEADERBOARD}`)),
-  );
   subMenusLength: number = 0;
   hideToolbar: boolean = CONFIG.hideToolbar;
-  showLeaderboard: boolean = CONFIG.showLeaderboard;
   loaded: boolean;
   isDesktop: boolean = isDesktop();
 
@@ -121,7 +112,7 @@ export class AppComponent extends StoreDispatcher implements OnInit {
       take(1),
     );
 
-    if (CONFIG.showLeaderboard && CONFIG.showWebNodeLandingPage) {
+    if (CONFIG.showWebNodeLandingPage) {
       /* frontend with some landing page */
       this.select(
         getMergedRoute,
@@ -133,7 +124,7 @@ export class AppComponent extends StoreDispatcher implements OnInit {
         ),
         take(1),
       );
-    } else if (!CONFIG.showLeaderboard && !CONFIG.showWebNodeLandingPage) {
+    } else {
       /* normal frontend (no landing pages) */
       this.initAppFunctionalities();
     }

@@ -12,7 +12,7 @@ import {
   isDesktop,
   MergedRoute,
   safelyExecuteInBrowser,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { debounceTime, filter, fromEvent, take } from 'rxjs';
 import { isNaN } from 'mathjs';
 import { untilDestroyed } from '@ngneat/until-destroy';

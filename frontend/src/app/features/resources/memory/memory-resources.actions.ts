@@ -1,4 +1,4 @@
-import { FeatureAction } from '@openmina/shared';
+import { FeatureAction } from '@mina-rust/shared';
 import { MemoryResource } from '@shared/types/resources/memory/memory-resource.type';
 import { TreemapView } from '@shared/types/resources/memory/treemap-view.type';
 
@@ -24,8 +24,7 @@ export const MEMORY_RESOURCES_SET_TREEMAP_VIEW =
 export const MEMORY_RESOURCES_CLOSE =
   MemoryResourcesActionTypes.MEMORY_RESOURCES_CLOSE;
 
-export interface MemoryResourcesAction
-  extends FeatureAction<MemoryResourcesActionTypes> {
+export interface MemoryResourcesAction extends FeatureAction<MemoryResourcesActionTypes> {
   readonly type: MemoryResourcesActionTypes;
 }
 

@@ -22,7 +22,7 @@ import {
   isMobile,
   MergedRoute,
   removeParamsFromURL,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { BlockProductionWonSlotsActions } from '@block-production/won-slots/block-production-won-slots.actions';
 
 @Component({

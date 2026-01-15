@@ -1,4 +1,4 @@
-import { FeatureAction, TableSort } from '@openmina/shared';
+import { FeatureAction, TableSort } from '@mina-rust/shared';
 import { NodesBootstrapNode } from '@shared/types/nodes/bootstrap/nodes-bootstrap-node.type';
 
 enum NodesBootstrapActionTypes {
@@ -26,8 +26,7 @@ export const NODES_BOOTSTRAP_TOGGLE_SIDE_PANEL =
 export const NODES_BOOTSTRAP_CLOSE =
   NodesBootstrapActionTypes.NODES_BOOTSTRAP_CLOSE;
 
-export interface NodesBootstrapAction
-  extends FeatureAction<NodesBootstrapActionTypes> {
+export interface NodesBootstrapAction extends FeatureAction<NodesBootstrapActionTypes> {
   readonly type: NodesBootstrapActionTypes;
 }
 

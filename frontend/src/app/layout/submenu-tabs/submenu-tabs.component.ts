@@ -11,7 +11,7 @@ import {
   HorizontalMenuComponent,
   MergedRoute,
   removeParamsFromURL,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { AppSelectors } from '@app/app.state';
 import { untilDestroyed } from '@ngneat/until-destroy';
 import { combineLatest, debounceTime, filter } from 'rxjs';

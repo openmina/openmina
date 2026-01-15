@@ -1,4 +1,4 @@
-import { FeatureAction } from '@openmina/shared';
+import { FeatureAction } from '@mina-rust/shared';
 import { MinaError } from '@shared/types/error-preview/mina-error.type';
 
 enum ErrorPreviewActionTypes {
@@ -9,8 +9,7 @@ enum ErrorPreviewActionTypes {
 export const ADD_ERROR = ErrorPreviewActionTypes.ADD_ERROR;
 export const MARK_ERRORS_AS_SEEN = ErrorPreviewActionTypes.MARK_ERRORS_AS_SEEN;
 
-export interface ErrorPreviewAction
-  extends FeatureAction<ErrorPreviewActionTypes> {
+export interface ErrorPreviewAction extends FeatureAction<ErrorPreviewActionTypes> {
   readonly type: ErrorPreviewActionTypes;
 }
 

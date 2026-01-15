@@ -22,9 +22,6 @@
     @if (!isMobile) {
       <mina-error-preview></mina-error-preview>
     }
-    @if (showUptime) {
-      <mina-uptime-pill></mina-uptime-pill>
-    }
     <div
       class="server-pill flex-row flex-end align-center flex-grow"
       [class.bootstrapping]="!haveNextBP || isAllNodesPage"

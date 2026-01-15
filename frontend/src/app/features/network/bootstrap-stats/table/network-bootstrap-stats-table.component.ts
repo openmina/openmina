@@ -5,7 +5,7 @@ import {
   MergedRoute,
   SecDurationConfig,
   TableColumnList,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { filter, take } from 'rxjs';
 import { NetworkBootstrapStatsRequest } from '@shared/types/network/bootstrap-stats/network-bootstrap-stats-request.type';
 import {

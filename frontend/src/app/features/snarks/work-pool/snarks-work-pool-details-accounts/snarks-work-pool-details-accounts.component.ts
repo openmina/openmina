@@ -5,7 +5,7 @@ import {
   OnInit,
 } from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
-import { getMergedRoute, MergedRoute, toggleItem } from '@openmina/shared';
+import { getMergedRoute, MergedRoute, toggleItem } from '@mina-rust/shared';
 import { Router } from '@angular/router';
 
 @Component({

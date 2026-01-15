@@ -1,0 +1,12 @@
+[package]
+name = "mina-fuzzer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+lazy_static = { workspace = true }
+rand = { workspace = true, features = ["small_rng"] }
+rand_distr = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }

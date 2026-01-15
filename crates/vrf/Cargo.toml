@@ -1,0 +1,33 @@
+[package]
+name = "mina-vrf"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow = { workspace = true }
+ark-ec = { workspace = true }
+ark-ff = { workspace = true }
+ark-serialize = { workspace = true }
+hex = { workspace = true }
+ledger = { workspace = true }
+mina-curves = { workspace = true }
+mina-hasher = { workspace = true }
+mina-node-account = { workspace = true }
+mina-p2p-messages = { workspace = true }
+mina-signer = { workspace = true }
+num = { workspace = true }
+o1-utils = { workspace = true }
+poseidon = { workspace = true }
+redux = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true, features = [
+  "unbounded_depth",
+  "arbitrary_precision",
+] }
+thiserror = { workspace = true }
+# num = "0.4"
+bs58 = { workspace = true }
+itertools = { workspace = true }
+rand = { workspace = true }
+sha2 = { workspace = true }

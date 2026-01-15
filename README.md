@@ -56,19 +56,55 @@ network connectivity, block production, SNARK generation, and debugging tools.
 
 ## Repository Structure
 
-This repository contains the complete Mina Rust Node implementation:
+This repository contains the complete Mina Rust Node implementation organized as
+a Cargo workspace:
 
-- [core/](core) - Provides basic types needed to be shared across different
-  components of the node.
-- [ledger/](ledger) - Mina ledger implementation in Rust.
-- [snark/](snark) - Snark/Proof verification.
-- [p2p/](p2p) - P2p implementation for Mina node.
-- [node/](node) - Combines all the business logic of the node.
-  - [native/](node/native) - OS specific pieces of the node, which is used to
-    run the node natively (Linux/Mac/Windows).
-  - [testing/](node/testing) - Testing framework for Mina node.
-- [cli/](cli) - Mina CLI.
-- [frontend/](frontend) - OpenMina frontend.
+### crates/
+
+Main project crates implementing the Mina protocol. Add new Mina-specific
+functionality here.
+
+- [cli](crates/cli) - Mina command-line interface
+- [core](crates/core) - Shared types across different node components
+- [fuzzer](crates/fuzzer) - Fuzzing infrastructure
+- [ledger](crates/ledger) - Mina ledger implementation in Rust
+- [macros](crates/macros) - Procedural macros
+- [node](crates/node) - Core node business logic
+  - [native](crates/node/native) - OS-specific node implementation
+    (Linux/Mac/Windows)
+- [p2p](crates/p2p) - P2P implementation for Mina node
+- [p2p-messages](crates/p2p-messages) - P2P message definitions
+- [snark](crates/snark) - SNARK/Proof verification
+- [vrf](crates/vrf) - Verifiable Random Function implementation
+
+### tools/
+
+Development and debugging utilities. Add new tooling here.
+
+- [bootstrap-sandbox](tools/bootstrap-sandbox) - Bootstrap testing utilities
+- [ledger-tool](tools/ledger-tool) - Ledger manipulation utilities
+- [testing](tools/testing) - Node testing framework
+
+### libs/
+
+Reusable, project-agnostic libraries that could be published independently. Add
+generic libraries here that are not Mina-specific.
+
+- [alloc-test](libs/alloc-test) - Memory allocation testing utilities
+- [redux](libs/redux) - Redux-style state management pattern
+
+### vendor/
+
+Third-party libraries with local modifications. Add vendored dependencies here.
+
+- [salsa-simple](vendor/salsa-simple) - Query system with incremental
+  computation
+
+### Other directories
+
+- [frontend/](frontend) - Mina Rust Node frontend
+- [poseidon/](poseidon) - Poseidon hash function (to be removed, see
+  [#1215](https://github.com/o1-labs/mina-rust/issues/1215))
 
 **[Learn more about the architecture →](https://o1-labs.github.io/mina-rust/docs/developers/getting-started)**
 
@@ -105,7 +141,6 @@ This repository contains the complete Mina Rust Node implementation:
 | ![Ubuntu][ubuntu-icon] **Ubuntu 22.04** | x64           | [![Ubuntu 22.04 x64][ubuntu-22-badge]][ubuntu-22-link]           |
 | ![Ubuntu][ubuntu-icon] **Ubuntu 24.04** | x64           | [![Ubuntu 24.04 x64][ubuntu-24-badge]][ubuntu-24-link]           |
 | ![Ubuntu][ubuntu-icon] **Ubuntu 24.04** | ARM64         | [![Ubuntu 24.04 ARM64][ubuntu-24-arm-badge]][ubuntu-24-arm-link] |
-| ![macOS][macos-icon] **macOS 13**       | Intel         | [![macOS 13 Intel][macos-13-badge]][macos-13-link]               |
 | ![macOS][macos-icon] **macOS 14**       | Apple Silicon | [![macOS 14 M1/M2][macos-14-badge]][macos-14-link]               |
 | ![macOS][macos-icon] **macOS 15**       | Apple Silicon | [![macOS 15 M1/M2/M3][macos-15-badge]][macos-15-link]            |
 | ![macOS][macos-icon] **macOS Latest**   | Apple Silicon | [![macOS Latest][macos-latest-badge]][macos-latest-link]         |
@@ -147,8 +182,6 @@ This repository contains the complete Mina Rust Node implementation:
   https://github.com/o1-labs/mina-rust/actions/workflows/build-ubuntu-24-04.yaml/badge.svg?branch=develop
 [ubuntu-24-arm-badge]:
   https://github.com/o1-labs/mina-rust/actions/workflows/build-ubuntu-24-04-arm.yaml/badge.svg?branch=develop
-[macos-13-badge]:
-  https://github.com/o1-labs/mina-rust/actions/workflows/build-macos-13.yaml/badge.svg?branch=develop
 [macos-14-badge]:
   https://github.com/o1-labs/mina-rust/actions/workflows/build-macos-14.yaml/badge.svg?branch=develop
 [macos-15-badge]:
@@ -164,8 +197,6 @@ This repository contains the complete Mina Rust Node implementation:
   https://github.com/o1-labs/mina-rust/actions/workflows/build-ubuntu-24-04.yaml
 [ubuntu-24-arm-link]:
   https://github.com/o1-labs/mina-rust/actions/workflows/build-ubuntu-24-04-arm.yaml
-[macos-13-link]:
-  https://github.com/o1-labs/mina-rust/actions/workflows/build-macos-13.yaml
 [macos-14-link]:
   https://github.com/o1-labs/mina-rust/actions/workflows/build-macos-14.yaml
 [macos-15-link]:

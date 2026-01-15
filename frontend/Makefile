@@ -1,5 +1,9 @@
 # Frontend Makefile
 
+# These are threaded from the outside env into build-webnode[-production]
+MINA_WEBNODE_SEED_URLS ?=
+MINA_WEBNODE_BOOTNODES ?=
+
 .PHONY: help
 help: ## Display this help message
 	@echo "Frontend Makefile - Available targets:"
@@ -10,12 +14,6 @@ help: ## Display this help message
 .PHONY: build
 build: ## Build the frontend
 	npx ng build
-
-.PHONY: build-fuzzing
-build-fuzzing: ## Build the frontend with fuzzing configuration
-	npx ng build --configuration fuzzing
-	cp dist/frontend/browser/assets/environments/fuzzing.js \
-		dist/frontend/browser/assets/environments/env.js
 
 .PHONY: build-local
 build-local: ## Build the frontend with local configuration
@@ -38,27 +36,21 @@ build-production: ## Build the frontend with production configuration
 
 .PHONY: build-webnode
 build-webnode: ## Build the frontend with webnode configuration
-	npx ng build --configuration webnode-local
+	npx ng build \
+	  --define MINA_WEBNODE_SEED_URLS="\"$(MINA_WEBNODE_SEED_URLS)\"" \
+	  --define MINA_WEBNODE_BOOTNODES="\"$(MINA_WEBNODE_BOOTNODES)\"" \
+	  --configuration webnode-local
 	cp dist/frontend/browser/assets/environments/webnode.js \
 		dist/frontend/browser/assets/environments/env.js
 
-.PHONY: build-leaderboard
-build-leaderboard: build-production ## Build the frontend with leaderboard configuration
-	cp dist/frontend/browser/assets/environments/leaderboard.js \
+.PHONY: build-webnode-production
+build-webnode-production: ## Build the frontend with webnode configuration and optimizations
+	npx ng build \
+	  --define MINA_WEBNODE_SEED_URLS="\"$(MINA_WEBNODE_SEED_URLS)\"" \
+	  --define MINA_WEBNODE_BOOTNODES="\"$(MINA_WEBNODE_BOOTNODES)\"" \
+	  --configuration webnode-production
+	cp dist/frontend/browser/assets/environments/webnode.js \
 		dist/frontend/browser/assets/environments/env.js
-
-.PHONY: build-staging
-build-staging: ## Build the frontend with staging configuration
-	npx ng build --configuration production
-	cp dist/frontend/browser/assets/environments/staging.js \
-		dist/frontend/browser/assets/environments/env.js
-
-.PHONY: build-leaderboard-sentry
-build-leaderboard-sentry: ## Build the frontend with leaderboard configuration and Sentry sourcemaps
-	npx ng build --configuration production
-	cp dist/frontend/browser/assets/environments/leaderboard.js \
-		dist/frontend/browser/assets/environments/env.js
-	$(MAKE) sentry-sourcemaps
 
 .PHONY: check-prettify
 check-prettify: ## Check if files are formatted with Prettier
@@ -72,18 +64,6 @@ clean: ## Clean build artifacts and node_modules
 copy-env: ## Copy webnode.js to env.js
 	cp dist/frontend/browser/assets/environments/webnode.js \
 		dist/frontend/browser/assets/environments/env.js
-
-.PHONY: deploy
-deploy: prebuild build-production-sentry copy-env ## Deploy the application
-	firebase deploy
-
-.PHONY: deploy-leaderboard
-deploy-leaderboard: prebuild build-leaderboard ## Deploy the leaderboard application
-	firebase deploy
-
-.PHONY: deploy-leaderboard-sentry
-deploy-leaderboard-sentry: prebuild build-leaderboard-sentry ## Deploy the leaderboard application with Sentry sourcemaps
-	firebase deploy
 
 .PHONY: install-deps
 install-deps: ## Install npm dependencies (alias)
@@ -102,9 +82,9 @@ rebuild: clean install-deps build ## Clean, reinstall dependencies, and rebuild
 
 .PHONY: sentry-sourcemaps
 sentry-sourcemaps: ## Upload sourcemaps to Sentry
-	sentry-cli sourcemaps inject --org openmina-uv --project openmina \
+	sentry-cli sourcemaps inject --org mina-rust-uv --project mina-rust \
 		./dist/frontend/browser
-	sentry-cli sourcemaps upload --org openmina-uv --project openmina \
+	sentry-cli sourcemaps upload --org mina-rust-uv --project mina-rust \
 		./dist/frontend/browser
 
 .PHONY: start
@@ -117,12 +97,7 @@ start-bundle: ## Serve the built bundle
 
 .PHONY: start-dev-mobile
 start-dev-mobile: ## Start the development server for mobile (accessible on network)
-	npx ng serve --configuration local --host 0.0.0.0
-
-.PHONY: start-fuzzing
-start-fuzzing: install-deps ## Start the fuzzing build and serve
-	npx ng build --configuration fuzzing
-	$(MAKE) start-bundle
+	npx ng serve --configuration development --host 0.0.0.0
 
 .PHONY: start-local
 start-local: ## Start the development server with local configuration
@@ -135,6 +110,10 @@ start-production: ## Start the development server with production configuration
 .PHONY: start-webnode
 start-webnode: install-deps ## Start the webnode development server
 	npx ng serve --configuration webnode-local --open
+
+.PHONY: start-webnode-production
+start-webnode-production: install-deps ## Start the webnode development server with optimizations
+	npx ng serve --configuration webnode-production --open
 
 .PHONY: test
 test: ## Run Cypress tests

@@ -7,25 +7,20 @@ on:
 
 jobs:
   lint:
-    timeout-minutes: 10
+    timeout-minutes: 15
     name: Lint - ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-24.04]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Load versions
         uses: ./.github/actions/load-versions
 
       - name: Setup build dependencies
         uses: ./.github/actions/setup-build-deps
-
-      - name: Use shared OCaml setting up steps
-        uses: ./.github/actions/setup-ocaml
-        with:
-          ocaml_version: ${{ env.OCAML_VERSION }}
 
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
@@ -48,18 +43,13 @@ jobs:
       matrix:
         os: [ubuntu-24.04]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Load versions
         uses: ./.github/actions/load-versions
 
       - name: Setup build dependencies
         uses: ./.github/actions/setup-build-deps
-
-      - name: Use shared OCaml setting up steps
-        uses: ./.github/actions/setup-ocaml
-        with:
-          ocaml_version: ${{ env.OCAML_VERSION }}
 
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
@@ -79,7 +69,7 @@ jobs:
       matrix:
         os: [ubuntu-24.04]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Install shellcheck
         run: |
@@ -97,7 +87,7 @@ jobs:
       matrix:
         os: [ubuntu-24.04]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Install hadolint
         run: |

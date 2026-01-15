@@ -1,0 +1,194 @@
+---
+title: Web Node
+description: Build and run a Mina node in your web browser using WebAssembly
+sidebar_position: 4
+---
+
+import CodeBlock from "@theme/CodeBlock";
+import GenerateEncryptedKeypairCargo from "!!raw-loader!../scripts/generate-encrypted-keypair-cargo.sh";
+import SetupInstallNvm from "!!raw-loader!../scripts/setup/install-nvm.sh";
+import SetupInstallRustup from "!!raw-loader!../scripts/setup/install-rustup.sh";
+import SetupMakeSetupWasm from "!!raw-loader!../scripts/setup/make-setup-wasm.sh";
+import MakeDownloadCircuits from "!!raw-loader!../scripts/setup/download-circuits.sh";
+import MakeInstallDeps from "!!raw-loader!../scripts/frontend/install-dependencies.sh";
+import MakeBuildWebnode from "!!raw-loader!../scripts/frontend/build-webnode.sh";
+
+# Web Node
+
+The web node is an experimental implementation of the Mina Rust node compiled to
+WebAssembly, enabling users to run a fully functional Mina node directly in
+their web browser. This eliminates the need for native software installation and
+pushes the boundaries of decentralized infrastructure.
+
+<!-- prettier-ignore-start -->
+
+:::tip Just want to run a web node?
+
+See the
+[Docker deployment guide](../../node-operators/web-node/local-web-node-docker)
+for the easiest way to run a web node without building from source.
+
+:::
+
+<!-- prettier-ignore-stop -->
+
+## Overview
+
+The web node leverages WebAssembly (WASM) technology to bring the full power of
+the Mina Rust node to web browsers. This enables block production, transaction
+validation, and network participation without traditional infrastructure
+requirements.
+
+### Features
+
+- **Browser-based node** - Run a complete Mina node in Chrome, Edge, or Safari
+- **Block production** - Participate in consensus directly from your browser
+- **P2P networking** - Connect to other nodes using WebRTC
+- **State management** - Maintain blockchain state in browser storage
+- **Zero installation** - No software installation or system configuration
+  required
+
+### Architecture
+
+The web node consists of two main components:
+
+1. **WebAssembly module** - The Mina Rust node compiled to WASM, providing core
+   blockchain functionality
+2. **Frontend application** - An Angular application that hosts the WASM module
+   and provides the user interface
+
+## Prerequisites
+
+### Rust toolchain
+
+Install the Rust toolchain (required for WASM compilation):
+
+<CodeBlock
+  language="bash"
+  title="website/docs/developers/scripts/setup/install-rustup.sh"
+>
+  {SetupInstallRustup}
+</CodeBlock>
+
+### Node.js
+
+We recommend using the latest Node.js version specified in the `.nvmrc` file at
+the root of the repository. As of this writing, You can use a Node.js version
+manager like `nvm` to easily switch to the correct version.
+
+For more information on how to install Node.js, please refer to the
+[official Node.js documentation](https://nodejs.org/en/download/package-manager/).
+
+## Building from source
+
+### Clone the repository
+
+```bash
+git clone https://github.com/o1-labs/mina-rust.git
+cd mina-rust/
+```
+
+### Install nightly toolchain and WASM tooling
+
+<CodeBlock
+  language="bash"
+  title="website/docs/developers/scripts/setup/make-setup-wasm.sh"
+>
+  {SetupMakeSetupWasm}
+</CodeBlock>
+
+### Download circuit files
+
+The web node requires circuit files for proof verification:
+
+<CodeBlock
+  language="bash"
+  title="website/docs/developers/scripts/setup/download-circuits.sh"
+>
+  {MakeDownloadCircuits}
+</CodeBlock>
+
+### Build the WebAssembly module
+
+```bash
+make build-wasm
+```
+
+<!-- prettier-ignore-start -->
+
+:::info Why nightly Rust?
+
+The web node WASM build requires nightly Rust for certain unstable features used
+in the WebAssembly compilation. The build process automatically handles the
+toolchain selection.
+
+:::
+
+<!-- prettier-ignore-stop -->
+
+### Install frontend dependencies
+
+<CodeBlock
+  language="bash"
+  title="website/docs/developers/scripts/frontend/install-dependencies.sh"
+>
+  {MakeInstallDeps}
+</CodeBlock>
+
+## Running the web node
+
+### Development mode
+
+Start the development server:
+
+```bash
+cd frontend/
+make start-webnode
+```
+
+Access the web node at `http://localhost:4200`
+
+### Production build
+
+Build an optimized production bundle:
+
+<CodeBlock
+  language="bash"
+  title="website/docs/developers/scripts/frontend/build-webnode.sh"
+>
+  {MakeBuildWebnode}
+</CodeBlock>
+
+The built files will be in `frontend/dist/` and can be served by any static web
+server.
+
+## Block producer mode (optional)
+
+By default, the web node runs in observer mode. To produce blocks, you need to
+generate an encrypted keypair and supply it to the interface upon starting the
+web node. Run this from the repository root:
+
+<CodeBlock
+  language="bash"
+  title="website/docs/developers/scripts/generate-encrypted-keypair-cargo.sh"
+>
+  {GenerateEncryptedKeypairCargo}
+</CodeBlock>
+
+Update the script to set your desired password. The encrypted key will be stored
+in `web-node-key.zip` and can be imported into the web node interface.
+
+## Related documentation
+
+- [Web node WASM API](./api-endpoints#web-node-wasm-api) - JavaScript API for
+  interacting with the web node programmatically
+- [Docker deployment](../../node-operators/web-node/local-web-node-docker) - Run
+  a web node using Docker without building from source
+- [Browser compatibility](../../node-operators/web-node/#browser-compatibility) -
+  Supported browsers and minimum versions
+- [Mainnet readiness](../mainnet-readiness) - Web node requirements for mainnet
+
+## External resources
+
+- [WebAssembly Documentation](https://webassembly.org/)
+- [WebRTC Specification](https://www.w3.org/TR/webrtc/)

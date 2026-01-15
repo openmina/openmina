@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { BenchmarksWalletsService } from '@benchmarks/wallets/benchmarks-wallets.service';
-import { ONE_BILLION } from '@openmina/shared';
+import { ONE_BILLION } from '@mina-rust/shared';
 
 @Component({
   selector: 'mina-benchmarks',

@@ -16,7 +16,7 @@ import {
   NodesOverviewRootStagedLedgerStep,
 } from '@shared/types/nodes/dashboard/nodes-overview-ledger.type';
 import { NodesOverviewNode } from '@shared/types/nodes/dashboard/nodes-overview-node.type';
-import { ONE_MILLION, SecDurationConfig } from '@openmina/shared';
+import { ONE_MILLION, SecDurationConfig } from '@mina-rust/shared';
 import { Overlay, OverlayRef } from '@angular/cdk/overlay';
 import { TemplatePortal } from '@angular/cdk/portal';
 import { DashboardRpcStats } from '@shared/types/dashboard/dashboard-rpc-stats.type';

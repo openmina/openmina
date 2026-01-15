@@ -18,7 +18,7 @@ import {
   NetworkMessagesActions,
 } from '@network/messages/network-messages.actions';
 import { NetworkMessage } from '@shared/types/network/messages/network-message.type';
-import { ONE_THOUSAND, VirtualScrollActivePage } from '@openmina/shared';
+import { ONE_THOUSAND, VirtualScrollActivePage } from '@mina-rust/shared';
 import { NetworkMessagesDirection } from '@shared/types/network/messages/network-messages-direction.enum';
 
 const initialState: NetworkMessagesState = {

@@ -7,7 +7,11 @@ import {
   selectNetworkConnectionsActiveConnection,
 } from '@network/connections/network-connections.state';
 import { NetworkConnectionsSelectConnection } from '@network/connections/network-connections.actions';
-import { getMergedRoute, MergedRoute, TableColumnList } from '@openmina/shared';
+import {
+  getMergedRoute,
+  MergedRoute,
+  TableColumnList,
+} from '@mina-rust/shared';
 import { filter, take } from 'rxjs';
 import { MinaTableRustWrapper } from '@shared/base-classes/mina-table-rust-wrapper.class';
 

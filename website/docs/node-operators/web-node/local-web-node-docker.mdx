@@ -1,0 +1,102 @@
+---
+sidebar_position: 2
+title: Docker Deployment
+description: How to deploy and launch a web node using Docker images
+---
+
+import CodeBlock from "@theme/CodeBlock";
+import GenerateEncryptedKeypairDocker from "!!raw-loader!../scripts/generate-encrypted-keypair-docker.sh";
+
+# Deploying and launching a web node using Docker
+
+If you intend to just run the web node instead of actively developing it, it is
+substantially easier to get set up using prebuilt Docker images. These images
+are automatically built on every versioned release.
+
+## Steps
+
+### 1. (Optional) Generate a block producer key
+
+If you want your web node to produce blocks, generate an encrypted key pair and
+package it for upload:
+
+<CodeBlock
+  language="bash"
+  title="website/docs/node-operators/scripts/generate-encrypted-keypair-docker.sh"
+>
+  {GenerateEncryptedKeypairDocker}
+</CodeBlock>
+
+### 2. Launch the web node container
+
+Launch the web node container:
+
+```sh
+# Launch the latest version of the frontend in webnode configuration
+docker run \
+  -e MINA_FRONTEND_ENVIRONMENT=webnode \
+  -p 4200:80 \
+  o1labs/mina-rust-frontend:latest
+```
+
+### 3. Open your browser and configure
+
+Navigate to [http://localhost:4200](http://localhost:4200). If you used a
+different port (`-p`) when launching the container, update the port accordingly.
+
+The web node runs in **observer mode** by default (no block production). To
+enable block production:
+
+1. Click the file upload area on the startup screen
+2. Select the `web-node-key.zip` file you generated in step 1
+3. Click "Start BP" to begin producing blocks
+
+If you skip the file upload, the web node will run as an observer only.
+
+## Environment Variable Reference
+
+The Dockerized web node can be configured with additional environment variables
+to customize behavior.
+
+### `MINA_FRONTEND_ENVIRONMENT`
+
+This is required to launch the frontend in general. To serve a web node, it must
+be set to the value `webnode`.
+
+Example:
+
+```
+-e MINA_FRONTEND_ENVIRONMENT=webnode
+```
+
+### `MINA_WEBNODE_SEED_URLS`
+
+A comma-separated list of http(s) URLs to fetch initial P2P seeds from. This is
+similar to the `--peer-list-url` flag in the native node, but can take multiple
+comma-separated values to fetch peer lists from multiple sources. Each peer list
+file must contain peer addresses in
+[WebRTC-Multiaddrish format](../../developers/webrtc.md#address-format-differences),
+separated by a newline.
+
+Example:
+
+```
+-e MINA_WEBNODE_SEED_URLS=https://bootnodes.minaprotocol.com/networks/devnet-webrtc.txt
+-e MINA_WEBNODE_SEED_URLS=https://example.com/extra-peers.txt,https://bootnodes.minaprotocol.com/networks/devnet-webrtc.txt,
+```
+
+### `MINA_WEBNODE_BOOTNODES`
+
+A comma separated list of
+[WebRTC-Multiaddrish](../../developers/webrtc.md#address-format-differences)
+peer addresses, to attempt to connect to in conjunction to any downloaded from
+`MINA_WEBNODE_SEED_URLS`. This is akin to the `--peers` flag in the native node,
+but instead of specifying the flag multiple times, each peer is simply
+comma-separated
+
+Example:
+
+```
+-e MINA_WEBNODE_BOOTNODES=/peer_id1/https/signaling.example.com/443
+-e MINA_WEBNODE_BOOTNODES=/peer_id1/https/signaling.example.com/443,/peer_id2/p2p/peer_id1
+```

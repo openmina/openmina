@@ -6,7 +6,7 @@ import { FuzzingFileDetails } from '@shared/types/fuzzing/fuzzing-file-details.t
 import { FuzzingLineCounter } from '@shared/types/fuzzing/fuzzing-line-counter.type';
 import { CONFIG } from '@shared/constants/config';
 import { FuzzingDirectory } from '@shared/types/fuzzing/fuzzing-directory.type';
-import { noMillisFormat, toReadableDate } from '@openmina/shared';
+import { noMillisFormat, toReadableDate } from '@mina-rust/shared';
 
 @Injectable({ providedIn: 'root' })
 export class FuzzingService {

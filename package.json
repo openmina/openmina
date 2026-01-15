@@ -7,7 +7,7 @@
     "check:md": "prettier --check \"**/*.md\" \"**/*.mdx\""
   },
   "devDependencies": {
-    "prettier": "^3.0.0"
+    "prettier": "3.7.4"
   },
   "prettier": {
     "printWidth": 80,

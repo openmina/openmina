@@ -12,7 +12,41 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Check for trailing whitespaces
         run: make check-trailing-whitespace
+
+  test-fix-whitespace:
+    timeout-minutes: 5
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install GNU sed (macOS)
+        if: runner.os == 'macOS'
+        run: ./website/docs/developers/scripts/setup/install-gnu-sed-macos.sh
+
+      - name: Create test file with trailing whitespace
+        run: printf 'line with trailing spaces   \nclean line\n' > test-whitespace.md
+
+      - name: Run fix-trailing-whitespace
+        run: make fix-trailing-whitespace
+
+      - name: Verify trailing whitespace was removed
+        run: |
+          if grep -q '[[:space:]]$' test-whitespace.md; then
+            echo "ERROR: Trailing whitespace was not removed"
+            cat -vet test-whitespace.md
+            exit 1
+          else
+            echo "Trailing whitespace successfully removed"
+            cat -vet test-whitespace.md
+          fi
+
+      - name: Clean up test file
+        run: rm -f test-whitespace.md

@@ -7,7 +7,7 @@ import {
   HorizontalMenuComponent,
   HorizontalResizableContainerComponent,
   MinaJsonViewerComponent,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import { SharedModule } from '@shared/shared.module';
 import { BlockProductionOverviewSlotsComponent } from '@block-production/overview/slots/block-production-overview-slots.component';
 import { BlockProductionOverviewToolbarComponent } from '@block-production/overview/toolbar/block-production-overview-toolbar.component';

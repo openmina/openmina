@@ -1,6 +1,5 @@
 use binprot::{BinProtRead, BinProtWrite};
 use std::{future::Future, io, pin::Pin};
-use thiserror::Error;
 
 use ledger::{Account, AccountIndex, Address, BaseLedger, Database, Mask};
 use mina_p2p_messages::{list::List, rpc::AnswerSyncLedgerQueryV2, v2};
@@ -12,14 +11,6 @@ pub struct SnarkedLedger {
     // NOTE: it is not the same as the merkle tree root
     pub top_hash: Option<v2::LedgerHash>,
     pub num: u32,
-}
-
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("{0}")]
-    Serde(#[from] serde_json::Error),
-    #[error("{0}")]
-    Io(#[from] io::Error),
 }
 
 impl SnarkedLedger {
@@ -151,7 +142,7 @@ impl SnarkedLedger {
                 _ => panic!(),
             }
         } else {
-            let b = ((depth as usize + 7) / 8).min(4);
+            let b = (depth as usize).div_ceil(8).min(4);
             let p = if depth > 0 {
                 pos * (1 << (32 - depth))
             } else {

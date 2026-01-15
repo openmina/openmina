@@ -8,7 +8,7 @@ import { NodesLiveNode } from '@shared/types/nodes/live/nodes-live-node.type';
 import { NodesLiveSetActiveNode } from '@nodes/live/nodes-live.actions';
 import { Router } from '@angular/router';
 import { Routes } from '@shared/enums/routes.enum';
-import { getMergedRoute, MergedRoute } from '@openmina/shared';
+import { getMergedRoute, MergedRoute } from '@mina-rust/shared';
 import { filter, take } from 'rxjs';
 
 @Component({

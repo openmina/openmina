@@ -1,18 +1,16 @@
 [package]
 name = "ledger-tool"
-version = "0.18.1"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 
 [dependencies]
 anyhow = { workspace = true }
+ledger = { workspace = true }
+mina-curves = { workspace = true }
+mina-node = { workspace = true }
+mina-p2p-messages = { workspace = true }
+mina-signer = { workspace = true }
 reqwest = { workspace = true, features = ["blocking"] }
 serde = { workspace = true }
 serde_json = { workspace = true, features = ["preserve_order"] }
 structopt = { workspace = true }
-
-ledger = { path = "../../ledger", package = "mina-tree" }
-
-mina-curves = { workspace = true }
-mina-p2p-messages = { workspace = true }
-mina-signer = { workspace = true }
-node = { path = "../../node" }

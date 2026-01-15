@@ -21,21 +21,31 @@ import {
   isBrowser,
   safelyExecuteInBrowser,
   getLocalStorage,
-} from '@openmina/shared';
-import { HttpClient } from '@angular/common/http';
+} from '@mina-rust/shared';
 import { sendSentryEvent } from '@shared/helpers/webnode.helper';
 import { DashboardPeerStatus } from '@shared/types/dashboard/dashboard.peer';
 import { FileProgressHelper } from '@core/helpers/file-progress.helper';
 import { CONFIG } from '@shared/constants/config';
-import firebase from 'firebase/compat';
-import { FirestoreService } from '@core/services/firestore.service';
 import { SentryService } from '@core/services/sentry.service';
 
 export interface PrivateStake {
   publicKey: string;
-  password: string;
+  password: string | null;
   stake: string;
 }
+
+export type BlockProducerConfig =
+  | { mode: 'observer' }
+  | { mode: 'uploaded'; data: PrivateStake }
+  | { mode: 'auto' };
+
+export type WebNodeConfiguration = {
+  network: string;
+  blockProducer: {
+    publicKey: string;
+    privateKey: string | [string, string] | null;
+  };
+};
 
 @Injectable({
   providedIn: 'root',
@@ -46,8 +56,6 @@ export class WebNodeService {
   );
   private readonly wasm$: BehaviorSubject<any> = new BehaviorSubject<any>(null);
 
-  private webNodeKeyPair: { publicKey: string; privateKey: string };
-  private webNodeNetwork: String;
   private webNodeStartTime: number;
   private sentryEvents: any = {};
 
@@ -55,14 +63,9 @@ export class WebNodeService {
     new BehaviorSubject<string>('');
 
   memory: WebAssembly.MemoryDescriptor;
-  privateStake: PrivateStake;
-  noBlockProduction: boolean = false;
+  blockProducerConfig: BlockProducerConfig = { mode: 'auto' };
 
-  constructor(
-    private http: HttpClient,
-    private firestore: FirestoreService,
-    private sentryService: SentryService,
-  ) {
+  constructor(private sentryService: SentryService) {
     FileProgressHelper.initDownloadProgress();
     const basex = base(
       '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz',
@@ -76,7 +79,9 @@ export class WebNodeService {
   }
 
   get publicKey(): string {
-    return this.privateStake?.publicKey;
+    return this.blockProducerConfig.mode === 'uploaded'
+      ? this.blockProducerConfig.data.publicKey
+      : undefined;
   }
 
   hasWebNodeConfig(): boolean {
@@ -90,97 +95,128 @@ export class WebNodeService {
     return false;
   }
 
-  loadWasm$(): Observable<void> {
+  loadWasm$(): Observable<WebNodeConfiguration> {
     this.webNodeStartTime = Date.now();
 
     if (isBrowser()) {
-      const args = (() => {
-        const raw = getLocalStorage()?.getItem('webnodeArgs');
-        if (raw === null) {
-          return null;
-        }
-        return JSON.parse(atob(raw));
-      })();
       return merge(
         of(any(window).webnode).pipe(filter(Boolean)),
         fromEvent(window, 'webNodeLoaded'),
-      ).pipe(
-        switchMap(() => {
-          const DEFAULT_NETWORK = 'devnet';
-          if (!args) {
-            return this.http
-              .get<{
-                publicKey: string;
-                privateKey: string;
-              }>('assets/webnode/web-node-secrets.json')
-              .pipe(
-                map(blockProducer => ({
-                  blockProducer,
-                  network: DEFAULT_NETWORK,
-                })),
-              );
-          }
-          const data = {
-            network: args['network'] || DEFAULT_NETWORK,
-            blockProducer: {} as any,
-          };
-          if (!!args['block_producer']) {
-            data['blockProducer'] = {
-              privateKey: args['block_producer'].sec_key,
-              publicKey: args['block_producer'].pub_key,
-            };
-          }
-          return of(data);
-        }),
-        tap(data => {
-          this.webNodeKeyPair = data.blockProducer;
-          this.webNodeNetwork = data.network;
-        }),
-        map((): any => void 0),
-      );
+      ).pipe(switchMap(() => this.getWebNodeConfiguration$()));
     }
     return EMPTY;
   }
 
-  startWasm$(): Observable<any> {
+  private getWebNodeConfiguration$(): Observable<WebNodeConfiguration> {
+    const DEFAULT_NETWORK = 'devnet';
+
+    switch (this.blockProducerConfig.mode) {
+      case 'uploaded':
+        console.log('WebNode: Using uploaded key configuration');
+        return of({
+          network: DEFAULT_NETWORK,
+          blockProducer: {
+            publicKey: this.blockProducerConfig.data.publicKey,
+            privateKey: this.blockProducerConfig.data.password
+              ? [
+                  this.blockProducerConfig.data.stake,
+                  this.blockProducerConfig.data.password,
+                ]
+              : this.blockProducerConfig.data.stake,
+          },
+        });
+
+      case 'observer':
+        console.log('WebNode: Running in observer mode (no block production)');
+        return of({
+          network: DEFAULT_NETWORK,
+          blockProducer: {
+            publicKey: '',
+            privateKey: null,
+          },
+        });
+
+      case 'auto':
+        // Check localStorage for URL parameter args
+        const args = this.getWebnodeArgsFromStorage();
+        if (args) {
+          console.log(
+            'WebNode: Using webnodeArgs from localStorage (URL parameter)',
+          );
+          return of({
+            network: args.network || DEFAULT_NETWORK,
+            blockProducer: args.blockProducer || {
+              publicKey: '',
+              privateKey: null,
+            },
+          });
+        }
+
+        // No configuration found - start in observer mode
+        console.log(
+          'WebNode: No configuration found - starting in observer mode',
+        );
+        return of({
+          blockProducer: {
+            publicKey: '',
+            privateKey: null,
+          },
+          network: DEFAULT_NETWORK,
+        });
+    }
+  }
+
+  private getWebnodeArgsFromStorage(): any | null {
+    // localStorage value is set in ../../app.component.ts
+    // from URL query param `a`.
+    const raw = getLocalStorage()?.getItem('webnodeArgs');
+    if (raw === null) {
+      return null;
+    }
+    try {
+      return JSON.parse(atob(raw));
+    } catch (error) {
+      console.error(
+        'WebNode: Failed to parse webnodeArgs from localStorage:',
+        error,
+      );
+      return null;
+    }
+  }
+
+  startWasm$(config: WebNodeConfiguration): Observable<any> {
     if (isBrowser()) {
       return of(any(window).webnode).pipe(
         switchMap((wasm: any) => {
           this.wasm$.next(wasm);
+
+          // nb: this is RUSTFLAGS "-Clink-args=--max-memory=4294967296" (4GiB)
+          // nb: in .cargo/config.toml for the wasm32 target the div by 65536
+          // nb: is because the WASM web API requires memory size to be specified
+          // nb: in terms of 64KiB *pages*
+          // todo: move to wherever angular injects `this.memory`
+          this.memory.maximum = 4294967296 / 65536;
           return from(
             wasm.default(undefined, new WebAssembly.Memory(this.memory)),
           ).pipe(map(() => wasm));
         }),
         switchMap(wasm => {
           this.webnodeProgress$.next('Loaded');
-          const urls = (() => {
-            if (typeof this.webNodeNetwork === 'number') {
-              const url = `${window.location.origin}/clusters/${this.webNodeNetwork}/`;
-              return {
-                seeds: url + 'seeds',
-                genesisConfig: url + 'genesis/config',
-              };
-            } else {
-              return {
-                seeds:
-                  'https://bootnodes.minaprotocol.com/networks/devnet-webrtc.txt',
-              };
-            }
-          })();
+          const urls = {
+            seedUrls: CONFIG.globalConfig.webNodeSeedUrls,
+            fixedSeeds: CONFIG.globalConfig.webNodeBootNodes,
+          };
+          let privateKey = config.blockProducer.privateKey;
           console.log(
-            'webnode config:',
-            !!this.webNodeKeyPair.privateKey,
-            this.webNodeNetwork,
+            'webnode config: has private key?',
+            !!privateKey,
+            'seed urls?',
             urls,
           );
-          let privateKey = this.privateStake
-            ? [this.privateStake.stake, this.privateStake.password]
-            : this.webNodeKeyPair.privateKey;
-          if (this.noBlockProduction) {
-            privateKey = null;
-          }
 
-          return from(wasm.run(privateKey, urls.seeds, urls.genesisConfig));
+          return from(
+            wasm.run(privateKey, urls.seedUrls, urls.fixedSeeds, null),
+          );
         }),
         tap((webnode: any) => {
           any(window).webnode = webnode;
@@ -190,15 +226,6 @@ export class WebNodeService {
         catchError(error => {
           sendSentryEvent('WebNode failed to start: ' + error.message);
           return throwError(() => new Error(error.message));
-        }),
-        switchMap(() => this.webnode$.asObservable()),
-        filter(() => CONFIG.globalConfig.heartbeats),
-        switchMap(() => timer(0, 60000)),
-        switchMap(() => this.heartBeat$),
-        switchMap(heartBeat => this.firestore.addHeartbeat(heartBeat)),
-        catchError(error => {
-          console.log('Error from heartbeat api:', error);
-          return of(null);
         }),
       );
     }
@@ -298,13 +325,6 @@ export class WebNodeService {
     return this.wasm$.asObservable().pipe(
       filter(Boolean),
       map(webnode => webnode.build_env()),
-    );
-  }
-
-  get heartBeat$(): Observable<any> {
-    return this.webnode$.asObservable().pipe(
-      filter(Boolean),
-      switchMap(webnode => from(webnode.make_heartbeat())),
     );
   }
 

@@ -11,7 +11,7 @@ import {
   FuzzingActions,
 } from '@fuzzing/fuzzing.actions';
 import { FuzzingFile } from '@shared/types/fuzzing/fuzzing-file.type';
-import { sort, SortDirection, TableSort } from '@openmina/shared';
+import { sort, SortDirection, TableSort } from '@mina-rust/shared';
 
 const initialState: FuzzingState = {
   directories: [],

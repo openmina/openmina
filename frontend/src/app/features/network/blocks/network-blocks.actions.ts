@@ -1,4 +1,4 @@
-import { FeatureAction, TableSort } from '@openmina/shared';
+import { FeatureAction, TableSort } from '@mina-rust/shared';
 import { NetworkBlock } from '@shared/types/network/blocks/network-block.type';
 import { MinaNode } from '@shared/types/core/environment/mina-env.type';
 
@@ -34,8 +34,7 @@ export const NETWORK_BLOCKS_GET_EARLIEST_BLOCK =
 export const NETWORK_BLOCKS_SET_EARLIEST_BLOCK =
   NetworkBlocksActionTypes.NETWORK_BLOCKS_SET_EARLIEST_BLOCK;
 
-export interface NetworkBlocksAction
-  extends FeatureAction<NetworkBlocksActionTypes> {
+export interface NetworkBlocksAction extends FeatureAction<NetworkBlocksActionTypes> {
   readonly type: NetworkBlocksActionTypes;
 }
 

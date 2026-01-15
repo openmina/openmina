@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
-import { isMobile } from '@openmina/shared';
+import { isMobile } from '@mina-rust/shared';
 import { MempoolSelectors } from '@app/features/mempool/mempool.state';
 import { MempoolFilters } from '@shared/types/mempool/mempool-filters.type';
 import { MempoolTransactionKind } from '@shared/types/mempool/mempool-transaction.type';

@@ -1,0 +1,17 @@
+<div class="h-lg flex-row pb-10">
+	<mina-horizontal-menu [template]="buttons" [clz]="'pl-12 pr-12'"></mina-horizontal-menu>
+	<ng-template #buttons>
+		<button class="btn-primary mr-8" (click)="downloadJson()">Save</button>
+		<button class="btn-primary mr-8" (click)="downloadBin()" *ngIf="saveBinBtn">Save Bin</button>
+		<button class="btn-primary mr-8" [copyToClipboard]="jsonString">Copy</button>
+		<ng-container *ngIf="keepExpandingHistory">
+			<button class="btn-primary mr-8" (click)="collapseEntireJSON()">Collapse All</button>
+			<button class="btn-primary" (click)="expandEntireJSON()">Expand All</button>
+		</ng-container>
+	</ng-template>
+</div>
+<div class="flex-column h-minus-lg overflow-y-auto pr-5">
+	<mina-json-viewer [json]="json || {}"
+										[expandTracking]="expandTracking"
+										[expanded]="expanded"></mina-json-viewer>
+</div>

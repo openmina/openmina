@@ -7,9 +7,10 @@
 # - ./github/workflows/fmt.yaml
 # - ./github/workflows/lint.yaml
 NIGHTLY_RUST_VERSION = "nightly"
+NODE_VERSION := $(shell cat .nvmrc)
 
 # WebAssembly
-WASM_BINDGEN_CLI_VERSION = "0.2.99"
+WASM_BINDGEN_CLI_VERSION = "0.2.106"
 
 # TOML formatter
 TAPLO_CLI_VERSION = "0.9.3"
@@ -35,6 +36,22 @@ MINA_LIBP2P_PORT ?= 8302
 NETWORK ?= devnet
 VERBOSITY ?= info
 GIT_COMMIT := $(shell git rev-parse --short=8 HEAD)
+
+# Circuit Blobs
+CIRCUITS_REPO ?= https://github.com/o1-labs/circuit-blobs.git
+CIRCUITS_REV ?= main
+CIRCUITS_NETWORKS ?= 3.0.0mainnet berkeley-devnet
+
+# Detect GNU sed (macOS requires gsed from Homebrew gnu-sed)
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+    SED := $(shell command -v gsed 2>/dev/null)
+    ifeq ($(SED),)
+        $(error GNU sed (gsed) not found on macOS. Install with: brew install gnu-sed)
+    endif
+else
+    SED := sed
+endif
 
 # Documentation server port
 DOCS_PORT ?= 3000
@@ -68,14 +85,14 @@ build: ## Build the project in debug mode
 
 .PHONY: build-ledger
 build-ledger: download-circuits ## Build the ledger binary and library, requires nightly Rust
-	@cd ledger && cargo +$(NIGHTLY_RUST_VERSION) build --release --tests
+	@cd crates/ledger && cargo +$(NIGHTLY_RUST_VERSION) build --release --tests
 
 build-node-native: ## Build the package mina-node-native with all features and tests
 	@cargo build -p mina-node-native --all-features --release --tests
 
 .PHONY: build-release
 build-release: ## Build the project in release mode
-	@cargo build --release --package=cli --bin mina
+	@cargo build --release --package=mina-cli --bin mina
 
 .PHONY: build-testing
 build-testing: ## Build the testing binary with scenario generators
@@ -86,11 +103,10 @@ build-tests: ## Build tests for scenario testing
 	@mkdir -p target/release/tests
 	@cargo build --release --tests \
 		--package=mina-node-testing \
-		--package=cli
-	@cargo build --release --tests \
-		--package=mina-node-testing \
-		--package=cli \
 		--message-format=json > cargo-build-test.json
+	@cargo build --release --tests \
+		--package=mina-cli \
+		--message-format=json >> cargo-build-test.json
 	@jq -r '. | select(.executable != null and (.target.kind | (contains(["test"])))) | [.target.name, .executable ] | @tsv' \
 		cargo-build-test.json > tests.tsv
 	@while read NAME FILE; do \
@@ -102,7 +118,7 @@ build-tests-webrtc: ## Build tests for WebRTC
 	@mkdir -p target/release/tests
 	@cargo build --release --tests \
 		--package=mina-node-testing \
-		--package=cli
+		--package=mina-cli
 # Update ./.gitignore accordingly if cargo-build-test.json is changed
 	@cargo build --release \
 		--features=scenario-generators,p2p-webrtc \
@@ -116,13 +132,9 @@ build-tests-webrtc: ## Build tests for WebRTC
 		cp -a $$FILE target/release/tests/webrtc_$$NAME; \
 	done < tests.tsv
 
-.PHONY: build-vrf
-build-vrf: ## Build the VRF package
-	@cd vrf && cargo +$(NIGHTLY_RUST_VERSION) build --release --tests
-
 .PHONY: build-wasm
 build-wasm: ## Build WebAssembly node
-	@cd node/web && cargo +${NIGHTLY_RUST_VERSION} build \
+	@cd crates/node/web && cargo +${NIGHTLY_RUST_VERSION} build \
 		--release --target wasm32-unknown-unknown
 # Update ./.gitignore accordingly if the out-dir is changed
 	@wasm-bindgen --keep-debug --web \
@@ -149,6 +161,10 @@ bench-database: ## Run ledger database benchmark
 check: ## Check code for compilation errors
 	cargo check --all-targets
 
+.PHONY: check-beta
+check-beta: ## Check code for compilation errors using beta Rust
+	cargo +beta check --all-targets
+
 .PHONY: check-tx-fuzzing
 check-tx-fuzzing: ## Check the transaction fuzzing tools, requires nightly Rust
 	@cd tools/fuzzing && cargo +$(NIGHTLY_RUST_VERSION) check
@@ -173,14 +189,16 @@ fix-trailing-whitespace: ## Remove trailing whitespaces from all files
 		-o -name "*.js" -o -name "*.jsx" -o -name "*.sh" \) \
 		-not -path "./target/*" \
 		-not -path "./node_modules/*" \
+		-not -path "./frontend/.angular/*" \
 		-not -path "./frontend/node_modules/*" \
 		-not -path "./frontend/dist/*" \
+		-not -path "./pkg/*" \
 		-not -path "./website/node_modules/*" \
 		-not -path "./website/build/*" \
 		-not -path "./website/static/api-docs/*" \
 		-not -path "./website/.docusaurus/*" \
 		-not -path "./.git/*" \
-		-exec sh -c 'echo "Processing: $$1"; sed -i"" "s/[[:space:]]*$$//" "$$1"' _ {} \; && \
+		-exec sh -c 'echo "Processing: $$1"; $(SED) -i -e "s/[[:space:]]*$$//" "$$1"' _ {} \; && \
 		echo "Trailing whitespaces removed."
 
 .PHONY: check-trailing-whitespace
@@ -192,8 +210,10 @@ check-trailing-whitespace: ## Check for trailing whitespaces in source files
 		-o -name "*.js" -o -name "*.jsx" -o -name "*.sh" \) \
 		-not -path "./target/*" \
 		-not -path "./node_modules/*" \
+		-not -path "./frontend/.angular/*" \
 		-not -path "./frontend/node_modules/*" \
 		-not -path "./frontend/dist/*" \
+		-not -path "./pkg/*" \
 		-not -path "./website/node_modules/*" \
 		-not -path "./website/build/*" \
 		-not -path "./website/static/api-docs/*" \
@@ -217,9 +237,12 @@ clean: ## Clean build artifacts
 .PHONY: download-circuits
 download-circuits: ## Download the circuits used by Mina from GitHub
 	@if [ ! -d "circuit-blobs" ]; then \
-	  git clone --depth 1 https://github.com/o1-labs/circuit-blobs.git -b dw/add-berkeley-687bf44e97328e1cc0e85291663009410f64bd99; \
-	  ln -s "$$PWD"/circuit-blobs/3.0.0mainnet ledger/; \
-	  ln -s "$$PWD"/circuit-blobs/berkeley-devnet ledger/; \
+	  git clone --depth 1 $(CIRCUITS_REPO) -b $(CIRCUITS_REV); \
+	  for network in $(CIRCUITS_NETWORKS); do \
+	    echo "Including circuits for $$network"; \
+	    rm -f "$$PWD"/crates/ledger/"$$network"; \
+	    ln -s "$$PWD"/circuit-blobs/"$$network" crates/ledger/"$$network"; \
+	  done; \
 	else \
 	  echo "circuit-blobs already exists, skipping download."; \
 	fi
@@ -237,7 +260,13 @@ format-md: ## Format all markdown and MDX files to wrap at 80 characters
 
 .PHONY: lint
 lint: ## Run linter (clippy)
-	cargo clippy --all-targets -- -D warnings --allow clippy::mutable_key_type
+	cargo clippy --all-targets -- -D warnings \
+	  --allow unused_assignments
+
+.PHONY: lint-beta
+lint-beta: ## Run linter (clippy) using beta Rust
+	cargo +beta clippy --all-targets -- -D warnings \
+	  --allow unused_assignments
 
 .PHONY: lint-bash
 lint-bash: ## Check all shell scripts using shellcheck
@@ -295,7 +324,7 @@ setup-taplo: ## Install taplo TOML formatter
 	@if taplo --version 2>/dev/null | grep -q ${TAPLO_CLI_VERSION}; then \
 		echo "taplo ${TAPLO_CLI_VERSION} already installed"; \
 	else \
-		cargo install taplo-cli --version ${TAPLO_CLI_VERSION} --force; \
+		cargo +nightly install taplo-cli --version ${TAPLO_CLI_VERSION} --force; \
 	fi
 
 .PHONY: setup
@@ -307,20 +336,15 @@ test: ## Run tests
 
 .PHONY: test-ledger
 test-ledger: build-ledger ## Run ledger tests in release mode, requires nightly Rust
-	@cd ledger && cargo +$(NIGHTLY_RUST_VERSION) test --release -- -Z unstable-options --report-time
+	@cd crates/ledger && cargo +$(NIGHTLY_RUST_VERSION) test --release -- -Z unstable-options --report-time
 
 .PHONY: test-p2p
 test-p2p: ## Run P2P tests
-	cargo test -p p2p --tests --release
+	cargo test -p mina-p2p --tests --release
 
 .PHONY: test-release
 test-release: ## Run tests in release mode
 	cargo test --release
-
-.PHONY: test-vrf
-test-vrf: ## Run VRF tests, requires nightly Rust
-	@cd vrf && cargo +$(NIGHTLY_RUST_VERSION) test --release -- \
-		-Z unstable-options --report-time
 
 .PHONY: test-account
 test-account: ## Run account tests
@@ -353,34 +377,23 @@ nextest-release: ## Run tests in release mode with cargo-nextest
 
 .PHONY: nextest-p2p
 nextest-p2p: ## Run P2P tests with cargo-nextest
-	@cargo nextest run -p p2p --tests
+	@cargo nextest run -p mina-p2p --tests
 
 .PHONY: nextest-ledger
 nextest-ledger: build-ledger ## Run ledger tests with cargo-nextest, requires nightly Rust
-	@cd ledger && cargo +$(NIGHTLY_RUST_VERSION) nextest run --release
-
-.PHONY: nextest-vrf
-nextest-vrf: ## Run VRF tests with cargo-nextest, requires nightly Rust
-	@cd vrf && cargo +$(NIGHTLY_RUST_VERSION) nextest run --release
+	@cd crates/ledger && cargo +$(NIGHTLY_RUST_VERSION) nextest run --release
 
 # Docker build targets
 
 .PHONY: docker-build-all
-docker-build-all: docker-build-bootstrap-sandbox docker-build-debugger \
+docker-build-all: docker-build-bootstrap-sandbox \
 	docker-build-frontend docker-build-fuzzing \
-	docker-build-light docker-build-light-focal docker-build-mina \
-	docker-build-mina-testing \
-	docker-build-test ## Build all Docker images
+	docker-build-mina ## Build all Docker images
 
 .PHONY: docker-build-bootstrap-sandbox
 docker-build-bootstrap-sandbox: ## Build bootstrap sandbox Docker image
 	docker build -t $(DOCKER_ORG)/mina-rust-bootstrap-sandbox:$(GIT_COMMIT) \
 		tools/bootstrap-sandbox/
-
-.PHONY: docker-build-debugger
-docker-build-debugger: ## Build debugger Docker image
-	docker build -t $(DOCKER_ORG)/mina-rust-debugger:$(GIT_COMMIT) \
-		-f node/testing/docker/Dockerfile.debugger node/testing/docker/
 
 .PHONY: docker-build-frontend
 docker-build-frontend: ## Build frontend Docker image
@@ -394,6 +407,7 @@ docker-build-frontend: ## Build frontend Docker image
 	esac; \
 	echo "Building for platform: $$PLATFORM"; \
 	docker buildx build \
+		--build-arg NODE_VERSION=$(NODE_VERSION) \
 		--platform $$PLATFORM \
 		--tag $(DOCKER_ORG)/mina-rust-frontend:$(GIT_COMMIT) \
 		--file ./frontend/Dockerfile \
@@ -402,16 +416,6 @@ docker-build-frontend: ## Build frontend Docker image
 .PHONY: docker-build-fuzzing
 docker-build-fuzzing: ## Build fuzzing Docker image
 	docker build -t $(DOCKER_ORG)/mina-rust-fuzzing:$(GIT_COMMIT) tools/fuzzing/
-
-.PHONY: docker-build-light
-docker-build-light: ## Build light Docker image
-	docker build -t $(DOCKER_ORG)/mina-rust-light:$(GIT_COMMIT) \
-		-f node/testing/docker/Dockerfile.light node/testing/docker/
-
-.PHONY: docker-build-light-focal
-docker-build-light-focal: ## Build light focal Docker image
-	docker build -t $(DOCKER_ORG)/mina-rust-light-focal:$(GIT_COMMIT) \
-		-f node/testing/docker/Dockerfile.light.focal node/testing/docker/
 
 .PHONY: docker-build-mina
 docker-build-mina: ## Build main Mina Docker image
@@ -427,16 +431,6 @@ docker-build-mina: ## Build main Mina Docker image
 		--tag $(DOCKER_ORG)/mina-rust:$(GIT_COMMIT) \
 		.
 
-.PHONY: docker-build-mina-testing
-docker-build-mina-testing: ## Build Mina testing Docker image
-	docker build -t $(DOCKER_ORG)/mina-rust-testing:$(GIT_COMMIT) \
-		-f node/testing/docker/Dockerfile.mina node/testing/docker/
-
-.PHONY: docker-build-test
-docker-build-test: ## Build test Docker image
-	docker build -t $(DOCKER_ORG)/mina-rust-test:$(GIT_COMMIT) \
-		-f node/testing/docker/Dockerfile.test node/testing/docker/
-
 # Docker push targets
 
 .PHONY: docker-push-mina
@@ -450,7 +444,7 @@ docker-push-frontend: ## Push frontend Docker image to DockerHub
 # Node running targets
 .PHONY: run-node
 run-node: build-release ## Run a basic node (NETWORK=devnet, VERBOSITY=info)
-	@cargo run --release --package=cli --bin mina -- node --network $(NETWORK) --verbosity $(VERBOSITY)
+	@cargo run --release --package=mina-cli --bin mina -- node --network $(NETWORK) --verbosity $(VERBOSITY)
 
 # Postgres related targets + archive node
 .PHONY: run-archive
@@ -472,7 +466,7 @@ run-block-producer: build-release ## Run a block producer node on $(NETWORK) net
 	fi
 	cargo run \
 		--bin mina \
-		--package=cli \
+		--package=mina-cli \
 		--release -- \
 		node \
 		--producer-key $(PRODUCER_KEY_FILENAME) \
@@ -495,7 +489,7 @@ generate-block-producer-key: build-release ## Generate a new block producer key 
 	fi
 	@mkdir -p mina-workdir
 	@echo "Generating new encrypted block producer key..."
-	@OUTPUT=$$($(if $(MINA_PRIVKEY_PASS),MINA_PRIVKEY_PASS="$(MINA_PRIVKEY_PASS)") cargo run --release --package=cli --bin mina -- misc mina-encrypted-key --file $(PRODUCER_KEY_FILENAME)); \
+	@OUTPUT=$$($(if $(MINA_PRIVKEY_PASS),MINA_PRIVKEY_PASS="$(MINA_PRIVKEY_PASS)") cargo run --release --package=mina-cli --bin mina -- misc mina-encrypted-key --file $(PRODUCER_KEY_FILENAME)); \
 	PUBLIC_KEY=$$(echo "$$OUTPUT" | grep "public key:" | cut -d' ' -f3); \
 	chmod 600 $(PRODUCER_KEY_FILENAME); \
 	echo ""; \

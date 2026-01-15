@@ -1,0 +1,108 @@
+.p-relative {
+	position: relative !important;
+}
+
+.p-absolute {
+	position: absolute !important;
+}
+
+.p-fixed {
+	position: fixed !important;
+}
+
+.p-absolute-cover {
+	position: absolute !important;
+	top:0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+}
+
+.z-0 {
+	z-index: 0;
+}
+
+.z-1 {
+	z-index: 1;
+}
+
+.d-block {
+	display: block !important;
+}
+
+.d-inline-block {
+	display: inline-block !important;
+}
+
+.d-none {
+	display: none !important;
+}
+
+.overflow-hidden {
+	overflow: hidden;
+}
+
+.overflow-auto {
+	overflow-x: auto;
+	overflow-y: auto;
+}
+
+.overflow-x-auto {
+	overflow-x: auto;
+}
+
+.overflow-x-hidden {
+	overflow-x: hidden;
+}
+
+.overflow-y-auto {
+	overflow-y: auto;
+}
+
+.overflow-y-hidden {
+	overflow-y: hidden;
+}
+
+.overflow-y-scroll {
+	overflow-y: scroll;
+}
+
+.overflow-visible {
+	overflow: visible;
+}
+
+.hidden {
+	visibility: hidden !important;
+}
+
+/* EXTRA SMALL - MOBILE PORTRAIT */
+@media (max-width: 480px) {
+	.d-none-xs {
+		display: none !important;
+	}
+}
+
+/* SMALL - MOBILE LANDSCAPE */
+@media (max-width: 768px) {
+	.d-none-sm {
+		display: none !important;
+	}
+}
+
+/* MEDIUM - TABLET PORTRAIT */
+@media (max-width: 1024px) {
+	.d-none-md {
+		display: none !important;
+	}
+}
+
+/* LARGE - TABLET LANDSCAPE */
+@media (max-width: 1280px) {
+	.d-none-lg {
+		display: none !important;
+	}
+}
+
+/* EXTRA LARGE - DESKTOP */
+@media (min-width: 1281px) {
+}

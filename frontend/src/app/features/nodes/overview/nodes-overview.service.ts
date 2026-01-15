@@ -11,7 +11,7 @@ import {
   ONE_MILLION,
   ONE_THOUSAND,
   toReadableDate,
-} from '@openmina/shared';
+} from '@mina-rust/shared';
 import {
   NodesOverviewBlock,
   NodesOverviewNodeBlockStatus,

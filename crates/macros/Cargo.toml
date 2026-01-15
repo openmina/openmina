@@ -1,0 +1,20 @@
+[package]
+name = "mina-macros"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors = ["Alexander Koptelov <alexandre.koptelov@gmail.com>"]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = { workspace = true }
+quote = { workspace = true }
+syn = { workspace = true }
+
+[dev-dependencies]
+mina-core = { workspace = true }
+tracing = { workspace = true }
+rust-format = { workspace = true, features = ["token_stream"] }
+anyhow = { workspace = true }

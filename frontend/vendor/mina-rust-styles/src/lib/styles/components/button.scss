@@ -1,0 +1,157 @@
+@import '../utilities/variables';
+@import '../utilities/flex';
+@import '../utilities/dimensions';
+
+button {
+	line-height: 21px;
+	border: none;
+	font-family: inherit;
+	font-weight: 600;
+	font-size: inherit;
+	outline: none;
+	border-radius: 4px;
+	-webkit-tap-highlight-color: transparent;
+	@include h-sm();
+
+	&:not([disabled]) {
+		cursor: pointer;
+	}
+
+	&.btn-selected {
+		background-color: $selected-container;
+		color: $selected-primary;
+
+		&:hover {
+			filter: brightness(120%);
+		}
+	}
+
+	&.btn-cta {
+		background-color: $cta-container;
+		color: $cta-primary;
+
+		&:hover {
+			filter: brightness(120%);
+		}
+	}
+
+	&.btn-success-inverted {
+		background-color: $success-primary;
+		color: $cta-primary;
+
+		&:hover {
+			filter: brightness(120%);
+		}
+	}
+
+	&.btn-primary {
+		background-color: $base-container;
+		color: $base-primary;
+
+		.mina-icon {
+			color: $base-tertiary;
+		}
+
+		&:hover {
+			background-color: $base-divider;
+
+			.mina-icon {
+				color: $base-primary;
+			}
+		}
+	}
+
+	&.btn-secondary {
+		background-color: $base-container;
+		color: $base-secondary;
+
+		&:hover {
+			background-color: $base-divider;
+		}
+	}
+
+	&.btn-warn {
+		background-color: $warn-container;
+		color: $warn-primary;
+
+		&:hover {
+			color: $base-primary;
+		}
+	}
+
+	&.btn-aware {
+		background-color: $aware-container;
+		color: $aware-primary;
+
+		&:hover {
+			filter: brightness(120%);
+		}
+	}
+
+	&.btn-special-alt-3 {
+		background-color: $success-divider;
+		color: $special-selected-alt-3-primary;
+
+		&:hover {
+			filter: brightness(120%);
+		}
+	}
+
+	&.btn-transparent {
+		background-color: unset;
+	}
+
+	&.icon-btn {
+		@include w-sm();
+		@include flexRowFullCenter();
+	}
+
+	&:disabled, &.disabled {
+		opacity: 0.4;
+		pointer-events: none;
+	}
+}
+
+.live-button,
+.pause-button,
+.icon-button {
+	width: 63px;
+	border-radius: 6px;
+	@include flexRowFullCenter();
+}
+
+.live-button {
+	background-color: unset;
+	color: $base-secondary;
+
+	&.active {
+		color: $success-primary;
+	}
+
+	&:hover,
+	&.active {
+		background-color: $success-container;
+	}
+}
+
+.pause-button {
+	background-color: unset;
+	color: $base-secondary;
+
+	&.active,
+	&:hover {
+		color: $selected-primary;
+		background-color: $selected-container;
+	}
+}
+
+.icon-button {
+	@include w-sm();
+	background: $base-container;
+	color: $base-tertiary;
+
+	&:hover:not([disabled]) {
+		color: $base-secondary;
+		background: $base-divider;
+	}
+}
