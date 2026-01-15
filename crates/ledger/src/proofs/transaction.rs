@@ -1653,7 +1653,9 @@ pub mod legacy_input {
 pub mod poseidon {
     use std::marker::PhantomData;
 
-    use ::poseidon::{PlonkSpongeConstantsKimchi, SpongeConstants, SpongeParams, SpongeState};
+    use ::poseidon::{
+        PlonkSpongeConstantsKimchi, SpongeConstants, SpongeParamsForField, SpongeState,
+    };
 
     use super::*;
 
@@ -1661,7 +1663,6 @@ pub mod poseidon {
     pub struct Sponge<F: FieldWitness, C: SpongeConstants = PlonkSpongeConstantsKimchi> {
         pub state: [F; 3],
         pub sponge_state: SpongeState,
-        params: &'static SpongeParams<F>,
         nabsorb: usize,
         _constants: PhantomData<C>,
     }
@@ -1681,18 +1682,18 @@ pub mod poseidon {
         F: FieldWitness,
         C: SpongeConstants,
     {
-        pub fn new_with_state_params(state: [F; 3], params: &'static SpongeParams<F>) -> Self {
-            Self {
-                state,
-                sponge_state: SpongeState::Absorbed(0),
-                params,
-                nabsorb: 0,
-                _constants: PhantomData,
-            }
+        #[deprecated(note = "probably supposed to use legacy params here")]
+        pub fn new_with_state_params(state: [F; 3]) -> Self {
+            Self::new_with_state(state)
         }
 
         pub fn new_with_state(state: [F; 3]) -> Self {
-            Self::new_with_state_params(state, F::get_params())
+            Self {
+                state,
+                sponge_state: SpongeState::Absorbed(0),
+                nabsorb: 0,
+                _constants: PhantomData,
+            }
         }
 
         pub fn new() -> Self {
@@ -1854,11 +1855,13 @@ pub mod poseidon {
         }
 
         pub fn poseidon_block_cipher(&mut self, first: bool, w: &mut Witness<F>) {
+            let round_constants = F::get_params().round_constants();
+
             if C::PERM_HALF_ROUNDS_FULL == 0 {
                 if C::PERM_INITIAL_ARK {
                     // legacy
 
-                    for (i, x) in self.params.round_constants[0].iter().enumerate() {
+                    for (i, x) in round_constants[0].iter().enumerate() {
                         self.state[i].add_assign(x);
                     }
                     w.exists(self.state[0]); // Good
@@ -1884,12 +1887,14 @@ pub mod poseidon {
         }
 
         pub fn full_round(&mut self, r: usize, first: bool, w: &mut Witness<F>) {
+            let round_constants = F::get_params().round_constants();
+
             for (index, state_i) in self.state.iter_mut().enumerate() {
                 let push_witness = !(first && index == 2);
                 *state_i = sbox::<F, C>(*state_i, push_witness, w);
             }
-            self.state = apply_mds_matrix::<F, C>(self.params, &self.state);
-            for (i, x) in self.params.round_constants[r].iter().enumerate() {
+            self.state = apply_mds_matrix::<F, C>(&self.state);
+            for (i, x) in round_constants[r].iter().enumerate() {
                 self.state[i].add_assign(x);
                 if C::PERM_SBOX == 5 {
                     // legacy
@@ -1937,17 +1942,13 @@ pub mod poseidon {
         }
     }
 
-    fn apply_mds_matrix<F: Field, C: SpongeConstants>(
-        params: &SpongeParams<F>,
+    fn apply_mds_matrix<F: Field + SpongeParamsForField<F>, C: SpongeConstants>(
         state: &[F; 3],
     ) -> [F; 3] {
+        let mds = F::get_params().mds();
+
         if C::PERM_FULL_MDS {
-            std::array::from_fn(|i| {
-                state
-                    .iter()
-                    .zip(params.mds[i].iter())
-                    .fold(F::zero(), |x, (s, &m)| m * s + x)
-            })
+            mds.map(|md| state.iter().zip(md).fold(F::zero(), |x, (s, m)| m * s + x))
         } else {
             [
                 state[0] + state[2],
@@ -2550,11 +2551,11 @@ pub mod transaction_snark {
         inputs: legacy::Inputs<Fp>,
         w: &mut Witness<Fp>,
     ) -> Fp {
-        use ::poseidon::{fp_legacy::params, PlonkSpongeConstantsLegacy as Constants};
+        use ::poseidon::PlonkSpongeConstantsLegacy as Constants;
 
         let initial_state: [Fp; 3] = param.state();
-        let mut sponge =
-            poseidon::Sponge::<Fp, Constants>::new_with_state_params(initial_state, params());
+        // This could be problematic. We're using Fp with legacy params
+        let mut sponge = poseidon::Sponge::<Fp, Constants>::new_with_state_params(initial_state);
         sponge.absorb(&inputs.to_fields(), w);
         sponge.squeeze(w)
     }

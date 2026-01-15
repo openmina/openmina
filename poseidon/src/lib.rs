@@ -8,7 +8,8 @@ use mina_curves::pasta::{Fp, Fq};
 pub mod hash;
 mod params;
 
-pub use params::*;
+pub use params::fp_legacy;
+use params::{fp, fq};
 
 pub trait SpongeConstants {
     const SPONGE_CAPACITY: usize = 1;
@@ -23,7 +24,7 @@ pub trait SpongeConstants {
 }
 
 #[derive(Clone)]
-pub struct PlonkSpongeConstantsKimchi {}
+pub struct PlonkSpongeConstantsKimchi;
 
 impl SpongeConstants for PlonkSpongeConstantsKimchi {
     const SPONGE_CAPACITY: usize = 1;
@@ -38,7 +39,7 @@ impl SpongeConstants for PlonkSpongeConstantsKimchi {
 }
 
 #[derive(Clone)]
-pub struct PlonkSpongeConstantsLegacy {}
+pub struct PlonkSpongeConstantsLegacy;
 
 impl SpongeConstants for PlonkSpongeConstantsLegacy {
     const SPONGE_CAPACITY: usize = 1;
@@ -52,7 +53,6 @@ impl SpongeConstants for PlonkSpongeConstantsLegacy {
     const PERM_INITIAL_ARK: bool = true;
 }
 
-#[inline(always)]
 fn apply_mds_matrix<F: Field>(params: &SpongeParams<F>, state: &[F]) -> [F; 3] {
     let mut new_state = [F::zero(); 3];
 
@@ -123,13 +123,29 @@ pub enum SpongeState {
 
 #[derive(Debug)]
 pub struct SpongeParams<F: Field> {
-    pub round_constants: Box<[[F; 3]]>,
-    pub mds: [[F; 3]; 3],
+    round_constants: Box<[[F; 3]]>,
+    mds: [[F; 3]; 3],
 }
 
-pub trait SpongeParamsForField<F: Field> {
+impl<F: Field> SpongeParams<F> {
+    pub fn round_constants(&self) -> &[[F; 3]] {
+        &self.round_constants
+    }
+
+    pub fn mds(&self) -> &[[F; 3]; 3] {
+        &self.mds
+    }
+}
+
+trait Sealed {}
+
+#[allow(private_bounds)]
+pub trait SpongeParamsForField<F: Field>: Sealed {
     fn get_params() -> &'static SpongeParams<F>;
 }
+
+impl Sealed for Fp {}
+impl Sealed for Fq {}
 
 impl SpongeParamsForField<Fp> for Fp {
     fn get_params() -> &'static SpongeParams<Fp> {

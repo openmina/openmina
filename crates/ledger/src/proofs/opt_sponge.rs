@@ -1,5 +1,3 @@
-use poseidon::SpongeParams;
-
 use super::{
     field::{field, Boolean, CircuitVar, FieldWitness},
     witness::Witness,
@@ -20,7 +18,6 @@ pub enum SpongeState<F: FieldWitness> {
 
 pub struct OptSponge<F: FieldWitness> {
     pub state: [F; M],
-    params: &'static SpongeParams<F>,
     needs_final_permute_if_empty: bool,
     pub sponge_state: SpongeState<F>,
 }
@@ -29,7 +26,6 @@ impl<F: FieldWitness> OptSponge<F> {
     pub fn create() -> Self {
         Self {
             state: [F::zero(); M],
-            params: F::get_params(),
             needs_final_permute_if_empty: true,
             sponge_state: SpongeState::Absorbing {
                 next_index: Boolean::False,
@@ -50,14 +46,12 @@ impl<F: FieldWitness> OptSponge<F> {
         match sponge_state {
             ::poseidon::SpongeState::Squeezed(n) => Self {
                 state,
-                params: F::get_params(),
                 needs_final_permute_if_empty: true,
                 sponge_state: SpongeState::Squeezed(n),
             },
             ::poseidon::SpongeState::Absorbed(n) => {
                 let abs = |i: Boolean| Self {
                     state,
-                    params: F::get_params(),
                     needs_final_permute_if_empty: true,
                     sponge_state: SpongeState::Absorbing {
                         next_index: i,
@@ -69,8 +63,7 @@ impl<F: FieldWitness> OptSponge<F> {
                     0 => abs(Boolean::False),
                     1 => abs(Boolean::True),
                     2 => Self {
-                        state: { block_cipher(state, F::get_params(), w) },
-                        params: F::get_params(),
+                        state: { block_cipher(state, w) },
                         needs_final_permute_if_empty: false,
                         sponge_state: SpongeState::Absorbing {
                             next_index: Boolean::False,
@@ -106,7 +99,7 @@ impl<F: FieldWitness> OptSponge<F> {
             SpongeState::Squeezed(n) => {
                 let n = *n;
                 if n == RATE {
-                    self.state = block_cipher(self.state, self.params, w);
+                    self.state = block_cipher(self.state, w);
                     self.sponge_state = SpongeState::Squeezed(1);
                     self.state[0]
                 } else {
@@ -119,7 +112,6 @@ impl<F: FieldWitness> OptSponge<F> {
                     ConsumeParams {
                         needs_final_permute_if_empty: self.needs_final_permute_if_empty,
                         start_pos: CircuitVar::Constant(*next_index),
-                        params: self.params,
                         input: xs,
                         state: self.state,
                     },
@@ -162,7 +154,6 @@ where
 struct ConsumeParams<'a, F: FieldWitness> {
     needs_final_permute_if_empty: bool,
     start_pos: CircuitVar<Boolean>,
-    params: &'static SpongeParams<F>,
     input: &'a [(CircuitVar<Boolean>, F)],
     state: [F; 3],
 }
@@ -171,7 +162,6 @@ fn consume<F: FieldWitness>(params: ConsumeParams<F>, w: &mut Witness<F>) -> [F;
     let ConsumeParams {
         needs_final_permute_if_empty,
         start_pos,
-        params,
         input,
         mut state,
     } = params;
@@ -182,7 +172,7 @@ fn consume<F: FieldWitness>(params: ConsumeParams<F>, w: &mut Witness<F>) -> [F;
 
     let mut cond_permute =
         |permute: CircuitVar<Boolean>, state: &mut [F; M], w: &mut Witness<F>| {
-            let permuted = block_cipher(*state, params, w);
+            let permuted = block_cipher(*state, w);
             for (i, state) in state.iter_mut().enumerate() {
                 let v = match permute.as_boolean() {
                     Boolean::True => permuted[i],
@@ -266,31 +256,27 @@ fn consume<F: FieldWitness>(params: ConsumeParams<F>, w: &mut Witness<F>) -> [F;
     state
 }
 
-fn block_cipher<F: FieldWitness>(
-    mut state: [F; M],
-    params: &SpongeParams<F>,
-    w: &mut Witness<F>,
-) -> [F; M] {
+fn block_cipher<F: FieldWitness>(mut state: [F; M], w: &mut Witness<F>) -> [F; M] {
     w.exists(state);
     for r in 0..PERM_ROUNDS_FULL {
-        full_round(&mut state, r, params, w);
+        full_round(&mut state, r, w);
     }
     state
 }
 
-fn full_round<F: FieldWitness>(
-    state: &mut [F; M],
-    r: usize,
-    params: &SpongeParams<F>,
-    w: &mut Witness<F>,
-) {
+fn full_round<F: FieldWitness>(state: &mut [F; M], r: usize, w: &mut Witness<F>) {
+    let round_constants = F::get_params().round_constants();
+
     for state_i in state.iter_mut() {
-        *state_i = sbox::<F>(*state_i);
+        *state_i = sbox(*state_i);
     }
-    *state = apply_mds_matrix::<F>(params, state);
-    for (i, x) in params.round_constants[r].iter().enumerate() {
+
+    *state = apply_mds_matrix(state);
+
+    for (i, x) in round_constants[r].iter().enumerate() {
         state[i].add_assign(x);
     }
+
     w.exists(*state);
 }
 
@@ -301,11 +287,8 @@ fn sbox<F: FieldWitness>(x: F) -> F {
     res * x
 }
 
-fn apply_mds_matrix<F: FieldWitness>(params: &SpongeParams<F>, state: &[F; 3]) -> [F; 3] {
-    std::array::from_fn(|i| {
-        state
-            .iter()
-            .zip(params.mds[i].iter())
-            .fold(F::zero(), |x, (s, &m)| m * s + x)
-    })
+fn apply_mds_matrix<F: FieldWitness>(state: &[F; 3]) -> [F; 3] {
+    let mds = F::get_params().mds();
+
+    mds.map(|md| state.iter().zip(md).fold(F::zero(), |x, (s, m)| m * s + x))
 }
