@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 anyhow = { workspace = true }
+axum = { workspace = true }
 bs58 = { workspace = true }
 bytes = { workspace = true }
 dataloader = { workspace = true }
@@ -37,6 +38,7 @@ strum = { workspace = true }
 strum_macros = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["process", "macros"] }
+tower-http = { workspace = true, features = ["cors"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 warp = { workspace = true }

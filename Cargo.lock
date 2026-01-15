@@ -5195,6 +5195,7 @@ name = "mina-node-native"
 version = "0.19.0"
 dependencies = [
  "anyhow",
+ "axum",
  "bs58 0.4.0",
  "bytes",
  "dataloader",
@@ -5226,6 +5227,7 @@ dependencies = [
  "strum_macros",
  "thiserror 1.0.60",
  "tokio",
+ "tower-http",
  "tracing",
  "tracing-subscriber",
  "warp",

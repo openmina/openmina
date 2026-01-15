@@ -9,7 +9,7 @@ use mina_node_common::{
     NodeServiceCommonBuilder,
 };
 
-use crate::{http_server, NodeService, P2pTaskSpawner};
+use crate::{http_server_warp, NodeService, P2pTaskSpawner};
 
 pub struct NodeServiceBuilder {
     common: NodeServiceCommonBuilder,
@@ -95,7 +95,7 @@ impl NodeServiceBuilder {
             .unwrap();
         thread::Builder::new()
             .name("mina_http_server".to_owned())
-            .spawn(move || runtime.block_on(http_server::run(port, rpc_sender)))
+            .spawn(move || runtime.block_on(http_server_warp::run(port, rpc_sender)))
             .unwrap();
         self
     }
