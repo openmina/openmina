@@ -45,7 +45,7 @@
     "@ngneat/until-destroy": "^10.0.0",
     "@ngrx/effects": "^19.2.1",
     "@ngrx/operators": "^19.2.1",
-    "@ngrx/router-store": "^19.2.1",
+    "@ngrx/router-store": "^21.0.1",
     "@ngrx/store": "^19.2.1",
     "@mina-rust/shared": "file:./vendor/mina-rust-shared",
     "@sentry/angular": "^10.32.1",
