@@ -8,7 +8,7 @@ import { WebNodeService } from '@core/services/web-node.service';
   providedIn: 'root',
 })
 export class RustService {
-  private node: MinaNode;
+  private node: MinaNode | null = null;
 
   constructor(
     private http: HttpClient,
@@ -20,19 +20,19 @@ export class RustService {
   }
 
   get activeNodeIsWebNode(): boolean {
-    return this.node.isWebNode;
+    return this.node?.isWebNode ?? false;
   }
 
   get URL(): string {
-    return this.node.url;
+    return this.node?.url ?? '';
   }
 
   get name(): string {
-    return this.node.name;
+    return this.node?.name ?? '';
   }
 
   get<T>(path: string): Observable<T> {
-    if (this.node.isWebNode) {
+    if (this.node?.isWebNode) {
       return this.getFromWebNode(path).pipe(
         map((response: any) => {
           // console.log(path, response);
@@ -44,7 +44,7 @@ export class RustService {
   }
 
   post<T, B = string | object>(path: string, body: B): Observable<T> {
-    if (this.node.isWebNode) {
+    if (this.node?.isWebNode) {
       return this.postToWebNode(path, body).pipe(
         map((response: any) => {
           // console.log(path, response);
@@ -56,7 +56,7 @@ export class RustService {
   }
 
   getMemProfiler<T>(path: string): Observable<T> {
-    return this.http.get<T>(this.node.memoryProfiler + path);
+    return this.http.get<T>((this.node?.memoryProfiler ?? '') + path);
   }
 
   private getFromWebNode<T>(path: string): Observable<T> {

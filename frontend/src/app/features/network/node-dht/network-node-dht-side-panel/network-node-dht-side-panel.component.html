@@ -30,15 +30,13 @@
     </div>
   </div>
   <div class="ml-10 mr-10 h-lg">
-    <button
-      class="btn-primary w-100 h-lg"
-      *ngIf="hasBootstrapStatsEnabled"
-      (click)="goToBootstrapStats()"
-    >
-      <span class="fx-row-full-cent">
-        See peer in Bootstrap Stats
-        <span class="mina-icon icon-300 f-18 ml-5">north_east</span>
-      </span>
-    </button>
+    @if (hasBootstrapStatsEnabled) {
+      <button class="btn-primary w-100 h-lg" (click)="goToBootstrapStats()">
+        <span class="fx-row-full-cent">
+          See peer in Bootstrap Stats
+          <span class="mina-icon icon-300 f-18 ml-5">north_east</span>
+        </span>
+      </button>
+    }
   </div>
 </div>

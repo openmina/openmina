@@ -44,22 +44,24 @@
         </span>
       </button>
     </div>
-    <div class="fx-row-vert-cent shrink-0" *ngIf="stats">
-      <span class="mina-icon icon-200 f-20 mr-5 success-primary webnode">
-        radio_button_checked
-      </span>
-      <span class="success-secondary mr-10">&nbsp;Current node</span>
-      <!--      <span class="mina-icon icon-200 f-18 mr-5 success-primary rotate-45">crop_square</span>-->
-      <!--      <span class="success-primary">{{ stats.seeders }}</span>-->
-      <!--      <span class="success-secondary mr-10">&nbsp;Seeder{{ stats.seeders | plural }}</span>-->
-      <!--      <span class="mina-icon icon-200 f-22 mr-5 success-primary">change_history</span>-->
-      <!--      <span class="success-primary">{{ stats.snarkers }}</span>-->
-      <!--      <span class="success-secondary mr-10">&nbsp;Snarker{{ stats.snarkers | plural }}</span>-->
-      <span class="mina-icon icon-200 f-20 mr-5 success-primary">circle</span>
-      <span class="success-primary">
-        {{ stats.nodes + stats.transactionGenerators }}
-      </span>
-      <span class="success-secondary">&nbsp;Peers</span>
-    </div>
+    @if (stats) {
+      <div class="fx-row-vert-cent shrink-0">
+        <span class="mina-icon icon-200 f-20 mr-5 success-primary webnode">
+          radio_button_checked
+        </span>
+        <span class="success-secondary mr-10">&nbsp;Current node</span>
+        <!--      <span class="mina-icon icon-200 f-18 mr-5 success-primary rotate-45">crop_square</span>-->
+        <!--      <span class="success-primary">{{ stats.seeders }}</span>-->
+        <!--      <span class="success-secondary mr-10">&nbsp;Seeder{{ stats.seeders | plural }}</span>-->
+        <!--      <span class="mina-icon icon-200 f-22 mr-5 success-primary">change_history</span>-->
+        <!--      <span class="success-primary">{{ stats.snarkers }}</span>-->
+        <!--      <span class="success-secondary mr-10">&nbsp;Snarker{{ stats.snarkers | plural }}</span>-->
+        <span class="mina-icon icon-200 f-20 mr-5 success-primary">circle</span>
+        <span class="success-primary">
+          {{ stats.nodes + stats.transactionGenerators }}
+        </span>
+        <span class="success-secondary">&nbsp;Peers</span>
+      </div>
+    }
   </div>
 </ng-template>

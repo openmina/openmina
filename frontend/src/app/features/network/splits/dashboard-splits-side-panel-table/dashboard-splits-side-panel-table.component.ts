@@ -31,7 +31,7 @@ export class DashboardSplitsSidePanelTableComponent
   implements OnInit
 {
   @Input() peers: DashboardSplitsPeer[];
-  @HostBinding('style.height.px') private height: number;
+  @HostBinding('style.height.px') height: number;
 
   protected readonly tableHeads: TableColumnList<DashboardSplitsPeer> = [
     { name: 'address' },

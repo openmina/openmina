@@ -106,13 +106,14 @@
         <span class="mina-icon f-20">lan</span>
       </button>
 
-      <button
-        *ngIf="!openSidePanel"
-        (click)="toggleSidePanel()"
-        class="h-sm w-sm fx-row-full-cent btn-selected p-0 d-none-sm ml-10"
-      >
-        <span class="mina-icon f-20">view_sidebar</span>
-      </button>
+      @if (!openSidePanel) {
+        <button
+          (click)="toggleSidePanel()"
+          class="h-sm w-sm fx-row-full-cent btn-selected p-0 d-none-sm ml-10"
+        >
+          <span class="mina-icon f-20">view_sidebar</span>
+        </button>
+      }
     </div>
   </div>
 </ng-template>

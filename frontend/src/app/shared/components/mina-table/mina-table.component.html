@@ -1,35 +1,40 @@
 <div [id]="'table' + tableLevel" class="mina-table overflow-x-auto h-100">
   <ng-container *ngTemplateOutlet="thGroupsTemplate"></ng-container>
-  <div class="row head sorting pr-12" *ngIf="currentSort; else noSort">
-    <span
-      *ngFor="let th of tableHeads; let i = index"
-      (click)="sortTable(th.sort ?? th.name)"
-      [class.active]="currentSort.sortBy === (th.sort ?? th.name)"
-      class="pointer"
-    >
-      {{ th.name }}
-      <span
-        *ngIf="th.tooltip"
-        class="info mina-icon"
-        [tooltip]="th.tooltip"
-        [maxWidth]="400"
-      >
-        info
-      </span>
-      <span
-        [class.flip]="currentSort.sortDirection === 'descending'"
-        [class.show]="currentSort.sortBy === (th.sort ?? th.name)"
-        class="mina-icon dir icon-200"
-      >
-        arrow_upward
-      </span>
-    </span>
-  </div>
-  <ng-template #noSort>
-    <div class="row head pr-12">
-      <span *ngFor="let th of tableHeads">{{ th.name }}</span>
+  @if (currentSort) {
+    <div class="row head sorting pr-12">
+      @for (th of tableHeads; track th.name) {
+        <span
+          (click)="sortTable(th.sort ?? th.name)"
+          [class.active]="currentSort.sortBy === (th.sort ?? th.name)"
+          class="pointer"
+        >
+          {{ th.name }}
+          @if (th.tooltip) {
+            <span
+              class="info mina-icon"
+              [tooltip]="th.tooltip"
+              [maxWidth]="400"
+            >
+              info
+            </span>
+          }
+          <span
+            [class.flip]="currentSort.sortDirection === 'descending'"
+            [class.show]="currentSort.sortBy === (th.sort ?? th.name)"
+            class="mina-icon dir icon-200"
+          >
+            arrow_upward
+          </span>
+        </span>
+      }
     </div>
-  </ng-template>
+  } @else {
+    <div class="row head pr-12">
+      @for (th of tableHeads; track th.name) {
+        <span>{{ th.name }}</span>
+      }
+    </div>
+  }
   <cdk-virtual-scroll-viewport
     class="overflow-y-scroll h-minus-lg"
     (click)="onVsClick($event)"

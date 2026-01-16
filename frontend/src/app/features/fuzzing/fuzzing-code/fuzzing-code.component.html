@@ -39,25 +39,24 @@
       class="h-minus-sm monospace secondary overflow-y-auto"
       [class.no-fuzzing-highlight]="!codeHighlighted"
     >
-      <div
-        class="code-row"
-        *ngFor="let line of fileDetails?.lines; let i = index"
-      >
-        <span
-          [tooltip]="'Copy permalink'"
-          [showDelay]="200"
-          [class.primary]="activeLineFromUrl === i + 1"
-          [style.border-color]="'var(--' + line.lineColor + '-primary)'"
-          [copyToClipboard]="link + (i + 1)"
-          (click)="onRowClick(i + 1)"
-        >
-          {{ i + 1 }}
-        </span>
-        <span
-          [innerHtml]="line.html | safeHtml"
-          [ngClass]="'bg-' + line.lineColor + '-container'"
-        ></span>
-      </div>
+      @for (line of fileDetails?.lines; track $index; let i = $index) {
+        <div class="code-row">
+          <span
+            [tooltip]="'Copy permalink'"
+            [showDelay]="200"
+            [class.primary]="activeLineFromUrl === i + 1"
+            [style.border-color]="'var(--' + line.lineColor + '-primary)'"
+            [copyToClipboard]="link + (i + 1)"
+            (click)="onRowClick(i + 1)"
+          >
+            {{ i + 1 }}
+          </span>
+          <span
+            [innerHtml]="line.html | safeHtml"
+            [ngClass]="'bg-' + line.lineColor + '-container'"
+          ></span>
+        </div>
+      }
     </div>
   </div>
 </div>

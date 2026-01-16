@@ -212,24 +212,24 @@
 </ng-template>
 
 <ng-template #icon let-state="state">
-  <ng-container [ngSwitch]="state">
-    <ng-container *ngSwitchCase="'pending'">
+  @switch (state) {
+    @case ('pending') {
       <span class="pending-icon fx-col-full-cent">
         <span></span>
       </span>
-    </ng-container>
-    <ng-container *ngSwitchCase="'loading'">
+    }
+    @case ('loading') {
       <mina-loading-spinner
         [size]="20"
         [borderWidth]="2"
       ></mina-loading-spinner>
-    </ng-container>
-    <ng-container *ngSwitchCase="'success'">
+    }
+    @case ('success') {
       <span class="pending-icon fx-col-full-cent success">
         <span></span>
       </span>
-    </ng-container>
-  </ng-container>
+    }
+  }
 </ng-template>
 
 <ng-template #tooltipRef let-start="start" let-end="end">

@@ -1,7 +1,6 @@
 import { createEffect } from '@ngrx/effects';
-import { Store, Action } from '@ngrx/store';
+import { Store, Action, Selector } from '@ngrx/store';
 import { map, Observable, ObservedValueOf, OperatorFunction } from 'rxjs';
-import { Selector } from '@ngrx/store/src/models';
 import { withLatestFrom } from 'rxjs/operators';
 import { concatLatestFrom } from '@ngrx/operators';
 

@@ -44,6 +44,8 @@ import { benchmarksReducer } from '@benchmarks/benchmarks.reducer';
 import { fuzzingReducer } from '@fuzzing/fuzzing.reducer';
 import { FuzzingState } from '@fuzzing/fuzzing.state';
 import { FuzzingAction } from '@fuzzing/fuzzing.actions';
+import { routerReducer } from '@ngrx/router-store';
+import { MergedRoute } from '@mina-rust/shared';
 
 export interface MinaState {
   [APP_KEY]: AppState;
@@ -59,6 +61,7 @@ export interface MinaState {
   snarks: SnarksState;
   benchmarks: BenchmarksState;
   fuzzing: FuzzingState;
+  router: MergedRoute;
 }
 
 type MinaAction = ErrorPreviewAction &
@@ -84,6 +87,7 @@ export const reducers: ActionReducerMap<MinaState, MinaAction> = {
   snarks: snarksReducer,
   benchmarks: benchmarksReducer,
   fuzzing: fuzzingReducer,
+  router: routerReducer,
 };
 
 export const metaReducers: MetaReducer<MinaState, MinaAction>[] = [];

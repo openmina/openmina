@@ -17,11 +17,7 @@ import {
 } from '@angular/platform-browser';
 import { provideStore } from '@ngrx/store';
 import { EffectsModule, provideEffects } from '@ngrx/effects';
-import {
-  provideRouterStore,
-  routerReducer,
-  RouterStateSerializer,
-} from '@ngrx/router-store';
+import { provideRouterStore } from '@ngrx/router-store';
 import { provideStoreDevtools } from '@ngrx/store-devtools';
 import * as Sentry from '@sentry/angular';
 import { registerLocaleData } from '@angular/common';
@@ -144,26 +140,16 @@ export const appConfig: ApplicationConfig = {
     provideAnimations(),
     provideClientHydration(withIncrementalHydration()),
     provideHttpClient(withInterceptorsFromDi()),
-    provideStore(
-      {
-        ...reducers,
-        router: routerReducer,
-      } as any,
-      {
-        metaReducers,
-        runtimeChecks: {
-          strictStateImmutability: true,
-          strictActionImmutability: true,
-          strictActionWithinNgZone: true,
-          strictStateSerializability: true,
-        },
+    provideStore(reducers, {
+      metaReducers,
+      runtimeChecks: {
+        strictStateImmutability: true,
+        strictActionImmutability: true,
+        strictActionWithinNgZone: false, // Disabled due to Angular 21 esbuild zone.js issue
+        strictStateSerializability: true,
       },
-    ),
-    provideRouterStore({ stateKey: 'router' }),
-    {
-      provide: RouterStateSerializer,
-      useClass: MergedRouterStateSerializer,
-    },
+    }),
+    provideRouterStore({ serializer: MergedRouterStateSerializer }),
     provideEffects(AppEffects),
     !CONFIG.production
       ? provideStoreDevtools({ maxAge: 150, connectInZone: true })

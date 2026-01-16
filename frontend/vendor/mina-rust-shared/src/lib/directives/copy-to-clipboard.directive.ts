@@ -24,7 +24,7 @@ export class CopyToClipboardDirective implements OnInit {
   }
 
   @HostListener('click', ['$event'])
-  private onClick(event: MouseEvent): void {
+  onClick(event: MouseEvent): void {
     event.stopPropagation();
     this.clipboard.copy(this.copyToClipboard);
     this.tooltipService.openTooltipsWithClipboardClick.push(0);

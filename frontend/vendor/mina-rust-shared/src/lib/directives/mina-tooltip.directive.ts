@@ -49,7 +49,7 @@ export class MinaTooltipDirective implements OnInit, OnDestroy {
   }
 
   @HostListener('mouseenter')
-  private onMouseEnter(): void {
+  onMouseEnter(): void {
     if (this.tooltipDisabled || !this.tooltip) {
       return;
     }
@@ -73,7 +73,7 @@ export class MinaTooltipDirective implements OnInit, OnDestroy {
   }
 
   @HostListener('mouseleave')
-  private onMouseLeave(): void {
+  onMouseLeave(): void {
     if (this.timer) {
       clearTimeout(this.timer);
     }

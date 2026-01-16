@@ -24,24 +24,24 @@
 
 <div class="flex-column p-relative flex-grow">
   <div class="p-absolute-cover">
-    <ng-container [ngSwitch]="selectedTabIndex">
-      <ng-container *ngSwitchCase="0">
+    @switch (selectedTabIndex) {
+      @case (0) {
         <div class="h-100 overflow-y-auto">
           <mina-snarks-work-pool-details-overview></mina-snarks-work-pool-details-overview>
         </div>
-      </ng-container>
-      <ng-container *ngSwitchCase="1">
+      }
+      @case (1) {
         <div class="h-100 overflow-y-auto">
           <mina-snarks-work-pool-details-specs></mina-snarks-work-pool-details-specs>
         </div>
-      </ng-container>
-      <ng-container *ngSwitchCase="2">
+      }
+      @case (2) {
         <div class="h-100 overflow-y-auto">
           <mina-snarks-work-pool-details-accounts
             [accounts]="accounts"
           ></mina-snarks-work-pool-details-accounts>
         </div>
-      </ng-container>
-    </ng-container>
+      }
+    }
   </div>
 </div>

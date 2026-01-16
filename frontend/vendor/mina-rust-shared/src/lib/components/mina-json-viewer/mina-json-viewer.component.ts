@@ -1,7 +1,15 @@
 import { ChangeDetectionStrategy, Component, Input, OnChanges, OnInit } from '@angular/core';
 import { NgxJsonViewerComponent, NgxJsonViewerModule } from 'ngx-json-viewer';
-import { Segment } from 'ngx-json-viewer/src/ngx-json-viewer/ngx-json-viewer.component';
 import { CommonModule } from '@angular/common';
+
+// Segment interface from ngx-json-viewer (not re-exported from main module)
+export interface Segment {
+  key: string;
+  value: any;
+  type: undefined | string;
+  description: string;
+  expanded: boolean;
+}
 
 export interface ExpandTracking {
   [p: string]: ExpandTracking;

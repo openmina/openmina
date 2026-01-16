@@ -1,5 +1,4 @@
-import { Store, Action } from '@ngrx/store';
-import { Selector } from '@ngrx/store/src/models';
+import { Store, Action, Selector } from '@ngrx/store';
 import { OperatorFunction } from 'rxjs';
 import { FeatureAction } from '../types/store/feature-action.type';
 import { selectActionAndState, selectLatestStateSlice } from '../constants/store-functions';

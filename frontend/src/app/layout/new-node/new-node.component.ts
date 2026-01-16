@@ -20,7 +20,6 @@ import {
   MinaNode,
 } from '@shared/types/core/environment/mina-env.type';
 import { AppActions } from '@app/app.actions';
-import { NgForOf, NgIf } from '@angular/common';
 
 const nodeNames: string[] = [
   'Crypto Hash',
@@ -65,7 +64,7 @@ type SubFeature = {
     class: 'flex-column bg-surface-top popup-box-shadow-weak border-rad-8',
   },
   standalone: true,
-  imports: [ReactiveFormsModule, NgForOf, NgIf],
+  imports: [ReactiveFormsModule],
 })
 export class NewNodeComponent extends StoreDispatcher implements OnInit {
   protected readonly features: Feature[] = [

@@ -11,52 +11,52 @@
   <span class="secondary">{{ row.nonce }}</span>
   <span class="truncate">{{ row.memo }}</span>
   <span class="fx-row-vert-cent">
-    <div
-      class="benchmark border-rad-6 mr-10 fx-row-full-cent"
-      [maxWidth]="600"
-      [tooltip]="'This transaction was sent from the Benchmarks page.'"
-      *ngIf="row.sentFromStressingTool"
-    >
-      <span class="mina-icon icon-200 f-20">dynamic_form</span>
-    </div>
-    <div
-      class="account border-rad-6 fx-row-full-cent"
-      [tooltip]="'This transaction was sent by you.'"
-      *ngIf="row.sentByMyBrowser"
-    >
-      <span class="mina-icon icon-200 f-20">person</span>
-    </div>
+    @if (row.sentFromStressingTool) {
+      <div
+        class="benchmark border-rad-6 mr-10 fx-row-full-cent"
+        [maxWidth]="600"
+        [tooltip]="'This transaction was sent from the Benchmarks page.'"
+      >
+        <span class="mina-icon icon-200 f-20">dynamic_form</span>
+      </div>
+    }
+    @if (row.sentByMyBrowser) {
+      <div
+        class="account border-rad-6 fx-row-full-cent"
+        [tooltip]="'This transaction was sent by you.'"
+      >
+        <span class="mina-icon icon-200 f-20">person</span>
+      </div>
+    }
   </span>
 </ng-template>
 
-<ng-container *ngIf="!isLoading">
-  <div
-    class="no-results p-absolute w-100 h-100 z-1 fx-col-full-cent"
-    *ngIf="emptyInDatabase"
-  >
-    <span class="mina-icon mb-16 icon-100 f-40">send</span>
-    <div class="f-600 f-big">No Transactions yet</div>
-    <div class="tertiary mt-8 text-center">
-      New transactions will appear here when the node receives them
+@if (!isLoading) {
+  @if (emptyInDatabase) {
+    <div class="no-results p-absolute w-100 h-100 z-1 fx-col-full-cent">
+      <span class="mina-icon mb-16 icon-100 f-40">send</span>
+      <div class="f-600 f-big">No Transactions yet</div>
+      <div class="tertiary mt-8 text-center">
+        New transactions will appear here when the node receives them
+      </div>
     </div>
-  </div>
+  }
 
-  <div
-    class="no-results p-absolute w-100 h-100 z-1 fx-col-full-cent"
-    *ngIf="emptyBecauseOfFilters && !emptyInDatabase"
-  >
-    <h5 class="f-big f-600 mt-0 mb-8">No Results Found</h5>
-    <p class="secondary m-0">
-      Try adjusting your search or filter options to find what
-    </p>
-    <p class="secondary m-0 pb-8">you're looking for</p>
+  @if (emptyBecauseOfFilters && !emptyInDatabase) {
+    <div class="no-results p-absolute w-100 h-100 z-1 fx-col-full-cent">
+      <h5 class="f-big f-600 mt-0 mb-8">No Results Found</h5>
+      <p class="secondary m-0">
+        Try adjusting your search or filter options to find what
+      </p>
+      <p class="secondary m-0 pb-8">you're looking for</p>
 
-    <button
-      class="fx-row-vert-cent border-rad-4 mt-8 btn-primary"
-      (click)="clearFilters()"
-    >
-      <span class="mina-icon tertiary f-18 mr-5">filter_list_off</span>
-      <span>Reset Filters</span>
-    </button>
-  </div>
-</ng-container>
+      <button
+        class="fx-row-vert-cent border-rad-4 mt-8 btn-primary"
+        (click)="clearFilters()"
+      >
+        <span class="mina-icon tertiary f-18 mr-5">filter_list_off</span>
+        <span>Reset Filters</span>
+      </button>
+    </div>
+  }
+}

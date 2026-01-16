@@ -1,4 +1,4 @@
-<ng-container *ngIf="isLoading || isCalculatingVRF; else normalView">
+@if (isLoading || isCalculatingVRF) {
   <div class="w-100 h-100 fx-col-full-cent">
     <mina-loading-spinner [size]="50" [borderWidth]="2"></mina-loading-spinner>
     <div [class.opacity-0]="!isCalculatingVRF" class="fx-col-full-cent">
@@ -12,8 +12,7 @@
       </div>
     </div>
   </div>
-</ng-container>
-<ng-template #normalView>
+} @else {
   <mina-horizontal-resizable-container
     [leftTemplate]="left"
     [rightTemplate]="right"
@@ -34,4 +33,4 @@
   <ng-template #right>
     <mina-block-production-overview-side-panel></mina-block-production-overview-side-panel>
   </ng-template>
-</ng-template>
+}

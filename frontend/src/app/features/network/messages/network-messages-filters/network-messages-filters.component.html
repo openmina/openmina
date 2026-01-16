@@ -16,14 +16,15 @@
         <span class="mina-icon f-18">filter_list</span>
       </button>
       <div class="fx-row-vert-cent flex-wrap">
-        <button
-          *ngFor="let filter of activeFilters"
-          (click)="toggleFilter(filter)"
-          class="active-filter border-rad-6 f-600 bg-selected-container selected-primary fx-row-vert-cent"
-        >
-          <span>{{ filter.display }}</span>
-          <span class="mina-icon f-16">close</span>
-        </button>
+        @for (filter of activeFilters; track filter.display) {
+          <button
+            (click)="toggleFilter(filter)"
+            class="active-filter border-rad-6 f-600 bg-selected-container selected-primary fx-row-vert-cent"
+          >
+            <span>{{ filter.display }}</span>
+            <span class="mina-icon f-16">close</span>
+          </button>
+        }
       </div>
     </div>
   </mat-expansion-panel-header>
@@ -40,35 +41,36 @@
         </span>
       </div>
       <div class="flex-column flex-grow overflow-y-auto">
-        <div
-          class="flex-row flex-wrap"
-          *ngFor="let row of availableFilters; let r = index"
-        >
-          <div
-            class="f-600 fx-row-vert-cent"
-            [class.flex-wrap]="r === 1 || r === 4 || r === 5"
-            *ngFor="let category of row"
-          >
-            <div
-              class="category mr-10 pointer primary-hover"
-              [tooltip]="category.tooltip"
-              [showDelay]="700"
-              (click)="filterByCategory(category)"
-            >
-              {{ category.name }}
-            </div>
-            <div
-              class="filter pointer bg-container pl-8 pr-8 border-rad-6 mr-5 text-nowrap"
-              *ngFor="let filter of category.filters"
-              (click)="toggleFilter(filter)"
-              [tooltip]="filter.tooltip"
-              [showDelay]="700"
-              [class.active]="activeFilters.includes(filter)"
-            >
-              {{ filter.display }}
-            </div>
+        @for (row of availableFilters; track $index; let r = $index) {
+          <div class="flex-row flex-wrap">
+            @for (category of row; track category.name) {
+              <div
+                class="f-600 fx-row-vert-cent"
+                [class.flex-wrap]="r === 1 || r === 4 || r === 5"
+              >
+                <div
+                  class="category mr-10 pointer primary-hover"
+                  [tooltip]="category.tooltip"
+                  [showDelay]="700"
+                  (click)="filterByCategory(category)"
+                >
+                  {{ category.name }}
+                </div>
+                @for (filter of category.filters; track filter.display) {
+                  <div
+                    class="filter pointer bg-container pl-8 pr-8 border-rad-6 mr-5 text-nowrap"
+                    (click)="toggleFilter(filter)"
+                    [tooltip]="filter.tooltip"
+                    [showDelay]="700"
+                    [class.active]="activeFilters.includes(filter)"
+                  >
+                    {{ filter.display }}
+                  </div>
+                }
+              </div>
+            }
           </div>
-        </div>
+        }
       </div>
     </div>
   </ng-template>
