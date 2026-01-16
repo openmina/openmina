@@ -1,3 +1,27 @@
+//! SNARK verification integration for the node.
+//!
+//! This module integrates the SNARK verification state machine with the node's
+//! Redux store, enabling verification of:
+//!
+//! - **Block proofs**: Consensus-layer proofs validating block production
+//! - **Transaction proofs**: Ledger proofs for transaction validity (SNARK work)
+//! - **User commands**: Signatures and zkApp proofs for user transactions
+//!
+//! ## Architecture
+//!
+//! The module re-exports [`mina_snark`] and provides the
+//! [`redux::SubStore`] implementation that connects the SNARK state machine
+//! to the node's global state.
+//!
+//! Verification runs in dedicated threads to avoid blocking the main Redux
+//! loop:
+//!
+//! - Block verification: Single dedicated thread (`block_proof_verifier`)
+//! - Work/command verification: Rayon thread pool with FIFO scheduling
+//!
+//! For the underlying verification implementation, see [`mina_snark`] and
+//! [`ledger::proofs::verification`].
+
 pub use ::mina_snark::*;
 
 pub mod block_verify;
