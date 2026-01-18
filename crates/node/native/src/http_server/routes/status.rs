@@ -34,51 +34,27 @@ async fn build_env() -> Json<mina_node::BuildEnv> {
 }
 
 /// Returns the current node status.
-async fn status(State(state): State<AppState>) -> Json<RpcStatusGetResponse> {
-    let result = state
-        .rpc_sender()
-        .oneshot_request(RpcRequest::StatusGet)
-        .await
-        .flatten();
-    Json(result)
+async fn status(State(state): State<AppState>) -> AppResult<Json<RpcStatusGetResponse>> {
+    jsonify_rpc!(state, RpcRequest::StatusGet)
 }
 
 /// Kubernetes liveness probe endpoint.
 ///
 /// Returns empty body with 200 OK on success, or error string with 503 on failure.
 async fn healthz(State(state): State<AppState>) -> AppResult<&'static str> {
-    state
-        .rpc_sender()
-        .oneshot_request(RpcRequest::HealthCheck)
-        .await
-        .ok_or(AppError::ChannelDropped)
-        .and_then(|reply: RpcHealthCheckResponse| match reply {
-            Ok(()) => Ok(""),
-            Err(err) => Err(AppError::ServiceUnavailable(err)),
-        })
+    let reply: RpcHealthCheckResponse = rpc_request!(state, RpcRequest::HealthCheck)?;
+    reply.map(|()| "").map_err(AppError::ServiceUnavailable)
 }
 
 /// Kubernetes readiness probe endpoint.
 ///
 /// Returns empty body with 200 OK on success, or error string with 503 on failure.
 async fn readyz(State(state): State<AppState>) -> AppResult<&'static str> {
-    state
-        .rpc_sender()
-        .oneshot_request(RpcRequest::ReadinessCheck)
-        .await
-        .ok_or(AppError::ChannelDropped)
-        .and_then(|reply: RpcReadinessCheckResponse| match reply {
-            Ok(()) => Ok(""),
-            Err(err) => Err(AppError::ServiceUnavailable(err)),
-        })
+    let reply: RpcReadinessCheckResponse = rpc_request!(state, RpcRequest::ReadinessCheck)?;
+    reply.map(|()| "").map_err(AppError::ServiceUnavailable)
 }
 
 /// Triggers a heartbeat.
-async fn make_heartbeat(State(state): State<AppState>) -> Json<RpcHeartbeatGetResponse> {
-    let result = state
-        .rpc_sender()
-        .oneshot_request(RpcRequest::HeartbeatGet)
-        .await
-        .flatten();
-    Json(result)
+async fn make_heartbeat(State(state): State<AppState>) -> AppResult<Json<RpcHeartbeatGetResponse>> {
+    jsonify_rpc!(state, RpcRequest::HeartbeatGet)
 }

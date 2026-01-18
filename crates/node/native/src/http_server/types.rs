@@ -3,6 +3,7 @@
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
+    Json,
 };
 use tower_http::cors::{Any, CorsLayer};
 
@@ -47,16 +48,25 @@ pub enum AppError {
     /// The service is temporarily unavailable (e.g., not ready).
     #[error("{0}")]
     ServiceUnavailable(String),
+
+    /// JSON error response with custom status code.
+    #[error("{0}: {1}")]
+    Json(StatusCode, serde_json::Value),
 }
 
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
-        let status = match &self {
-            AppError::ChannelDropped | AppError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            AppError::BadRequest(_) => StatusCode::BAD_REQUEST,
-            AppError::ServiceUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
+        let (status, message) = match self {
+            AppError::ChannelDropped => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "response channel dropped, see error log for details".to_owned(),
+            ),
+            AppError::Internal(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
+            AppError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg),
+            AppError::ServiceUnavailable(msg) => (StatusCode::SERVICE_UNAVAILABLE, msg),
+            AppError::Json(status, value) => return (status, Json(value)).into_response(),
         };
-        (status, self.to_string()).into_response()
+        (status, Json(serde_json::json!({"error": message}))).into_response()
     }
 }
 

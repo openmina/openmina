@@ -7,6 +7,7 @@ pub mod scan_state;
 pub mod snark_pool;
 pub mod snarker;
 pub mod state;
+pub mod stats;
 pub mod status;
 pub mod transaction;
 

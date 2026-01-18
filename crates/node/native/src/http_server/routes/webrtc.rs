@@ -32,6 +32,10 @@ pub fn routes(router: Router<AppState>) -> Router<AppState> {
 }
 
 /// Handles WebRTC signaling via GET with base58 encoded offer in path.
+///
+/// TODO(axum-migration): Returns 400 for both bad base58 AND bad JSON schema inside.
+/// This matches warp behavior but differs from signal_post which returns 422 for
+/// bad JSON schema. Could split: 400 for bad base58, 422 for bad JSON schema.
 async fn signal_get(
     State(state): State<AppState>,
     Path(offer): Path<String>,
@@ -51,6 +55,10 @@ async fn signal_get(
 }
 
 /// Handles WebRTC signaling via POST with JSON offer in body.
+///
+/// TODO(axum-migration): Malformed JSON returns 422 (axum default) vs warp's 400.
+/// Both are framework defaults, not explicit choices. 422 is arguably more correct
+/// (valid JSON, wrong schema = "unprocessable entity"). Noted for awareness.
 async fn signal_post(
     State(state): State<AppState>,
     Json(offer): Json<Box<webrtc::Offer>>,

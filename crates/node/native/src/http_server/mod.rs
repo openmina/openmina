@@ -3,6 +3,8 @@
 //! This module provides REST endpoints for node status, state inspection,
 //! snark pool management, and transaction handling.
 
+#[macro_use]
+mod macros;
 mod routes;
 mod types;
 
@@ -42,6 +44,7 @@ pub async fn run(port: u16, rpc_sender: RpcSender) -> std::io::Result<()> {
     let app = Router::new();
     let app = routes::status::routes(app);
     let app = routes::state::routes(app);
+    let app = routes::stats::routes(app);
     let app = routes::scan_state::routes(app);
     let app = routes::snark_pool::routes(app);
     let app = routes::snarker::routes(app);
