@@ -6,9 +6,9 @@
 use axum::{
     extract::{Path, State},
     http::StatusCode,
-    routing::{get, post},
-    Json, Router,
+    Json,
 };
+use utoipa_axum::{router::OpenApiRouter, routes};
 
 use mina_node::{
     p2p::{
@@ -24,22 +24,34 @@ use mina_node_common::rpc::RpcP2pConnectionIncomingResponse;
 
 use crate::http_server::AppState;
 
-/// Registers WebRTC routes on the router.
-pub fn routes(router: Router<AppState>) -> Router<AppState> {
-    router
-        .route("/mina/webrtc/signal/{offer}", get(signal_get))
-        .route("/mina/webrtc/signal", post(signal_post))
+/// WebRTC routes
+pub fn routes() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
+        .routes(routes!(signal_get))
+        .routes(routes!(signal_post))
 }
 
-/// Handles WebRTC signaling via GET with base58 encoded offer in path.
-///
-/// TODO(axum-migration): Returns 400 for both bad base58 AND bad JSON schema inside.
-/// This matches warp behavior but differs from signal_post which returns 422 for
-/// bad JSON schema. Could split: 400 for bad base58, 422 for bad JSON schema.
+/// WebRTC signaling (base58 offer in path)
+#[utoipa::path(
+    get,
+    path = "/mina/webrtc/signal/{offer}",
+    tag = "webrtc",
+    params(
+        ("offer" = String, Path, description = "Base58 encoded WebRTC offer")
+    ),
+    responses(
+        (status = 200, description = "Connection accepted or rejected"),
+        (status = 400, description = "Bad offer or decryption failed"),
+        (status = 500, description = "Internal error")
+    )
+)]
 async fn signal_get(
     State(state): State<AppState>,
     Path(offer): Path<String>,
 ) -> (StatusCode, Json<P2pConnectionResponse>) {
+    // TODO(axum-migration): Returns 400 for both bad base58 AND bad JSON schema inside.
+    // This matches warp behavior but differs from signal_post which returns 422 for
+    // bad JSON schema. Could split: 400 for bad base58, 422 for bad JSON schema.
     let decode_result = bs58::decode(&offer)
         .into_vec()
         .ok()
@@ -54,15 +66,25 @@ async fn signal_get(
     }
 }
 
-/// Handles WebRTC signaling via POST with JSON offer in body.
-///
-/// TODO(axum-migration): Malformed JSON returns 422 (axum default) vs warp's 400.
-/// Both are framework defaults, not explicit choices. 422 is arguably more correct
-/// (valid JSON, wrong schema = "unprocessable entity"). Noted for awareness.
+/// WebRTC signaling (JSON offer in body)
+#[utoipa::path(
+    post,
+    path = "/mina/webrtc/signal",
+    tag = "webrtc",
+    responses(
+        (status = 200, description = "Connection accepted or rejected"),
+        (status = 400, description = "Bad offer"),
+        (status = 422, description = "Malformed JSON"),
+        (status = 500, description = "Internal error")
+    )
+)]
 async fn signal_post(
     State(state): State<AppState>,
     Json(offer): Json<Box<webrtc::Offer>>,
 ) -> (StatusCode, Json<P2pConnectionResponse>) {
+    // TODO(axum-migration): Malformed JSON returns 422 (axum default) vs warp's 400.
+    // Both are framework defaults, not explicit choices. 422 is arguably more correct
+    // (valid JSON, wrong schema = "unprocessable entity"). Noted for awareness.
     handle_offer(state, offer).await
 }
 

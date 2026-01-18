@@ -1,0 +1,28 @@
+//! OpenAPI documentation configuration.
+
+use utoipa::OpenApi;
+
+/// Base OpenAPI documentation with API metadata.
+///
+/// Tags and paths are registered via `utoipa-axum`'s `OpenApiRouter`.
+#[derive(OpenApi)]
+#[openapi(
+    info(
+        title = "Mina Node HTTP RPC",
+        version = env!("CARGO_PKG_VERSION"),
+        description = "REST API for Mina node status, state, and operations"
+    ),
+    tags(
+        (name = "status", description = "Node health and status"),
+        (name = "kubernetes", description = "Kubernetes probe endpoints"),
+        (name = "state", description = "Node state inspection"),
+        (name = "stats", description = "Statistics and metrics"),
+        (name = "scan-state", description = "Scan state inspection"),
+        (name = "snark-pool", description = "SNARK pool management"),
+        (name = "snarker", description = "SNARK worker operations"),
+        (name = "transaction", description = "Transaction pool and accounts"),
+        (name = "discovery", description = "P2P discovery info"),
+        (name = "webrtc", description = "WebRTC signaling"),
+    )
+)]
+pub struct ApiDoc;

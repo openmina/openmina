@@ -5,16 +5,24 @@
 
 #[macro_use]
 mod macros;
+mod openapi;
 mod routes;
 mod types;
 
 pub use types::{AppError, AppResult, AppState};
 
-use axum::Router;
 use mina_node_common::rpc::RpcSender;
 use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
 use types::cors_layer;
+use utoipa::OpenApi;
+use utoipa_axum::router::OpenApiRouter;
+
+#[cfg(feature = "swagger-ui")]
+use utoipa_swagger_ui::SwaggerUi;
+
+#[cfg(feature = "scalar")]
+use utoipa_scalar::{Scalar, Servable};
 
 /// Runs the HTTP server on the specified port.
 ///
@@ -41,18 +49,32 @@ pub async fn run(port: u16, rpc_sender: RpcSender) -> std::io::Result<()> {
             },
         );
 
-    let app = Router::new();
-    let app = routes::status::routes(app);
-    let app = routes::state::routes(app);
-    let app = routes::stats::routes(app);
-    let app = routes::scan_state::routes(app);
-    let app = routes::snark_pool::routes(app);
-    let app = routes::snarker::routes(app);
-    let app = routes::transaction::routes(app);
-    let app = routes::discovery::routes(app);
-    let app = routes::graphql::routes(app);
+    // Build OpenApiRouter with documented routes
+    let openapi_router = OpenApiRouter::with_openapi(openapi::ApiDoc::openapi())
+        .merge(routes::status::routes())
+        .merge(routes::state::routes())
+        .merge(routes::stats::routes())
+        .merge(routes::scan_state::routes())
+        .merge(routes::snark_pool::routes())
+        .merge(routes::snarker::routes())
+        .merge(routes::transaction::routes())
+        .merge(routes::discovery::routes());
+
     #[cfg(feature = "p2p-webrtc")]
-    let app = routes::webrtc::routes(app);
+    let openapi_router = openapi_router.merge(routes::webrtc::routes());
+
+    // Split to get Router and OpenApi spec
+    let (app, api) = openapi_router.split_for_parts();
+
+    // GraphQL (not documented in OpenAPI)
+    let app = routes::graphql::routes(app);
+
+    // OpenAPI documentation UIs
+    #[cfg(feature = "swagger-ui")]
+    let app = app.merge(SwaggerUi::new("/api-docs/swagger-ui").url("/api-docs/openapi.json", api.clone()));
+
+    #[cfg(feature = "scalar")]
+    let app = app.merge(Scalar::with_url("/api-docs/scalar", api));
 
     let app = app.layer(trace_layer).layer(cors_layer()).with_state(state);
 

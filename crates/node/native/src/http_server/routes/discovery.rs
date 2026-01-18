@@ -3,7 +3,8 @@
 //! - `GET /discovery/routing_table` - Get Kademlia routing table
 //! - `GET /discovery/bootstrap_stats` - Get bootstrap statistics
 
-use axum::{extract::State, routing::get, Json, Router};
+use axum::{extract::State, Json};
+use utoipa_axum::{router::OpenApiRouter, routes};
 
 use mina_node::rpc::{
     RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse, RpcRequest,
@@ -11,21 +12,37 @@ use mina_node::rpc::{
 
 use crate::http_server::{AppResult, AppState};
 
-/// Registers discovery routes on the router.
-pub fn routes(router: Router<AppState>) -> Router<AppState> {
-    router
-        .route("/discovery/routing_table", get(routing_table))
-        .route("/discovery/bootstrap_stats", get(bootstrap_stats))
+/// Discovery routes
+pub fn routes() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
+        .routes(routes!(routing_table))
+        .routes(routes!(bootstrap_stats))
 }
 
-/// Returns the Kademlia routing table.
+/// Kademlia routing table
+#[utoipa::path(
+    get,
+    path = "/discovery/routing_table",
+    tag = "discovery",
+    responses(
+        (status = 200, description = "Routing table")
+    )
+)]
 async fn routing_table(
     State(state): State<AppState>,
 ) -> AppResult<Json<RpcDiscoveryRoutingTableResponse>> {
     jsonify_rpc!(state, RpcRequest::DiscoveryRoutingTable)
 }
 
-/// Returns bootstrap statistics.
+/// Bootstrap statistics
+#[utoipa::path(
+    get,
+    path = "/discovery/bootstrap_stats",
+    tag = "discovery",
+    responses(
+        (status = 200, description = "Bootstrap statistics")
+    )
+)]
 async fn bootstrap_stats(
     State(state): State<AppState>,
 ) -> AppResult<Json<RpcDiscoveryBoostrapStatsResponse>> {

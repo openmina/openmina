@@ -6,9 +6,9 @@
 use axum::{
     extract::{Path, State},
     http::StatusCode,
-    routing::get,
-    Json, Router,
+    Json,
 };
+use utoipa_axum::{router::OpenApiRouter, routes};
 
 use mina_node::rpc::{
     RpcRequest, RpcScanStateSummary, RpcScanStateSummaryGetQuery, RpcScanStateSummaryGetResponse,
@@ -16,19 +16,27 @@ use mina_node::rpc::{
 
 use crate::http_server::{AppError, AppResult, AppState};
 
-/// Registers scan state routes on the router.
-pub fn routes(router: Router<AppState>) -> Router<AppState> {
-    router
-        .route("/scan-state/summary", get(summary))
-        .route("/scan-state/summary/{block}", get(summary_for_block))
+/// Scan state routes
+pub fn routes() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
+        .routes(routes!(summary))
+        .routes(routes!(summary_for_block))
 }
 
-/// Returns scan state summary for best tip.
-///
-/// TODO(axum-migration): "target block not found" should arguably be 404, not 500.
-/// Keeping 500 for warp compatibility. Also returns bare JSON string for errors
-/// to match warp; should migrate to `{"error": "..."}` format.
+/// Scan state summary for best tip
+#[utoipa::path(
+    get,
+    path = "/scan-state/summary",
+    tag = "scan-state",
+    responses(
+        (status = 200, description = "Scan state summary"),
+        (status = 500, description = "Target block not found")
+    )
+)]
 async fn summary(State(state): State<AppState>) -> AppResult<Json<RpcScanStateSummary>> {
+    // TODO(axum-migration): "target block not found" should arguably be 404, not 500.
+    // Keeping 500 for warp compatibility. Also returns bare JSON string for errors
+    // to match warp; should migrate to `{"error": "..."}` format.
     let result: Option<RpcScanStateSummaryGetResponse> = state
         .rpc_sender()
         .oneshot_request(RpcRequest::ScanStateSummaryGet(
@@ -46,7 +54,20 @@ async fn summary(State(state): State<AppState>) -> AppResult<Json<RpcScanStateSu
     }
 }
 
-/// Returns scan state summary for a specific block (by height or hash).
+/// Scan state summary for specific block
+#[utoipa::path(
+    get,
+    path = "/scan-state/summary/{block}",
+    tag = "scan-state",
+    params(
+        ("block" = String, Path, description = "Block height or hash")
+    ),
+    responses(
+        (status = 200, description = "Scan state summary"),
+        (status = 400, description = "Invalid block identifier"),
+        (status = 500, description = "Target block not found")
+    )
+)]
 async fn summary_for_block(
     State(state): State<AppState>,
     Path(block): Path<String>,

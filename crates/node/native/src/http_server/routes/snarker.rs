@@ -11,11 +11,11 @@ use axum::{
     body::Body,
     extract::{Query, State},
     http::{header, HeaderMap, Response, StatusCode},
-    routing::{get, post},
-    Json, Router,
+    Json,
 };
 use mina_p2p_messages::binprot::BinProtWrite;
 use serde::Deserialize;
+use utoipa_axum::{router::OpenApiRouter, routes};
 
 use mina_node::{
     core::snark::SnarkJobId,
@@ -27,25 +27,32 @@ use mina_node::{
 
 use crate::http_server::{AppError, AppResult, AppState};
 
-/// Registers snarker routes on the router.
-pub fn routes(router: Router<AppState>) -> Router<AppState> {
-    router
-        .route("/snarker/job/commit", post(job_commit))
-        .route("/snarker/job/spec", get(job_spec))
-        .route("/snarker/workers", get(workers))
-        .route("/snarker/config", get(config))
+/// Snarker routes
+pub fn routes() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
+        .routes(routes!(job_commit))
+        .routes(routes!(job_spec))
+        .routes(routes!(workers))
+        .routes(routes!(config))
 }
 
-/// Commits to a snark job.
-///
-/// TODO(binier): make endpoint only accessible locally.
-///
-/// TODO(axum-migration): Error returns bare JSON string for warp compatibility.
-/// Migrate to structured error (e.g., `{"error": "...", "details": {...}}`).
+/// Commit to a snark job
+#[utoipa::path(
+    post,
+    path = "/snarker/job/commit",
+    tag = "snarker",
+    responses(
+        (status = 201, description = "Job committed"),
+        (status = 400, description = "Invalid input or job error")
+    )
+)]
 async fn job_commit(
     State(state): State<AppState>,
     body: String,
 ) -> AppResult<(StatusCode, Json<RpcSnarkerJobCommitResponse>)> {
+    // TODO(binier): make endpoint only accessible locally.
+    // TODO(axum-migration): Error returns bare JSON string for warp compatibility.
+    // Migrate to structured error (e.g., `{"error": "...", "details": {...}}`).
     let job_id = SnarkJobId::from_str(&body)
         .map_err(|_| AppError::Json(StatusCode::BAD_REQUEST, serde_json::json!("invalid_input")))?;
 
@@ -65,9 +72,22 @@ struct JobSpecQuery {
     id: SnarkJobId,
 }
 
-/// Returns snark job specification.
+/// Snark job specification
 ///
-/// Supports both JSON and binary (binprot) output based on Accept header.
+/// Supports JSON and binary (binprot) output based on Accept header.
+#[utoipa::path(
+    get,
+    path = "/snarker/job/spec",
+    tag = "snarker",
+    params(
+        ("id" = String, Query, description = "Snark job ID")
+    ),
+    responses(
+        (status = 200, description = "JSON job spec", content_type = "application/json"),
+        (status = 200, description = "Binprot job spec", content_type = "application/octet-stream"),
+        (status = 400, description = "Job not found")
+    )
+)]
 async fn job_spec(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -123,12 +143,28 @@ async fn job_spec(
     }
 }
 
-/// Returns snarker workers.
+/// Snarker workers
+#[utoipa::path(
+    get,
+    path = "/snarker/workers",
+    tag = "snarker",
+    responses(
+        (status = 200, description = "Snarker workers")
+    )
+)]
 async fn workers(State(state): State<AppState>) -> AppResult<Json<RpcSnarkerWorkersResponse>> {
     jsonify_rpc!(state, RpcRequest::SnarkerWorkers)
 }
 
-/// Returns snarker configuration.
+/// Snarker configuration
+#[utoipa::path(
+    get,
+    path = "/snarker/config",
+    tag = "snarker",
+    responses(
+        (status = 200, description = "Snarker configuration")
+    )
+)]
 async fn config(State(state): State<AppState>) -> AppResult<Json<RpcSnarkerConfigGetResponse>> {
     jsonify_rpc!(state, RpcRequest::SnarkerConfig)
 }

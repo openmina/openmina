@@ -10,22 +10,22 @@
 use axum::{
     extract::{Query, State},
     http::StatusCode,
-    routing::get,
-    Json, Router,
+    Json,
 };
 use serde::Deserialize;
+use utoipa_axum::{router::OpenApiRouter, routes};
 
 use mina_node::rpc::{RpcMessageProgressResponse, RpcPeersGetResponse, RpcRequest};
 use mina_node_common::rpc::RpcStateGetResponse;
 
 use crate::http_server::{AppError, AppResult, AppState};
 
-/// Registers state routes on the router.
-pub fn routes(router: Router<AppState>) -> Router<AppState> {
-    router
-        .route("/state", get(state_get).post(state_post))
-        .route("/state/peers", get(peers))
-        .route("/state/message-progress", get(message_progress))
+/// State routes
+pub fn routes() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
+        .routes(routes!(state_get, state_post))
+        .routes(routes!(peers))
+        .routes(routes!(message_progress))
 }
 
 #[derive(Deserialize, Default)]
@@ -34,7 +34,19 @@ struct StateQueryParams {
     filter: Option<String>,
 }
 
-/// Returns node state with optional JSONPath filter (query param).
+/// Node state with optional JSONPath filter (query param)
+#[utoipa::path(
+    get,
+    path = "/state",
+    tag = "state",
+    params(
+        ("filter" = Option<String>, Query, description = "JSONPath filter expression")
+    ),
+    responses(
+        (status = 200, description = "Node state"),
+        (status = 400, description = "Invalid filter expression")
+    )
+)]
 async fn state_get(
     State(state): State<AppState>,
     Query(params): Query<StateQueryParams>,
@@ -42,7 +54,16 @@ async fn state_get(
     state_handler(state, params.filter).await
 }
 
-/// Returns node state with optional JSONPath filter (JSON body).
+/// Node state with JSONPath filter in body
+#[utoipa::path(
+    post,
+    path = "/state",
+    tag = "state",
+    responses(
+        (status = 200, description = "Node state"),
+        (status = 400, description = "Invalid filter expression")
+    )
+)]
 async fn state_post(
     State(state): State<AppState>,
     Json(params): Json<StateQueryParams>,
@@ -50,8 +71,7 @@ async fn state_post(
     state_handler(state, params.filter).await
 }
 
-/// Shared handler for state requests. Returns `serde_json::Value` because the
-/// JSONPath filter produces a dynamic response shape.
+/// Shared handler for state requests
 async fn state_handler(
     state: AppState,
     filter: Option<String>,
@@ -71,7 +91,15 @@ async fn state_handler(
     }
 }
 
-/// Returns connected peers.
+/// Connected peers
+#[utoipa::path(
+    get,
+    path = "/state/peers",
+    tag = "state",
+    responses(
+        (status = 200, description = "Connected peers")
+    )
+)]
 async fn peers(State(state): State<AppState>) -> Json<Option<RpcPeersGetResponse>> {
     let result = state
         .rpc_sender()
@@ -80,7 +108,15 @@ async fn peers(State(state): State<AppState>) -> Json<Option<RpcPeersGetResponse
     Json(result)
 }
 
-/// Returns message progress information.
+/// Message progress
+#[utoipa::path(
+    get,
+    path = "/state/message-progress",
+    tag = "state",
+    responses(
+        (status = 200, description = "Message progress information")
+    )
+)]
 async fn message_progress(
     State(state): State<AppState>,
 ) -> Json<Option<RpcMessageProgressResponse>> {

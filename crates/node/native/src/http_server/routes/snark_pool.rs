@@ -5,9 +5,9 @@
 
 use axum::{
     extract::{Path, State},
-    routing::get,
-    Json, Router,
+    Json,
 };
+use utoipa_axum::{router::OpenApiRouter, routes};
 
 use mina_node::{
     core::snark::SnarkJobId,
@@ -16,19 +16,38 @@ use mina_node::{
 
 use crate::http_server::{AppResult, AppState};
 
-/// Registers snark pool routes on the router.
-pub fn routes(router: Router<AppState>) -> Router<AppState> {
-    router
-        .route("/snark-pool/jobs", get(jobs))
-        .route("/snark-pool/job/{job_id}", get(job))
+/// Snark pool routes
+pub fn routes() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
+        .routes(routes!(jobs))
+        .routes(routes!(job))
 }
 
-/// Returns all snark pool jobs.
+/// All snark pool jobs
+#[utoipa::path(
+    get,
+    path = "/snark-pool/jobs",
+    tag = "snark-pool",
+    responses(
+        (status = 200, description = "Snark pool jobs")
+    )
+)]
 async fn jobs(State(state): State<AppState>) -> AppResult<Json<RpcSnarkPoolGetResponse>> {
     jsonify_rpc!(state, RpcRequest::SnarkPoolGet)
 }
 
-/// Returns a specific snark pool job.
+/// Specific snark pool job
+#[utoipa::path(
+    get,
+    path = "/snark-pool/job/{job_id}",
+    tag = "snark-pool",
+    params(
+        ("job_id" = String, Path, description = "Snark job ID")
+    ),
+    responses(
+        (status = 200, description = "Snark pool job")
+    )
+)]
 async fn job(
     State(state): State<AppState>,
     Path(job_id): Path<SnarkJobId>,

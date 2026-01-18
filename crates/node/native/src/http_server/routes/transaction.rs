@@ -5,11 +5,8 @@
 //! - `POST /send-payment` - Send a payment transaction
 //! - `GET /best-chain-user-commands` - Get user commands from best chain
 
-use axum::{
-    extract::State,
-    routing::{get, post},
-    Json, Router,
-};
+use axum::{extract::State, Json};
+use utoipa_axum::{router::OpenApiRouter, routes};
 
 use mina_node::rpc::{
     RpcInjectPayment, RpcLedgerSlimAccountsResponse, RpcTransactionInjectResponse,
@@ -18,16 +15,24 @@ use mina_node::rpc::{
 
 use crate::http_server::{AppError, AppResult, AppState};
 
-/// Registers transaction routes on the router.
-pub fn routes(router: Router<AppState>) -> Router<AppState> {
-    router
-        .route("/transaction-pool", get(transaction_pool))
-        .route("/accounts", get(accounts))
-        .route("/send-payment", post(send_payment))
-        .route("/best-chain-user-commands", get(best_chain_user_commands))
+/// Transaction routes
+pub fn routes() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
+        .routes(routes!(transaction_pool))
+        .routes(routes!(accounts))
+        .routes(routes!(send_payment))
+        .routes(routes!(best_chain_user_commands))
 }
 
-/// Returns the transaction pool.
+/// Transaction pool
+#[utoipa::path(
+    get,
+    path = "/transaction-pool",
+    tag = "transaction",
+    responses(
+        (status = 200, description = "Transaction pool")
+    )
+)]
 async fn transaction_pool(
     State(state): State<AppState>,
 ) -> AppResult<Json<RpcTransactionPoolResponse>> {
@@ -40,7 +45,15 @@ async fn transaction_pool(
         .ok_or(AppError::ChannelDropped)
 }
 
-/// Returns all accounts from the latest ledger.
+/// All accounts from latest ledger
+#[utoipa::path(
+    get,
+    path = "/accounts",
+    tag = "transaction",
+    responses(
+        (status = 200, description = "All accounts")
+    )
+)]
 async fn accounts(State(state): State<AppState>) -> AppResult<Json<RpcLedgerSlimAccountsResponse>> {
     state
         .rpc_sender()
@@ -53,7 +66,15 @@ async fn accounts(State(state): State<AppState>) -> AppResult<Json<RpcLedgerSlim
         .ok_or(AppError::ChannelDropped)
 }
 
-/// Sends payment transactions.
+/// Send payment transactions
+#[utoipa::path(
+    post,
+    path = "/send-payment",
+    tag = "transaction",
+    responses(
+        (status = 200, description = "Payment result")
+    )
+)]
 async fn send_payment(
     State(state): State<AppState>,
     Json(payments): Json<Vec<RpcInjectPayment>>,
@@ -71,7 +92,15 @@ async fn send_payment(
     }
 }
 
-/// Returns user commands from the best chain.
+/// User commands from best chain
+#[utoipa::path(
+    get,
+    path = "/best-chain-user-commands",
+    tag = "transaction",
+    responses(
+        (status = 200, description = "User commands from best chain")
+    )
+)]
 async fn best_chain_user_commands(
     State(state): State<AppState>,
 ) -> AppResult<Json<RpcTransitionFrontierUserCommandsResponse>> {
