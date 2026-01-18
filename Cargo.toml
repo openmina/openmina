@@ -135,8 +135,8 @@ inout = "0.1"
 itertools = "0.12"
 js-sys = "0.3.64"
 jsonpath-rust = "0.5.0"
-juniper = { version = "0.16" }
-juniper_warp = "0.8.0"
+juniper = "0.17"
+juniper_axum = "0.3"
 kimchi = { git = "https://github.com/o1-labs/proof-systems", tag = "0.3.0" }
 lazy_static = "1.4.0"
 leb128 = "0.2.1"
@@ -254,7 +254,6 @@ vergen = { version = "8.2.4", features = [
   "gitcl",
   "rustc",
 ] }
-warp = "0.3"
 wasm-bindgen = "^0.2.106"
 wasm-bindgen-futures = "^0.4.56"
 wasm-bindgen-test = "^0.3.56"

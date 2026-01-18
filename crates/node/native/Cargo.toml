@@ -15,7 +15,7 @@ getrandom = { workspace = true }
 hex = { workspace = true }
 jsonpath-rust = { workspace = true }
 juniper = { workspace = true }
-juniper_warp = { workspace = true }
+juniper_axum = { workspace = true }
 ledger = { workspace = true }
 libp2p-identity = { workspace = true, features = ["peerid"] }
 mina-core = { path = "../../core" }
@@ -41,7 +41,6 @@ tokio = { workspace = true, features = ["process", "macros"] }
 tower-http = { workspace = true, features = ["cors"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-warp = { workspace = true }
 
 [features]
 default = ["p2p-libp2p"]

@@ -3,6 +3,7 @@
 //! Each submodule groups related endpoints by functionality.
 
 pub mod discovery;
+pub mod graphql;
 pub mod scan_state;
 pub mod snark_pool;
 pub mod snarker;

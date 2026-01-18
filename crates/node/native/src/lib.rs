@@ -5,7 +5,7 @@
 //!
 //! This crate provides:
 //! - [`NodeBuilder`] - Fluent API for constructing nodes
-//! - HTTP server (warp-based, being migrated to axum)
+//! - HTTP server (axum-based) with REST API and GraphQL
 //! - [`NodeService`] - Native service implementations (P2P, ledger, proofs)
 //!
 //! Used by the CLI (`cli` crate) to instantiate and run nodes with RPC servers.
@@ -14,7 +14,6 @@ pub use mina_node_common::*;
 
 pub mod graphql;
 pub mod http_server;
-mod http_server_warp;
 
 mod service;
 pub use service::{NodeService, *};

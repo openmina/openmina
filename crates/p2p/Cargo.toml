@@ -65,7 +65,6 @@ prost-build = { workspace = true }
 
 [dev-dependencies]
 crypto-bigint = { workspace = true, features = ["rand_core"] }
-warp = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 clap = { workspace = true, features = ["derive", "env"] }
 p2p-testing = { path = "testing" }

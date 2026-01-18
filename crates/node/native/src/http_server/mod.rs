@@ -50,6 +50,7 @@ pub async fn run(port: u16, rpc_sender: RpcSender) -> std::io::Result<()> {
     let app = routes::snarker::routes(app);
     let app = routes::transaction::routes(app);
     let app = routes::discovery::routes(app);
+    let app = routes::graphql::routes(app);
     #[cfg(feature = "p2p-webrtc")]
     let app = routes::webrtc::routes(app);
 
