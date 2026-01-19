@@ -26,3 +26,9 @@ use utoipa::OpenApi;
     )
 )]
 pub struct ApiDoc;
+
+/// Stoplight Elements UI (CDN-loaded)
+#[cfg(feature = "stoplight-elements")]
+pub async fn stoplight_elements() -> axum::response::Html<&'static str> {
+    axum::response::Html(include_str!("stoplight_elements.html"))
+}

@@ -54,7 +54,8 @@ p2p-libp2p = ["mina-node-common/p2p-libp2p"]
 p2p-webrtc = ["mina-node-common/p2p-webrtc"]
 
 # API documentation UIs
-openapi-uis = ["swagger-ui", "scalar"]
+openapi-uis = ["swagger-ui", "scalar", "stoplight-elements"]
 swagger-ui = ["dep:utoipa-swagger-ui"]
 scalar = ["dep:utoipa-scalar"]
+stoplight-elements = []
 graphiql = []
