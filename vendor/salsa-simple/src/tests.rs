@@ -1,9 +1,8 @@
 use crate::XSalsa20;
 
-use generic_array::GenericArray;
 use rand::RngCore;
 use salsa20::{
-    cipher::{KeyIvInit, StreamCipher},
+    cipher::{generic_array::GenericArray, KeyIvInit, StreamCipher},
     XSalsa20 as XSalsa20Ref,
 };
 
