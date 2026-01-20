@@ -11,7 +11,6 @@
     "check-prettify": "make check-prettify",
     "copy-env": "make copy-env",
     "install:deps": "make install-deps",
-    "prebuild": "make prebuild",
     "prettify": "make prettify",
     "sentry:sourcemaps": "make sentry-sourcemaps",
     "start": "make start",

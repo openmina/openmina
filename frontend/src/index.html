@@ -58,20 +58,6 @@
   </head>
 
   <body class="f-base">
-    <script>
-      const deployment = {
-        dateUTC: '2025-12-11T15:36:23.307Z',
-        deviceIp: '82.78.22.250',
-        deviceOS: 'macOS',
-        deviceOSVersion: '24.6.0',
-        version: '1.0.185',
-      };
-      window.deployment = deployment;
-
-      if (location.href.includes('webnode.minaprotocol')) {
-        document.body.style.backgroundColor = '#fff';
-      }
-    </script>
     <script type="module" defer>
       if (typeof window !== 'undefined') {
         window.addEventListener('startWebNode', async () => {
