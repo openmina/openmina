@@ -269,9 +269,15 @@ pub enum Error {
     #[error("swarm creation error: {0}")]
     Libp2pSwarm(String),
     #[error(transparent)]
-    Libp2pDial(#[from] DialError),
+    Libp2pDial(Box<DialError>),
     #[error("Error occurred: {0}")]
     Other(String),
+}
+
+impl From<DialError> for Error {
+    fn from(err: DialError) -> Self {
+        Error::Libp2pDial(Box::new(err))
+    }
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
