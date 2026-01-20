@@ -245,10 +245,7 @@ impl<'de, const MAX_LENGTH: usize> Deserialize<'de> for BoundedCharString<MAX_LE
         impl Visitor<'_> for V {
             type Value = Vec<u8>;
 
-            fn expecting(
-                &self,
-                formatter: &mut serde::__private::fmt::Formatter,
-            ) -> serde::__private::fmt::Result {
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
                 formatter.write_str("string")
             }
 
