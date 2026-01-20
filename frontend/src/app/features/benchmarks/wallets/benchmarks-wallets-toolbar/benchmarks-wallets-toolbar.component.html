@@ -35,9 +35,7 @@
         <button
           class="fx-row-vert-cent pl-12 pr-12 lh-md"
           [ngClass]="randomWallet ? 'btn-selected' : 'btn-primary'"
-          [tooltip]="
-            'Send transactions from <b>random</b> senders to <b>random</b> receivers'
-          "
+          [tooltip]="'Send transactions from <b>random</b> senders to <b>random</b> receivers'"
           [html]="true"
           [maxWidth]="1000"
           (click)="!randomWallet ? toggleRandomWallet() : null"
@@ -47,9 +45,7 @@
         <button
           class="fx-row-vert-cent pl-12 pr-12 lh-md"
           [ngClass]="!randomWallet ? 'btn-selected' : 'btn-primary'"
-          [tooltip]="
-            'Send transactions from <b>specific</b> sender to <b>random</b> receivers'
-          "
+          [tooltip]="'Send transactions from <b>specific</b> sender to <b>random</b> receivers'"
           [html]="true"
           [maxWidth]="1000"
           (click)="randomWallet ? toggleRandomWallet() : null"
