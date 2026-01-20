@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ([#2097](https://github.com/o1-labs/mina-rust/pull/2097))
 - Bumped up `rsa` from `0.9.7` `0.9.10` and `numb-bigint-dig` from `0.8.4` to
   `0.8.6` ([#2096](https://github.com/o1-labs/mina-rust/pull/2096/))
+- **Frontend**: remove old code adding so-called "deployment" information,
+  leaking engineer information
+  ([#2092](https://github.com/o1-labs/mina-rust/pull/2092))
 
 ## [0.19.0] - 2026-01-08
 
