@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bumped up `rsa` from `0.9.7` `0.9.10` and `numb-bigint-dig` from `0.8.4` to
   `0.8.6` ([#2096](https://github.com/o1-labs/mina-rust/pull/2096/))
 
+### Dependencies
+
+- Bump serde from 1.0.219 to 1.0.228, update private API usage for compatibility
+  ([#2089](https://github.com/o1-labs/mina-rust/pull/2089))
+
 ## [0.19.0] - 2026-01-08
 
 ### Added
