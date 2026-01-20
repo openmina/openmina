@@ -204,7 +204,7 @@ redux = { path = "libs/redux", features = ["serde"] }
 regex = "1"
 reqwest = { version = "0.12.8", features = ["blocking", "json"] }
 ring_buffer = "2.0.2"
-rsa = "0.9"
+rsa = "0.9.10"
 rsexp = "0.2.3"
 rsexp-derive = "0.2.3"
 rsprocmaps = "0.3.2"
