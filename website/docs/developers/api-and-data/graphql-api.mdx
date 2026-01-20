@@ -4,106 +4,63 @@ description: Complete reference for Mina Rust GraphQL API endpoints and queries
 sidebar_position: 6
 ---
 
-import CodeBlock from "@theme/CodeBlock"; import Tabs from "@theme/Tabs"; import
-TabItem from "@theme/TabItem"; import TestBasicConnectivity from
-"!!raw-loader!./scripts/graphql-api/queries/curl/basic-connectivity.sh"; import
-QuerySyncStatus from
-"!!raw-loader!./scripts/graphql-api/queries/curl/sync-status.sh"; import
-QueryNodeInfo from
-"!!raw-loader!./scripts/graphql-api/queries/curl/node-info.sh"; import
-QueryRecentActivity from
-"!!raw-loader!./scripts/graphql-api/queries/curl/recent-activity.sh"; import
-QueryAccountBalance from
-"!!raw-loader!./scripts/graphql-api/queries/curl/account-balance.sh"; import
-QueryBlock from "!!raw-loader!./scripts/graphql-api/queries/curl/block.sh";
-import QueryGenesisBlock from
-"!!raw-loader!./scripts/graphql-api/queries/curl/genesis-block.sh"; import
-QueryGenesisConstants from
-"!!raw-loader!./scripts/graphql-api/queries/curl/genesis-constants.sh"; import
-QueryPooledUserCommands from
-"!!raw-loader!./scripts/graphql-api/queries/curl/pooled-user-commands.sh";
-import QueryPooledZkappCommands from
-"!!raw-loader!./scripts/graphql-api/queries/curl/pooled-zkapp-commands.sh";
-import QueryTransactionStatus from
-"!!raw-loader!./scripts/graphql-api/queries/examples/transaction-status.sh";
-import QuerySnarkPool from
-"!!raw-loader!./scripts/graphql-api/queries/curl/snark-pool.sh"; import
-QueryPendingSnarkWork from
-"!!raw-loader!./scripts/graphql-api/queries/curl/pending-snark-work.sh"; import
-QueryCurrentSnarkWorker from
-"!!raw-loader!./scripts/graphql-api/queries/curl/current-snark-worker.sh";
-import QueryDaemonStatus from
-"!!raw-loader!./scripts/graphql-api/queries/curl/daemon-status.sh"; import
-QueryNetworkID from
-"!!raw-loader!./scripts/graphql-api/queries/curl/network-id.sh"; import
-QueryVersion from "!!raw-loader!./scripts/graphql-api/queries/curl/version.sh";
-import QueryBestChain from
-"!!raw-loader!./scripts/graphql-api/queries/curl/best-chain.sh"; import
-QueryAccount from "!!raw-loader!./scripts/graphql-api/queries/curl/account.sh";
-import BasicConnectivityQuery from
-"!!raw-loader!./scripts/graphql-api/queries/query/basic-connectivity.graphql";
-import SyncStatusQuery from
-"!!raw-loader!./scripts/graphql-api/queries/query/sync-status.graphql"; import
-NodeInfoQuery from
-"!!raw-loader!./scripts/graphql-api/queries/query/node-info.graphql"; import
-RecentActivityQuery from
-"!!raw-loader!./scripts/graphql-api/queries/query/recent-activity.graphql";
-import AccountBalanceQuery from
-"!!raw-loader!./scripts/graphql-api/queries/query/account-balance.graphql";
-import DaemonStatusQuery from
-"!!raw-loader!./scripts/graphql-api/queries/query/daemon-status.graphql"; import
-NetworkIDQuery from
-"!!raw-loader!./scripts/graphql-api/queries/query/network-id.graphql"; import
-VersionQuery from
-"!!raw-loader!./scripts/graphql-api/queries/query/version.graphql"; import
-BestChainQuery from
-"!!raw-loader!./scripts/graphql-api/queries/query/best-chain.graphql"; import
-BlockQuery from
-"!!raw-loader!./scripts/graphql-api/queries/query/block.graphql"; import
-GenesisBlockQuery from
-"!!raw-loader!./scripts/graphql-api/queries/query/genesis-block.graphql"; import
-GenesisConstantsQuery from
-"!!raw-loader!./scripts/graphql-api/queries/query/genesis-constants.graphql";
-import AccountQuery from
-"!!raw-loader!./scripts/graphql-api/queries/query/account.graphql"; import
-PooledUserCommandsQuery from
-"!!raw-loader!./scripts/graphql-api/queries/query/pooled-user-commands.graphql";
-import PooledZkappCommandsQuery from
-"!!raw-loader!./scripts/graphql-api/queries/query/pooled-zkapp-commands.graphql";
-import TransactionStatusQuery from
-"!!raw-loader!./scripts/graphql-api/queries/examples/transaction-status.graphql";
-import SnarkPoolQuery from
-"!!raw-loader!./scripts/graphql-api/queries/query/snark-pool.graphql"; import
-PendingSnarkWorkQuery from
-"!!raw-loader!./scripts/graphql-api/queries/query/pending-snark-work.graphql";
-import CurrentSnarkWorkerQuery from
-"!!raw-loader!./scripts/graphql-api/queries/query/current-snark-worker.graphql";
-import SendPaymentMutation from
-"!!raw-loader!./scripts/graphql-api/mutations/query/send-payment.graphql";
-import SendDelegationMutation from
-"!!raw-loader!./scripts/graphql-api/mutations/query/send-delegation.graphql";
-import SendZkappMutation from
-"!!raw-loader!./scripts/graphql-api/mutations/query/send-zkapp.graphql"; import
-MutationSendPayment from
-"!!raw-loader!./scripts/graphql-api/mutations/curl/send-payment.sh"; import
-MutationSendDelegation from
-"!!raw-loader!./scripts/graphql-api/mutations/curl/send-delegation.sh"; import
-MutationSendZkapp from
-"!!raw-loader!./scripts/graphql-api/mutations/curl/send-zkapp.sh"; import
-GraphqlList from "!!raw-loader!../scripts/cli/graphql-list.sh"; import
-GraphqlInspect from "!!raw-loader!../scripts/cli/graphql-inspect.sh"; import
-GraphqlInspectRemote from
-"!!raw-loader!../scripts/cli/graphql-inspect-remote.sh"; import GraphqlRunSimple
-from "!!raw-loader!../scripts/cli/graphql-run-simple.sh"; import GraphqlRunStdin
-from "!!raw-loader!../scripts/cli/graphql-run-stdin.sh"; import GraphqlRunFile
-from "!!raw-loader!../scripts/cli/graphql-run-file.sh"; import
-GraphqlRunVariables from "!!raw-loader!../scripts/cli/graphql-run-variables.sh";
-import GraphqlRunRemote from
-"!!raw-loader!../scripts/cli/graphql-run-remote.sh"; import
-GraphqlInspectOcamlProtocolState from
-"!!raw-loader!../scripts/cli/graphql-inspect-ocaml-protocolstate.sh"; import
-GraphqlRunOcamlProtocolState from
-"!!raw-loader!../scripts/cli/graphql-run-ocaml-protocolstate.sh";
+import CodeBlock from "@theme/CodeBlock";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TestBasicConnectivity from "!!raw-loader!./scripts/graphql-api/queries/curl/basic-connectivity.sh";
+import QuerySyncStatus from "!!raw-loader!./scripts/graphql-api/queries/curl/sync-status.sh";
+import QueryNodeInfo from "!!raw-loader!./scripts/graphql-api/queries/curl/node-info.sh";
+import QueryRecentActivity from "!!raw-loader!./scripts/graphql-api/queries/curl/recent-activity.sh";
+import QueryAccountBalance from "!!raw-loader!./scripts/graphql-api/queries/curl/account-balance.sh";
+import QueryBlock from "!!raw-loader!./scripts/graphql-api/queries/curl/block.sh";
+import QueryGenesisBlock from "!!raw-loader!./scripts/graphql-api/queries/curl/genesis-block.sh";
+import QueryGenesisConstants from "!!raw-loader!./scripts/graphql-api/queries/curl/genesis-constants.sh";
+import QueryPooledUserCommands from "!!raw-loader!./scripts/graphql-api/queries/curl/pooled-user-commands.sh";
+import QueryPooledZkappCommands from "!!raw-loader!./scripts/graphql-api/queries/curl/pooled-zkapp-commands.sh";
+import QueryTransactionStatus from "!!raw-loader!./scripts/graphql-api/queries/examples/transaction-status.sh";
+import QuerySnarkPool from "!!raw-loader!./scripts/graphql-api/queries/curl/snark-pool.sh";
+import QueryPendingSnarkWork from "!!raw-loader!./scripts/graphql-api/queries/curl/pending-snark-work.sh";
+import QueryCurrentSnarkWorker from "!!raw-loader!./scripts/graphql-api/queries/curl/current-snark-worker.sh";
+import QueryDaemonStatus from "!!raw-loader!./scripts/graphql-api/queries/curl/daemon-status.sh";
+import QueryNetworkID from "!!raw-loader!./scripts/graphql-api/queries/curl/network-id.sh";
+import QueryVersion from "!!raw-loader!./scripts/graphql-api/queries/curl/version.sh";
+import QueryBestChain from "!!raw-loader!./scripts/graphql-api/queries/curl/best-chain.sh";
+import QueryAccount from "!!raw-loader!./scripts/graphql-api/queries/curl/account.sh";
+import BasicConnectivityQuery from "!!raw-loader!./scripts/graphql-api/queries/query/basic-connectivity.graphql";
+import SyncStatusQuery from "!!raw-loader!./scripts/graphql-api/queries/query/sync-status.graphql";
+import NodeInfoQuery from "!!raw-loader!./scripts/graphql-api/queries/query/node-info.graphql";
+import RecentActivityQuery from "!!raw-loader!./scripts/graphql-api/queries/query/recent-activity.graphql";
+import AccountBalanceQuery from "!!raw-loader!./scripts/graphql-api/queries/query/account-balance.graphql";
+import DaemonStatusQuery from "!!raw-loader!./scripts/graphql-api/queries/query/daemon-status.graphql";
+import NetworkIDQuery from "!!raw-loader!./scripts/graphql-api/queries/query/network-id.graphql";
+import VersionQuery from "!!raw-loader!./scripts/graphql-api/queries/query/version.graphql";
+import BestChainQuery from "!!raw-loader!./scripts/graphql-api/queries/query/best-chain.graphql";
+import BlockQuery from "!!raw-loader!./scripts/graphql-api/queries/query/block.graphql";
+import GenesisBlockQuery from "!!raw-loader!./scripts/graphql-api/queries/query/genesis-block.graphql";
+import GenesisConstantsQuery from "!!raw-loader!./scripts/graphql-api/queries/query/genesis-constants.graphql";
+import AccountQuery from "!!raw-loader!./scripts/graphql-api/queries/query/account.graphql";
+import PooledUserCommandsQuery from "!!raw-loader!./scripts/graphql-api/queries/query/pooled-user-commands.graphql";
+import PooledZkappCommandsQuery from "!!raw-loader!./scripts/graphql-api/queries/query/pooled-zkapp-commands.graphql";
+import TransactionStatusQuery from "!!raw-loader!./scripts/graphql-api/queries/examples/transaction-status.graphql";
+import SnarkPoolQuery from "!!raw-loader!./scripts/graphql-api/queries/query/snark-pool.graphql";
+import PendingSnarkWorkQuery from "!!raw-loader!./scripts/graphql-api/queries/query/pending-snark-work.graphql";
+import CurrentSnarkWorkerQuery from "!!raw-loader!./scripts/graphql-api/queries/query/current-snark-worker.graphql";
+import SendPaymentMutation from "!!raw-loader!./scripts/graphql-api/mutations/query/send-payment.graphql";
+import SendDelegationMutation from "!!raw-loader!./scripts/graphql-api/mutations/query/send-delegation.graphql";
+import SendZkappMutation from "!!raw-loader!./scripts/graphql-api/mutations/query/send-zkapp.graphql";
+import MutationSendPayment from "!!raw-loader!./scripts/graphql-api/mutations/curl/send-payment.sh";
+import MutationSendDelegation from "!!raw-loader!./scripts/graphql-api/mutations/curl/send-delegation.sh";
+import MutationSendZkapp from "!!raw-loader!./scripts/graphql-api/mutations/curl/send-zkapp.sh";
+import GraphqlList from "!!raw-loader!../scripts/cli/graphql-list.sh";
+import GraphqlInspect from "!!raw-loader!../scripts/cli/graphql-inspect.sh";
+import GraphqlInspectRemote from "!!raw-loader!../scripts/cli/graphql-inspect-remote.sh";
+import GraphqlRunSimple from "!!raw-loader!../scripts/cli/graphql-run-simple.sh";
+import GraphqlRunStdin from "!!raw-loader!../scripts/cli/graphql-run-stdin.sh";
+import GraphqlRunFile from "!!raw-loader!../scripts/cli/graphql-run-file.sh";
+import GraphqlRunVariables from "!!raw-loader!../scripts/cli/graphql-run-variables.sh";
+import GraphqlRunRemote from "!!raw-loader!../scripts/cli/graphql-run-remote.sh";
+import GraphqlInspectOcamlProtocolState from "!!raw-loader!../scripts/cli/graphql-inspect-ocaml-protocolstate.sh";
+import GraphqlRunOcamlProtocolState from "!!raw-loader!../scripts/cli/graphql-run-ocaml-protocolstate.sh";
 
 # GraphQL API Reference
 
@@ -746,7 +703,10 @@ and inspect endpoints regardless of the node implementation.
 Discover all available GraphQL query and mutation endpoints by querying the
 server's introspection API:
 
-<CodeBlock language="bash" title="website/docs/developers/scripts/cli/graphql-list.sh">
+<CodeBlock
+  language="bash"
+  title="website/docs/developers/scripts/cli/graphql-list.sh"
+>
   {GraphqlList}
 </CodeBlock>
 
@@ -768,7 +728,10 @@ mina internal graphql list --node http://remote-node:3000/graphql
 
 Get detailed schema information for a specific endpoint:
 
-<CodeBlock language="bash" title="website/docs/developers/scripts/cli/graphql-inspect.sh">
+<CodeBlock
+  language="bash"
+  title="website/docs/developers/scripts/cli/graphql-inspect.sh"
+>
   {GraphqlInspect}
 </CodeBlock>
 
@@ -783,7 +746,10 @@ This displays:
 
 To inspect an endpoint on a remote node:
 
-<CodeBlock language="bash" title="website/docs/developers/scripts/cli/graphql-inspect-remote.sh">
+<CodeBlock
+  language="bash"
+  title="website/docs/developers/scripts/cli/graphql-inspect-remote.sh"
+>
   {GraphqlInspectRemote}
 </CodeBlock>
 
@@ -793,7 +759,10 @@ Execute arbitrary GraphQL queries directly from the CLI:
 
 ##### Simple query
 
-<CodeBlock language="bash" title="website/docs/developers/scripts/cli/graphql-run-simple.sh">
+<CodeBlock
+  language="bash"
+  title="website/docs/developers/scripts/cli/graphql-run-simple.sh"
+>
   {GraphqlRunSimple}
 </CodeBlock>
 
@@ -801,7 +770,10 @@ This executes the query and returns the formatted JSON response.
 
 ##### Query from stdin
 
-<CodeBlock language="bash" title="website/docs/developers/scripts/cli/graphql-run-stdin.sh">
+<CodeBlock
+  language="bash"
+  title="website/docs/developers/scripts/cli/graphql-run-stdin.sh"
+>
   {GraphqlRunStdin}
 </CodeBlock>
 
@@ -809,7 +781,10 @@ Useful for piping queries from other commands or scripts.
 
 ##### Query from file
 
-<CodeBlock language="bash" title="website/docs/developers/scripts/cli/graphql-run-file.sh">
+<CodeBlock
+  language="bash"
+  title="website/docs/developers/scripts/cli/graphql-run-file.sh"
+>
   {GraphqlRunFile}
 </CodeBlock>
 
@@ -817,7 +792,10 @@ Convenient for complex queries stored in `.graphql` files.
 
 ##### Query with variables
 
-<CodeBlock language="bash" title="website/docs/developers/scripts/cli/graphql-run-variables.sh">
+<CodeBlock
+  language="bash"
+  title="website/docs/developers/scripts/cli/graphql-run-variables.sh"
+>
   {GraphqlRunVariables}
 </CodeBlock>
 
@@ -826,7 +804,10 @@ for dynamic values.
 
 ##### Query remote node
 
-<CodeBlock language="bash" title="website/docs/developers/scripts/cli/graphql-run-remote.sh">
+<CodeBlock
+  language="bash"
+  title="website/docs/developers/scripts/cli/graphql-run-remote.sh"
+>
   {GraphqlRunRemote}
 </CodeBlock>
 
@@ -876,13 +857,19 @@ This is useful for:
 Some endpoints are only available in OCaml nodes. For example, the
 `protocolState` endpoint provides detailed protocol state information:
 
-<CodeBlock language="bash" title="website/docs/developers/scripts/cli/graphql-inspect-ocaml-protocolstate.sh">
+<CodeBlock
+  language="bash"
+  title="website/docs/developers/scripts/cli/graphql-inspect-ocaml-protocolstate.sh"
+>
   {GraphqlInspectOcamlProtocolState}
 </CodeBlock>
 
 You can query this endpoint directly:
 
-<CodeBlock language="bash" title="website/docs/developers/scripts/cli/graphql-run-ocaml-protocolstate.sh">
+<CodeBlock
+  language="bash"
+  title="website/docs/developers/scripts/cli/graphql-run-ocaml-protocolstate.sh"
+>
   {GraphqlRunOcamlProtocolState}
 </CodeBlock>
 

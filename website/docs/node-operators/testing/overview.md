@@ -16,7 +16,8 @@
   - [P2p Outgoing](#p2p-outgoing)
   - [Single Node](#single-node)
   - [Multi Node](#multi-node)
-  - [Record/Reply](#recordreplay)
+  - [Record/Replay Bootstrap](#recordreplay-bootstrap)
+  - [Record/Replay Block Production](#recordreplay-block-production)
 
 ## P2p tests
 
