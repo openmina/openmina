@@ -463,9 +463,8 @@ impl GenesisConfig {
             }
         }
 
-        let remaining_accounts = AccountSecretKey::max_deterministic_count()
-            .checked_sub(counter as usize)
-            .unwrap_or_default();
+        let remaining_accounts =
+            AccountSecretKey::max_deterministic_count().saturating_sub(counter as usize);
 
         let non_staker_count = match non_stakers {
             NonStakers::Fill => remaining_accounts,
