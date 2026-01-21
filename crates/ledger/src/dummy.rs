@@ -48,7 +48,7 @@ pub fn trivial_verification_key() -> VerificationKey {
 /// Printf.eprintf !"proof_sexp=%{sexp: Pickles.Proof.Proofs_verified_2.Stable.V2.t}\n%!" proof;
 /// Printf.eprintf !"proof_binprot=[%s]\n%!" s;
 pub fn sideloaded_proof() -> Arc<PicklesProofProofsVerifiedMaxStableV2> {
-    let mut cursor = std::io::Cursor::new(include_bytes!("sideloaded_proof.bin"));
+    let mut cursor = std::io::Cursor::new(include_bytes!("./dummy/sideloaded_proof.bin"));
     let proof = PicklesProofProofsVerifiedMaxStableV2::binprot_read(&mut cursor).unwrap();
 
     Arc::new(proof)

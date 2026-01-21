@@ -13,4 +13,3 @@ mina-curves = { workspace = true }
 o1-utils = { workspace = true }
 once_cell = { workspace = true }
 serde = { workspace = true }
-mina-poseidon = { git = "https://github.com/o1-labs/proof-systems", rev = "f4f7afa5c1cbd7c644b66c6d2afa7391cc9f839c" }
