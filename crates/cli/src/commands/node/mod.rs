@@ -347,12 +347,6 @@ impl Node {
         let mut node_builder: NodeBuilder =
             NodeBuilder::new(custom_rng_seed, daemon_conf, genesis_conf);
 
-        // let genesis_config = match self.config {
-        //     Some(config_path) => GenesisConfig::DaemonJsonFile(config_path).into(),
-        //     None => mina_node::config::DEVNET_CONFIG.clone(),
-        // };
-        // let mut node_builder: NodeBuilder = NodeBuilder::new(None, genesis_config);
-
         if let Some(sec_key) = self.p2p_secret_key {
             node_builder.p2p_sec_key(sec_key);
         }
