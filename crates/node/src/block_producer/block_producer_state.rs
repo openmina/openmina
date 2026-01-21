@@ -136,6 +136,7 @@ pub enum BlockProducerCurrentState {
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone, Copy)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub enum BlockProducerWonSlotDiscardReason {
     BestTipStakingLedgerDifferent,
     BestTipGlobalSlotHigher,

@@ -13,6 +13,7 @@ use std::{fmt, str::FromStr};
 #[derive(
     BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Ord, PartialOrd, Eq, PartialEq, Clone,
 )]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema), schema(value_type = String))]
 pub struct AccountPublicKey(NonZeroCurvePoint);
 
 impl From<PubKey> for AccountPublicKey {

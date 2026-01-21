@@ -10,7 +10,10 @@ use utoipa::OpenApi;
     info(
         title = "Mina Node HTTP RPC",
         version = env!("CARGO_PKG_VERSION"),
-        description = "REST API for Mina node status, state, and operations"
+        description = "HTTP RPC API for Mina Rust node status, state, and operations"
+    ),
+    servers(
+        (url = "http://localhost:3000", description = "Default port of local node")
     ),
     tags(
         (name = "status", description = "Node health and status"),

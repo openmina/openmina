@@ -10,11 +10,13 @@ fuzzcheck = { git = "https://github.com/openmina/fuzzcheck-rs.git", optional = t
 linkme = { version = "0.3.22", optional = true }
 paste = "1.0.14"
 serde = { version = "1.0", features = ["derive"], optional = true }
+utoipa = {workspace = true, optional = true}
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-timer = { git = "https://github.com/openmina/wasm-timer" }
 
 [features]
+openapi = ["dep:utoipa"]
 default = ["serde"]
 fuzzing = ["fuzzcheck"]
 serializable_callbacks = ["linkme"]

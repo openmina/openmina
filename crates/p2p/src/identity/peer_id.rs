@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use super::PublicKey;
 
 #[derive(Ord, PartialOrd, Eq, PartialEq, Clone, Copy, MallocSizeOf)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema), schema(as = String))]
 pub struct PeerId([u64; 4]);
 
 impl PeerId {

@@ -33,6 +33,7 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 unsigned-varint = { workspace = true }
 url = { workspace = true }
+utoipa = {workspace = true, optional = true}
 x25519-dalek = { workspace = true }
 
 graphannis-malloc_size_of = { workspace = true }
@@ -109,6 +110,7 @@ tokio = { workspace = true, features = ["macros"] }
 getrandom = { workspace = true, features = ["js"] }
 
 [features]
+openapi = ["dep:utoipa"]
 serializable_callbacks = []
 p2p-webrtc = ["p2p-webrtc-rs"]
 p2p-webrtc-rs = ["webrtc", "rcgen"]

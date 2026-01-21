@@ -48,6 +48,7 @@ pub trait Service:
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct Queues {
     pub events: usize,
     pub snark_block_verify: usize,

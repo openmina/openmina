@@ -71,13 +71,17 @@ pub async fn run(port: u16, rpc_sender: RpcSender) -> std::io::Result<()> {
 
     // OpenAPI documentation UIs
     #[cfg(feature = "swagger-ui")]
-    let app = app.merge(SwaggerUi::new("/api-docs/swagger-ui").url("/api-docs/openapi.json", api.clone()));
+    let app = app
+        .merge(SwaggerUi::new("/api-docs/swagger-ui").url("/api-docs/openapi.json", api.clone()));
 
     #[cfg(feature = "scalar")]
     let app = app.merge(Scalar::with_url("/api-docs/scalar", api));
 
     #[cfg(feature = "stoplight-elements")]
-    let app = app.route("/api-docs/stoplight", axum::routing::get(openapi::stoplight_elements));
+    let app = app.route(
+        "/api-docs/stoplight",
+        axum::routing::get(openapi::stoplight_elements),
+    );
 
     let app = app.layer(trace_layer).layer(cors_layer()).with_state(state);
 

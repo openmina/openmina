@@ -62,7 +62,7 @@ wasm-bindgen = { workspace = true }
 [features]
 default = []
 
-openapi = ["dep:utoipa"]
+openapi = ["dep:utoipa", "redux/openapi", "ledger/openapi", "mina-core/openapi", "mina-node-account/openapi", "mina-p2p/openapi"]
 serializable_callbacks = []
 replay = []
 p2p-webrtc = ["mina-p2p/p2p-webrtc"]

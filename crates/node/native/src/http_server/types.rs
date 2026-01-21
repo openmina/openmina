@@ -31,7 +31,7 @@ impl AppState {
 pub type AppResult<T> = Result<T, AppError>;
 
 /// HTTP API error type that converts to appropriate HTTP responses.
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, utoipa::ToSchema)]
 pub enum AppError {
     /// The RPC channel was dropped before a response was received.
     #[error("response channel dropped, see error log for details")]

@@ -9,9 +9,10 @@
 use axum::{extract::State, Json};
 use utoipa_axum::{router::OpenApiRouter, routes};
 
-use mina_node::rpc::{
-    RpcHealthCheckResponse, RpcHeartbeatGetResponse, RpcReadinessCheckResponse, RpcRequest,
-    RpcStatusGetResponse,
+use mina_node::{
+    BuildEnv, rpc::{
+        RpcHealthCheckResponse, RpcHeartbeatGetResponse, RpcNodeStatus, RpcReadinessCheckResponse, RpcRequest, RpcStatusGetResponse
+    }
 };
 
 use crate::http_server::{AppError, AppResult, AppState};
@@ -32,10 +33,10 @@ pub fn routes() -> OpenApiRouter<AppState> {
     path = "/build_env",
     tag = "status",
     responses(
-        (status = 200, description = "Build environment information")
+        (status = 200, body = BuildEnv)
     )
 )]
-async fn build_env() -> Json<mina_node::BuildEnv> {
+async fn build_env() -> Json<BuildEnv> {
     Json(mina_node::BuildEnv::get())
 }
 
@@ -45,11 +46,12 @@ async fn build_env() -> Json<mina_node::BuildEnv> {
     path = "/status",
     tag = "status",
     responses(
-        (status = 200, description = "Current node status")
+        (status = 200, description = "Current node status", body = RpcNodeStatus)
     )
 )]
-async fn status(State(state): State<AppState>) -> AppResult<Json<RpcStatusGetResponse>> {
-    jsonify_rpc!(state, RpcRequest::StatusGet)
+async fn status(State(state): State<AppState>) -> AppResult<Json<RpcNodeStatus>> {
+    let reply: RpcStatusGetResponse = rpc_request!(state, RpcRequest::StatusGet)?;
+    reply.map(Json).ok_or(AppError::Internal("StatusGet should always return Some(...)".into()))
 }
 
 /// Liveness probe
@@ -59,12 +61,12 @@ async fn status(State(state): State<AppState>) -> AppResult<Json<RpcStatusGetRes
     tags = ["status", "kubernetes"],
     responses(
         (status = 200, description = "Node is healthy"),
-        (status = 503, description = "Node is unhealthy")
+        (status = 503, description = "Node is unhealthy", example = json!({"error": "no ready peers"}))
     )
 )]
-async fn healthz(State(state): State<AppState>) -> AppResult<&'static str> {
+async fn healthz(State(state): State<AppState>) -> AppResult<()> {
     let reply: RpcHealthCheckResponse = rpc_request!(state, RpcRequest::HealthCheck)?;
-    reply.map(|()| "").map_err(AppError::ServiceUnavailable)
+    reply.map_err(AppError::ServiceUnavailable)
 }
 
 /// Readiness probe
@@ -74,12 +76,15 @@ async fn healthz(State(state): State<AppState>) -> AppResult<&'static str> {
     tags = ["status", "kubernetes"],
     responses(
         (status = 200, description = "Node is ready to accept traffic"),
-        (status = 503, description = "Node is not ready")
+        (status = 503, description = "Node is not ready", examples(
+            ("NotSynced" = (value = json!({"error": "not synced"}))),
+            ("Desynced" = (value = json!({"error": "Synced 2000s ago, which is more than the threshold 1800s"}))),
+        )),
     )
 )]
-async fn readyz(State(state): State<AppState>) -> AppResult<&'static str> {
+async fn readyz(State(state): State<AppState>) -> AppResult<()> {
     let reply: RpcReadinessCheckResponse = rpc_request!(state, RpcRequest::ReadinessCheck)?;
-    reply.map(|()| "").map_err(AppError::ServiceUnavailable)
+    reply.map_err(AppError::ServiceUnavailable)
 }
 
 /// Trigger heartbeat
@@ -88,7 +93,7 @@ async fn readyz(State(state): State<AppState>) -> AppResult<&'static str> {
     path = "/make_heartbeat",
     tag = "status",
     responses(
-        (status = 200, description = "Heartbeat triggered successfully")
+        (status = 200, description = "Heartbeat triggered successfully", body = RpcHeartbeatGetResponse)
     )
 )]
 async fn make_heartbeat(State(state): State<AppState>) -> AppResult<Json<RpcHeartbeatGetResponse>> {

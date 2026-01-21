@@ -30,6 +30,7 @@ use crate::{
 };
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone, Copy)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub enum LedgerWriteKind {
     StagedLedgerReconstruct,
     StagedLedgerDiffCreate,
