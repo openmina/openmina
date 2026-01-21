@@ -10,9 +10,11 @@ use axum::{extract::State, Json};
 use utoipa_axum::{router::OpenApiRouter, routes};
 
 use mina_node::{
-    BuildEnv, rpc::{
-        RpcHealthCheckResponse, RpcHeartbeatGetResponse, RpcNodeStatus, RpcReadinessCheckResponse, RpcRequest, RpcStatusGetResponse
-    }
+    rpc::{
+        RpcHealthCheckResponse, RpcHeartbeatGetResponse, RpcNodeStatus, RpcReadinessCheckResponse,
+        RpcRequest, RpcStatusGetResponse,
+    },
+    BuildEnv,
 };
 
 use crate::http_server::{AppError, AppResult, AppState};
@@ -51,7 +53,9 @@ async fn build_env() -> Json<BuildEnv> {
 )]
 async fn status(State(state): State<AppState>) -> AppResult<Json<RpcNodeStatus>> {
     let reply: RpcStatusGetResponse = rpc_request!(state, RpcRequest::StatusGet)?;
-    reply.map(Json).ok_or(AppError::Internal("StatusGet should always return Some(...)".into()))
+    reply.map(Json).ok_or(AppError::Internal(
+        "StatusGet should always return Some(...)".into(),
+    ))
 }
 
 /// Liveness probe

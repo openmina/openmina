@@ -14,7 +14,6 @@ mina-core = { workspace = true }
 mina-hasher = { workspace = true }
 mina-p2p-messages = { workspace = true }
 mina-signer = { workspace = true }
-utoipa = { workspace = true, optional = true }
 rand = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true, features = [
@@ -22,6 +21,7 @@ serde_json = { workspace = true, features = [
   "arbitrary_precision",
 ] }
 thiserror = { workspace = true }
+utoipa = { workspace = true, optional = true }
 
 [features]
 openapi = ["dep:utoipa"]

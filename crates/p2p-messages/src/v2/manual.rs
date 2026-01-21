@@ -1397,6 +1397,77 @@ impl<'de> Deserialize<'de> for CurrencyFeeStableV1 {
     }
 }
 
+// ===== OpenAPI ToSchema impls =====
+//
+// Manual ToSchema impls for types where derive isn't possible or would cascade
+// to requiring ToSchema on internal/generated types.
+#[cfg(feature = "openapi")]
+const _: () = {
+    use utoipa::{PartialSchema, ToSchema};
+
+    // CurrencyFeeStableV1: defined in generated.rs, inner type would need ToSchema,
+    // and custom Serialize outputs decimal string
+    impl PartialSchema for CurrencyFeeStableV1 {
+        fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
+            <String as PartialSchema>::schema()
+        }
+    }
+
+    // CurrencyFeeStableV1: defined in generated.rs, inner type would need ToSchema,
+    // and custom Serialize outputs decimal string
+    impl ToSchema for CurrencyFeeStableV1 {
+        fn name() -> std::borrow::Cow<'static, str> {
+            std::borrow::Cow::Borrowed("CurrencyFee")
+        }
+    }
+
+    // Base58CheckOfBinProt types - serialize to base58 string
+    // TODO(openapi): generate these in base58check_of_binprot! macro
+    impl PartialSchema for StateHash {
+        fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
+            <String as PartialSchema>::schema()
+        }
+    }
+    impl ToSchema for StateHash {
+        fn name() -> std::borrow::Cow<'static, str> {
+            std::borrow::Cow::Borrowed("StateHash")
+        }
+    }
+
+    impl PartialSchema for StateBodyHash {
+        fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
+            <String as PartialSchema>::schema()
+        }
+    }
+    impl ToSchema for StateBodyHash {
+        fn name() -> std::borrow::Cow<'static, str> {
+            std::borrow::Cow::Borrowed("StateBodyHash")
+        }
+    }
+
+    impl PartialSchema for LedgerHash {
+        fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
+            <String as PartialSchema>::schema()
+        }
+    }
+    impl ToSchema for LedgerHash {
+        fn name() -> std::borrow::Cow<'static, str> {
+            std::borrow::Cow::Borrowed("LedgerHash")
+        }
+    }
+
+    impl PartialSchema for NonZeroCurvePoint {
+        fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
+            <String as PartialSchema>::schema()
+        }
+    }
+    impl ToSchema for NonZeroCurvePoint {
+        fn name() -> std::borrow::Cow<'static, str> {
+            std::borrow::Cow::Borrowed("NonZeroCurvePoint")
+        }
+    }
+};
+
 #[cfg(test)]
 mod tests_currency_fee_serialization {
     use super::*;

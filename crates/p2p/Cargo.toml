@@ -33,7 +33,7 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 unsigned-varint = { workspace = true }
 url = { workspace = true }
-utoipa = {workspace = true, optional = true}
+utoipa = { workspace = true, optional = true }
 x25519-dalek = { workspace = true }
 
 graphannis-malloc_size_of = { workspace = true }

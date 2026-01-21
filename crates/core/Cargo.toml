@@ -54,4 +54,4 @@ serde_json = { workspace = true }
 
 [features]
 fuzzing = ["mina-fuzzer"]
-openapi = ["dep:utoipa"]
+openapi = ["dep:utoipa", "mina-p2p-messages/openapi"]

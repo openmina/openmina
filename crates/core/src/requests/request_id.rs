@@ -142,8 +142,7 @@ impl<T> Clone for RequestId<T> {
 
 impl<T> Copy for RequestId<T> {}
 
-
-// NB: this is disgusting, the real approach is to do 
+// NB: this is disgusting, the real approach is to do
 // #[cfg_attr(feature = "openapi", derive(utoipa::ToSchema), schema(as = String))]
 // on RequestId<T>, with #[schema(ignore)] on the PhantomData
 // However, ignore doesn't ignore: https://github.com/juhaku/utoipa/issues/1499
@@ -151,13 +150,7 @@ impl<T> Copy for RequestId<T> {}
 #[cfg(feature = "openapi")]
 impl<T> utoipa::PartialSchema for RequestId<T> {
     fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
-        utoipa::openapi::RefOr::T(utoipa::openapi::Schema::Object(
-            utoipa::openapi::ObjectBuilder::new()
-                .schema_type(utoipa::openapi::schema::SchemaType::new(
-                    utoipa::openapi::schema::Type::String,
-                ))
-                .into(),
-        ))
+        <String as utoipa::PartialSchema>::schema()
     }
 }
 
