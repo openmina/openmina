@@ -69,10 +69,6 @@ copy-env: ## Copy webnode.js to env.js
 install-deps: ## Install npm dependencies (alias)
 	npm install
 
-.PHONY: prebuild
-prebuild: ## Run prebuild script to update version
-	node scripts/update-frontend-version.js
-
 .PHONY: prettify
 prettify: ## Format HTML, SCSS, TypeScript, and JavaScript files with Prettier
 	npx prettier --write 'src/**/*.{ts,js,html,scss,css,json}'
