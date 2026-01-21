@@ -183,6 +183,7 @@ pub enum RpcScanStateSummaryGetQuery {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "kind")]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub enum ActionStatsResponse {
     SinceStart { stats: ActionStatsSnapshot },
     ForBlock(ActionStatsForBlock),
@@ -201,6 +202,7 @@ pub enum PeerConnectionStatus {
 #[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct RpcPeerInfo {
     pub peer_id: PeerId,
+    // TODO(openapi): generate ToSchema in Base58CheckOfBinProt macro
     #[cfg_attr(feature = "openapi", schema(value_type = Option<String>))]
     pub best_tip: Option<StateHash>,
     pub best_tip_height: Option<u32>,
@@ -623,6 +625,7 @@ pub struct RpcNodeStatusTransitionFrontierSync {
 #[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct RpcNodeStatusTransitionFrontierBlockSummary {
     /// State hash of the block.
+    // TODO(openapi): generate ToSchema in Base58CheckOfBinProt macro
     #[cfg_attr(feature = "openapi", schema(value_type = String))]
     pub hash: StateHash,
     /// Block height.
@@ -654,6 +657,7 @@ pub struct RpcNodeStatusSnarkPool {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct RpcBlockProducerStats {
     pub current_time: redux::Timestamp,
     pub current_global_slot: Option<u32>,

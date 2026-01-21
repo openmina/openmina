@@ -72,6 +72,7 @@ pub enum BlockProductionStatus {
         last_observed_confirmations: u32,
     },
     Orphaned {
+        // TODO(openapi): generate ToSchema in Base58CheckOfBinProt macro
         #[cfg_attr(feature = "openapi", schema(value_type = String))]
         orphaned_by: BlockHash,
     },
@@ -83,6 +84,7 @@ pub enum BlockProductionStatus {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct ProducedBlock {
+    // TODO(openapi): generate ToSchema in Base58CheckOfBinProt macro
     #[cfg_attr(feature = "openapi", schema(value_type = String))]
     pub hash: BlockHash,
     pub height: u32,
@@ -102,6 +104,7 @@ pub struct ProducedBlockTransactions {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct VrfEvaluatorStats {
     pub total_slots: u32,
     pub evaluated_slots: u32,
