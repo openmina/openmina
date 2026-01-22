@@ -70,6 +70,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changes
 
+- **Dependencies**: bump generic-array from 0.14.7 to 1.3.3, refactor
+  salsa-simple to remove inout dependency and use direct slice XOR operations
+  ([#2048](https://github.com/o1-labs/mina-rust/pull/2048))
 - Bump webpack-bundle-analyzer from 4.9.0 to 5.1.1 in /frontend
   ([#1958](https://github.com/o1-labs/mina-rust/pull/1958))
 - Bump webpack from 5.88.2 to 5.104.1 in /frontend

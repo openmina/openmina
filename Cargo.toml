@@ -119,7 +119,7 @@ fuzzcheck = "0.12.1"
 gcloud-sdk = { version = "0.26.0", default-features = false, features = [
   "google-firestore-v1",
 ] }
-generic-array = "0.14.7"
+generic-array = "1.3.3"
 getrandom = "0.2.15"
 gloo-timers = { version = "0.3", features = ["futures"] }
 gloo-utils = "0.2"

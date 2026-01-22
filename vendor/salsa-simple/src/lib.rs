@@ -30,10 +30,15 @@ mod tests;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use generic_array::{typenum, GenericArray};
-use inout::InOutBuf;
-
 use zeroize::{Zeroize, ZeroizeOnDrop};
+
+/// XOR a slice in place with another slice.
+#[inline]
+fn xor_in_place(data: &mut [u8], keystream: &[u8]) {
+    for (a, b) in data.iter_mut().zip(keystream.iter()) {
+        *a ^= b;
+    }
+}
 
 pub type XSalsa20 = XSalsa<10>;
 
@@ -110,31 +115,38 @@ impl<const R: usize> XSalsa<R> {
     }
 
     pub fn apply_keystream(&mut self, buf: &mut [u8]) {
-        let mut data = InOutBuf::from(buf);
+        self.check_remaining(buf.len()).unwrap();
 
-        self.check_remaining(data.len()).unwrap();
-
+        let mut offset = 0;
         let pos = self.get_pos();
+
+        // First, use any remaining bytes from the buffer
         if pos != 0 {
             let rem = &self.buffer[pos..];
-            let n = data.len();
+            let n = buf.len();
             if n < rem.len() {
-                data.xor_in2out(&rem[..n]);
+                xor_in_place(buf, &rem[..n]);
                 self.set_pos_unchecked(pos + n);
                 return;
             }
-            let (mut left, right) = data.split_at(rem.len());
-            data = right;
-            left.xor_in2out(rem);
+            xor_in_place(&mut buf[..rem.len()], rem);
+            offset = rem.len();
         }
 
-        let (blocks, mut leftover) = data.into_chunks();
-        self.core.apply_keystream_blocks_inout(blocks);
+        // Process full 64-byte blocks
+        let remaining = &mut buf[offset..];
+        let full_blocks = remaining.len() / 64;
+        for block in remaining[..full_blocks * 64].chunks_exact_mut(64) {
+            self.core.apply_keystream_block(block);
+        }
 
+        // Handle leftover bytes
+        let leftover_start = full_blocks * 64;
+        let leftover = &mut remaining[leftover_start..];
         let n = leftover.len();
         if n != 0 {
             self.core.write_keystream_block(&mut self.buffer);
-            leftover.xor_in2out(&self.buffer[..n]);
+            xor_in_place(leftover, &self.buffer[..n]);
         }
         self.set_pos_unchecked(n);
     }
@@ -183,19 +195,15 @@ impl<const R: usize> XSalsaCore<R> {
         self.gen_ks_block(block);
     }
 
-    /// Apply keystream blocks.
+    /// Apply keystream to a single 64-byte block in place.
     ///
     /// WARNING: this method does not check number of remaining blocks!
     #[inline]
-    fn apply_keystream_blocks_inout(
-        &mut self,
-        blocks: InOutBuf<'_, '_, GenericArray<u8, typenum::U64>>,
-    ) {
-        for mut block in blocks {
-            let mut t = [0; 64];
-            self.gen_ks_block(&mut t);
-            block.xor_in2out(GenericArray::from_slice(&t));
-        }
+    fn apply_keystream_block(&mut self, block: &mut [u8]) {
+        debug_assert_eq!(block.len(), 64);
+        let mut t = [0; 64];
+        self.gen_ks_block(&mut t);
+        xor_in_place(block, &t);
     }
 }
 
