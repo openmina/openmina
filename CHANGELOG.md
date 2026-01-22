@@ -17,6 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   leaking engineer information
   ([#2092](https://github.com/o1-labs/mina-rust/pull/2092))
 
+### Dependencies
+
+- Bump serde from 1.0.219 to 1.0.228, update private API usage for compatibility
+  ([#2089](https://github.com/o1-labs/mina-rust/pull/2089))
+
 ## [0.19.0] - 2026-01-08
 
 ### Added

@@ -26,47 +26,22 @@ impl Clone for LineCounter {
 
 impl serde::Serialize for LineCounter {
     #[coverage(off)]
-    fn serialize<__S>(&self, __serializer: __S) -> serde::__private::Result<__S::Ok, __S::Error>
+    fn serialize<__S>(&self, __serializer: __S) -> Result<__S::Ok, __S::Error>
     where
         __S: serde::Serializer,
     {
-        let mut __serde_state = match serde::Serializer::serialize_struct(
+        let mut __serde_state = serde::Serializer::serialize_struct(
             __serializer,
             "LineCounter",
             false as usize + 1 + 1 + 1,
-        ) {
-            serde::__private::Ok(__val) => __val,
-            serde::__private::Err(__err) => {
-                return serde::__private::Err(__err);
-            }
-        };
-        match serde::ser::SerializeStruct::serialize_field(
+        )?;
+        serde::ser::SerializeStruct::serialize_field(
             &mut __serde_state,
             "col_start",
             &self.col_start,
-        ) {
-            serde::__private::Ok(__val) => __val,
-            serde::__private::Err(__err) => {
-                return serde::__private::Err(__err);
-            }
-        };
-        match serde::ser::SerializeStruct::serialize_field(
-            &mut __serde_state,
-            "col_end",
-            &self.col_end,
-        ) {
-            serde::__private::Ok(__val) => __val,
-            serde::__private::Err(__err) => {
-                return serde::__private::Err(__err);
-            }
-        };
-        match serde::ser::SerializeStruct::serialize_field(&mut __serde_state, "count", &self.count)
-        {
-            serde::__private::Ok(__val) => __val,
-            serde::__private::Err(__err) => {
-                return serde::__private::Err(__err);
-            }
-        };
+        )?;
+        serde::ser::SerializeStruct::serialize_field(&mut __serde_state, "col_end", &self.col_end)?;
+        serde::ser::SerializeStruct::serialize_field(&mut __serde_state, "count", &self.count)?;
         serde::ser::SerializeStruct::end(__serde_state)
     }
 }
@@ -230,36 +205,21 @@ pub struct LineCoverage {
 
 impl serde::Serialize for LineCoverage {
     #[coverage(off)]
-    fn serialize<__S>(&self, __serializer: __S) -> serde::__private::Result<__S::Ok, __S::Error>
+    fn serialize<__S>(&self, __serializer: __S) -> Result<__S::Ok, __S::Error>
     where
         __S: serde::Serializer,
     {
-        let mut __serde_state = match serde::Serializer::serialize_struct(
+        let mut __serde_state = serde::Serializer::serialize_struct(
             __serializer,
             "LineCoverage",
             false as usize + 1 + 1,
-        ) {
-            serde::__private::Ok(__val) => __val,
-            serde::__private::Err(__err) => {
-                return serde::__private::Err(__err);
-            }
-        };
-        match serde::ser::SerializeStruct::serialize_field(&mut __serde_state, "line", &self.line) {
-            serde::__private::Ok(__val) => __val,
-            serde::__private::Err(__err) => {
-                return serde::__private::Err(__err);
-            }
-        };
-        match serde::ser::SerializeStruct::serialize_field(
+        )?;
+        serde::ser::SerializeStruct::serialize_field(&mut __serde_state, "line", &self.line)?;
+        serde::ser::SerializeStruct::serialize_field(
             &mut __serde_state,
             "counters",
             &self.counters,
-        ) {
-            serde::__private::Ok(__val) => __val,
-            serde::__private::Err(__err) => {
-                return serde::__private::Err(__err);
-            }
-        };
+        )?;
         serde::ser::SerializeStruct::end(__serde_state)
     }
 }
@@ -279,37 +239,21 @@ pub struct FileCoverage {
 
 impl serde::Serialize for FileCoverage {
     #[coverage(off)]
-    fn serialize<__S>(&self, __serializer: __S) -> serde::__private::Result<__S::Ok, __S::Error>
+    fn serialize<__S>(&self, __serializer: __S) -> Result<__S::Ok, __S::Error>
     where
         __S: serde::Serializer,
     {
-        let mut __serde_state = match serde::Serializer::serialize_struct(
+        let mut __serde_state = serde::Serializer::serialize_struct(
             __serializer,
             "FileCoverage",
             false as usize + 1 + 1,
-        ) {
-            serde::__private::Ok(__val) => __val,
-            serde::__private::Err(__err) => {
-                return serde::__private::Err(__err);
-            }
-        };
-        match serde::ser::SerializeStruct::serialize_field(
+        )?;
+        serde::ser::SerializeStruct::serialize_field(
             &mut __serde_state,
             "filename",
             &self.filename,
-        ) {
-            serde::__private::Ok(__val) => __val,
-            serde::__private::Err(__err) => {
-                return serde::__private::Err(__err);
-            }
-        };
-        match serde::ser::SerializeStruct::serialize_field(&mut __serde_state, "lines", &self.lines)
-        {
-            serde::__private::Ok(__val) => __val,
-            serde::__private::Err(__err) => {
-                return serde::__private::Err(__err);
-            }
-        };
+        )?;
+        serde::ser::SerializeStruct::serialize_field(&mut __serde_state, "lines", &self.lines)?;
         serde::ser::SerializeStruct::end(__serde_state)
     }
 }
