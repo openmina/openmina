@@ -5,7 +5,9 @@ use mina_curves::pasta::{
     fields::fft::FpParameters as _, Fp, Fq, PallasParameters, ProjectivePallas, ProjectiveVesta,
     VestaParameters,
 };
-use mina_poseidon::{constants::PlonkSpongeConstantsKimchi, sponge::DefaultFqSponge};
+use mina_poseidon::{
+    constants::PlonkSpongeConstantsKimchi, pasta::FULL_ROUNDS, sponge::DefaultFqSponge,
+};
 
 use poseidon::SpongeParamsForField;
 
@@ -47,7 +49,7 @@ where
             BaseField = Self,
             ScalarField = <Self as proofs::field::FieldWitness>::Scalar,
         > + Into<GroupAffine<Self>>
-        + KimchiCurve
+        + KimchiCurve<FULL_ROUNDS>
         + std::fmt::Debug;
     type Projective: CurveGroup<
             Affine = Self::Affine,
@@ -62,6 +64,7 @@ where
         + std::fmt::Debug;
     type Shifting: plonk_checks::ShiftingValue<Self> + Clone + std::fmt::Debug;
     type OtherCurve: KimchiCurve<
+        FULL_ROUNDS,
         ScalarField = Self,
         BaseField = <Self as proofs::field::FieldWitness>::Scalar,
     >;
@@ -70,6 +73,7 @@ where
             <Self as proofs::field::FieldWitness>::Scalar,
             Self::OtherCurve,
             Self,
+            FULL_ROUNDS,
         >;
 
     const PARAMS: Params<Self>;
@@ -90,7 +94,7 @@ impl FieldWitness for Fp {
     type Projective = ProjectivePallas;
     type Shifting = ShiftedValue<Fp>;
     type OtherCurve = GroupAffine<Fq>;
-    type FqSponge = DefaultFqSponge<VestaParameters, PlonkSpongeConstantsKimchi>;
+    type FqSponge = DefaultFqSponge<VestaParameters, PlonkSpongeConstantsKimchi, FULL_ROUNDS>;
 
     /// <https://github.com/openmina/mina/blob/46b6403cb7f158b66a60fc472da2db043ace2910/src/lib/crypto/kimchi_backend/pasta/basic/kimchi_pasta_basic.ml#L107>
     const PARAMS: Params<Self> = Params::<Self> {
@@ -109,7 +113,7 @@ impl FieldWitness for Fq {
     type Projective = ProjectiveVesta;
     type Shifting = ShiftedValue<Fq>;
     type OtherCurve = GroupAffine<Fp>;
-    type FqSponge = DefaultFqSponge<PallasParameters, PlonkSpongeConstantsKimchi>;
+    type FqSponge = DefaultFqSponge<PallasParameters, PlonkSpongeConstantsKimchi, FULL_ROUNDS>;
 
     /// <https://github.com/openmina/mina/blob/46b6403cb7f158b66a60fc472da2db043ace2910/src/lib/crypto/kimchi_backend/pasta/basic/kimchi_pasta_basic.ml#L95>
     const PARAMS: Params<Self> = Params::<Self> {
