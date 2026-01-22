@@ -44,6 +44,7 @@ use ark_poly::{
 use kimchi::proof::{PointEvaluations, ProverCommitments, RecursionChallenge};
 use mina_curves::pasta::{Fp, Fq, Pallas};
 use mina_p2p_messages::{bigint::InvalidBigInt, v2};
+use mina_poseidon::pasta::FULL_ROUNDS;
 use poly_commitment::{commitment::b_poly_coefficients, ipa::OpeningProof};
 use std::rc::Rc;
 
@@ -1365,7 +1366,7 @@ pub mod step_verifier {
         sponge: Sponge<Fp>,
         xi: [u64; 2],
         advice: &'a Advice<Fp>,
-        openings_proof: &'a OpeningProof<GroupAffine<Fp>>,
+        openings_proof: &'a OpeningProof<GroupAffine<Fp>, FULL_ROUNDS>,
         srs: &'a SRS<GroupAffine<Fp>>,
         polynomials: (Vec<CircuitVar<GroupAffine<Fp>>>, Vec<()>),
     }

@@ -25,7 +25,7 @@ use mina_p2p_messages::{
         UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
     },
 };
-use mina_poseidon::constants::PlonkSpongeConstantsKimchi;
+use mina_poseidon::{constants::PlonkSpongeConstantsKimchi, pasta::FULL_ROUNDS};
 use mina_signer::{CompressedPubKey, PubKey};
 use poly_commitment::commitment::CommitmentCurve;
 
@@ -3916,7 +3916,7 @@ pub fn make_prover_index<C: ProofConstants, F: FieldWitness>(
     };
 
     let mut index = ProverIndex::<F>::create(cs, endo_q, Arc::new(srs), false);
-    index.verifier_index = verifier_index.map(|i| i.as_ref().clone());
+    index.verifier_index = verifier_index.map(|i: Arc<super::VerifierIndex<F>>| i.as_ref().clone());
 
     // Compute and cache the verifier index digest
     index.compute_verifier_index_digest::<F::FqSponge>();
@@ -3973,7 +3973,8 @@ pub(super) fn create_proof<C: ProofConstants, F: FieldWitness>(
     params: CreateProofParams<F>,
     w: &Witness<F>,
 ) -> anyhow::Result<ProofWithPublic<F>> {
-    type EFrSponge<F> = mina_poseidon::sponge::DefaultFrSponge<F, PlonkSpongeConstantsKimchi>;
+    type EFrSponge<F> =
+        mina_poseidon::sponge::DefaultFrSponge<F, PlonkSpongeConstantsKimchi, FULL_ROUNDS>;
 
     let CreateProofParams {
         prover,
@@ -4014,7 +4015,7 @@ pub(super) fn create_proof<C: ProofConstants, F: FieldWitness>(
         None,
         &mut rng,
     )
-    .map_err(|e| {
+    .map_err(|e: kimchi::error::ProverError| {
         let prev_challenges_hash = debug::hash_prev_challenge::<F>(&prev_challenges);
         let witness_primary_hash = debug::hash_slice(&w.primary);
         let witness_aux_hash = debug::hash_slice(w.aux());

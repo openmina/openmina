@@ -3305,8 +3305,8 @@ dependencies = [
 
 [[package]]
 name = "groupmap"
-version = "0.1.0"
-source = "git+https://github.com/o1-labs/proof-systems?tag=0.2.0#e8e02799802b42caf727d69c2dba7fce9548cb5b"
+version = "0.3.0"
+source = "git+https://github.com/o1-labs/proof-systems?tag=0.3.0#a73ca6ed580a346344ba80a88137b100237070dc"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -4017,8 +4017,8 @@ dependencies = [
 
 [[package]]
 name = "internal-tracing"
-version = "0.1.0"
-source = "git+https://github.com/o1-labs/proof-systems?tag=0.2.0#e8e02799802b42caf727d69c2dba7fce9548cb5b"
+version = "0.3.0"
+source = "git+https://github.com/o1-labs/proof-systems?tag=0.3.0#a73ca6ed580a346344ba80a88137b100237070dc"
 
 [[package]]
 name = "io-lifetimes"
@@ -4207,8 +4207,8 @@ dependencies = [
 
 [[package]]
 name = "kimchi"
-version = "0.1.0"
-source = "git+https://github.com/o1-labs/proof-systems?tag=0.2.0#e8e02799802b42caf727d69c2dba7fce9548cb5b"
+version = "0.3.0"
+source = "git+https://github.com/o1-labs/proof-systems?tag=0.3.0#a73ca6ed580a346344ba80a88137b100237070dc"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -5013,12 +5013,13 @@ dependencies = [
 
 [[package]]
 name = "mina-curves"
-version = "0.1.0"
-source = "git+https://github.com/o1-labs/proof-systems?tag=0.2.0#e8e02799802b42caf727d69c2dba7fce9548cb5b"
+version = "0.3.0"
+source = "git+https://github.com/o1-labs/proof-systems?tag=0.3.0#a73ca6ed580a346344ba80a88137b100237070dc"
 dependencies = [
  "ark-bn254",
  "ark-ec",
  "ark-ff",
+ "ark-std",
  "num-bigint",
 ]
 
@@ -5049,8 +5050,8 @@ dependencies = [
 
 [[package]]
 name = "mina-hasher"
-version = "0.1.0"
-source = "git+https://github.com/o1-labs/proof-systems?tag=0.2.0#e8e02799802b42caf727d69c2dba7fce9548cb5b"
+version = "0.3.0"
+source = "git+https://github.com/o1-labs/proof-systems?tag=0.3.0#a73ca6ed580a346344ba80a88137b100237070dc"
 dependencies = [
  "ark-ff",
  "bitvec",
@@ -5424,8 +5425,8 @@ dependencies = [
 
 [[package]]
 name = "mina-poseidon"
-version = "0.1.0"
-source = "git+https://github.com/o1-labs/proof-systems?tag=0.2.0#e8e02799802b42caf727d69c2dba7fce9548cb5b"
+version = "0.3.0"
+source = "git+https://github.com/o1-labs/proof-systems?tag=0.3.0#a73ca6ed580a346344ba80a88137b100237070dc"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -5442,8 +5443,8 @@ dependencies = [
 
 [[package]]
 name = "mina-signer"
-version = "0.1.0"
-source = "git+https://github.com/o1-labs/proof-systems?tag=0.2.0#e8e02799802b42caf727d69c2dba7fce9548cb5b"
+version = "0.3.0"
+source = "git+https://github.com/o1-labs/proof-systems?tag=0.3.0#a73ca6ed580a346344ba80a88137b100237070dc"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -5456,6 +5457,7 @@ dependencies = [
  "num-bigint",
  "o1-utils",
  "rand",
+ "serde",
  "sha2 0.10.8",
  "thiserror 2.0.11",
 ]
@@ -6109,8 +6111,8 @@ dependencies = [
 
 [[package]]
 name = "o1-utils"
-version = "0.1.0"
-source = "git+https://github.com/o1-labs/proof-systems?tag=0.2.0#e8e02799802b42caf727d69c2dba7fce9548cb5b"
+version = "0.3.0"
+source = "git+https://github.com/o1-labs/proof-systems?tag=0.3.0#a73ca6ed580a346344ba80a88137b100237070dc"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -6124,6 +6126,7 @@ dependencies = [
  "rand_core",
  "rayon",
  "rmp-serde",
+ "rustversion",
  "serde",
  "serde_json",
  "serde_with",
@@ -6695,8 +6698,8 @@ dependencies = [
 
 [[package]]
 name = "poly-commitment"
-version = "0.1.0"
-source = "git+https://github.com/o1-labs/proof-systems?tag=0.2.0#e8e02799802b42caf727d69c2dba7fce9548cb5b"
+version = "0.3.0"
+source = "git+https://github.com/o1-labs/proof-systems?tag=0.3.0#a73ca6ed580a346344ba80a88137b100237070dc"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -9146,8 +9149,8 @@ dependencies = [
 
 [[package]]
 name = "turshi"
-version = "0.1.0"
-source = "git+https://github.com/o1-labs/proof-systems?tag=0.2.0#e8e02799802b42caf727d69c2dba7fce9548cb5b"
+version = "0.3.0"
+source = "git+https://github.com/o1-labs/proof-systems?tag=0.3.0#a73ca6ed580a346344ba80a88137b100237070dc"
 dependencies = [
  "ark-ff",
  "hex",

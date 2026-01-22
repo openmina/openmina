@@ -54,6 +54,7 @@ use mina_p2p_messages::{
         TransactionSnarkProofStableV2,
     },
 };
+use mina_poseidon::pasta::FULL_ROUNDS;
 
 use super::prover::make_padded_proof_from_p2p;
 
@@ -505,17 +506,18 @@ fn verify_with(
     use poly_commitment::ipa::OpeningProof;
 
     type SpongeParams = mina_poseidon::constants::PlonkSpongeConstantsKimchi;
-    type EFqSponge = DefaultFqSponge<PallasParameters, SpongeParams>;
-    type EFrSponge = DefaultFrSponge<Fq, SpongeParams>;
+    type EFqSponge = DefaultFqSponge<PallasParameters, SpongeParams, FULL_ROUNDS>;
+    type EFrSponge = DefaultFrSponge<Fq, SpongeParams, FULL_ROUNDS>;
 
     let group_map = GroupMap::<Fp>::setup();
 
-    kimchi::verifier::verify::<Pallas, EFqSponge, EFrSponge, OpeningProof<Pallas>>(
-        &group_map,
-        verifier_index,
-        proof,
-        public_input,
-    )
+    kimchi::verifier::verify::<
+        FULL_ROUNDS,
+        Pallas,
+        EFqSponge,
+        EFrSponge,
+        OpeningProof<Pallas, FULL_ROUNDS>,
+    >(&group_map, verifier_index, proof, public_input)
 }
 
 pub struct VerificationContext<'a> {
@@ -530,8 +532,8 @@ fn batch_verify(proofs: &[VerificationContext]) -> Result<(), VerifyError> {
     use poly_commitment::ipa::OpeningProof;
 
     type SpongeParams = mina_poseidon::constants::PlonkSpongeConstantsKimchi;
-    type EFqSponge = DefaultFqSponge<PallasParameters, SpongeParams>;
-    type EFrSponge = DefaultFrSponge<Fq, SpongeParams>;
+    type EFqSponge = DefaultFqSponge<PallasParameters, SpongeParams, FULL_ROUNDS>;
+    type EFrSponge = DefaultFrSponge<Fq, SpongeParams, FULL_ROUNDS>;
 
     let group_map = GroupMap::<Fp>::setup();
     let proofs = proofs
@@ -543,9 +545,13 @@ fn batch_verify(proofs: &[VerificationContext]) -> Result<(), VerifyError> {
         })
         .collect_vec();
 
-    kimchi::verifier::batch_verify::<Pallas, EFqSponge, EFrSponge, OpeningProof<Pallas>>(
-        &group_map, &proofs,
-    )
+    kimchi::verifier::batch_verify::<
+        FULL_ROUNDS,
+        Pallas,
+        EFqSponge,
+        EFrSponge,
+        OpeningProof<Pallas, FULL_ROUNDS>,
+    >(&group_map, &proofs)
 }
 
 fn run_checks(

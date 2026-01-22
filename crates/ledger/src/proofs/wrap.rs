@@ -15,7 +15,7 @@ use mina_p2p_messages::{
         PicklesBaseProofsVerifiedStableV1,
     },
 };
-use mina_poseidon::{sponge::ScalarChallenge, FqSponge};
+use mina_poseidon::{pasta::FULL_ROUNDS, sponge::ScalarChallenge, FqSponge};
 use poly_commitment::{commitment::b_poly_coefficients, ipa::OpeningProof, PolyComm, SRS};
 
 use crate::{
@@ -226,9 +226,9 @@ pub fn create_oracle_with_public_input<F: FieldWitness>(
             .commitment
     };
 
-    type EFrSponge<F> = DefaultFrSponge<F, PlonkSpongeConstantsKimchi>;
+    type EFrSponge<F> = DefaultFrSponge<F, PlonkSpongeConstantsKimchi, FULL_ROUNDS>;
     let oracles_result = proof
-        .oracles::<F::FqSponge, EFrSponge<F>>(verifier_index, &p_comm, Some(public_input))
+        .oracles::<F::FqSponge, EFrSponge<F>, poly_commitment::ipa::SRS<<F as FieldWitness>::OtherCurve>>(verifier_index, &p_comm, Some(public_input))
         .unwrap();
 
     let OraclesResult {
@@ -2137,7 +2137,7 @@ pub mod wrap_verifier {
         sponge: Sponge<Fq>,
         xi: [u64; 2],
         advice: &'a Advice<Fq>,
-        openings_proof: &'a OpeningProof<Vesta>,
+        openings_proof: &'a OpeningProof<Vesta, FULL_ROUNDS>,
         srs: &'a SRS<GroupAffine<Fq>>,
         polynomials: (
             Vec<(CircuitVar<Boolean>, split_commitments::Point<Fq>)>,
@@ -2240,7 +2240,7 @@ pub mod wrap_verifier {
         pub(super) advice: Advice<Fq>,
         pub(super) messages: &'a kimchi::proof::ProverCommitments<Vesta>,
         pub(super) which_branch: Vec<Boolean>,
-        pub(super) openings_proof: &'a OpeningProof<Vesta>,
+        pub(super) openings_proof: &'a OpeningProof<Vesta, FULL_ROUNDS>,
         pub(super) plonk: &'a Plonk<Fp>,
     }
 
@@ -2521,7 +2521,7 @@ pub mod one_hot_vector {
     }
 }
 
-impl Check<Fq> for OpeningProof<Vesta> {
+impl Check<Fq> for OpeningProof<Vesta, FULL_ROUNDS> {
     fn check(&self, w: &mut Witness<Fq>) {
         let Self {
             lr,
@@ -2545,7 +2545,7 @@ impl Check<Fq> for OpeningProof<Vesta> {
     }
 }
 
-impl ToFieldElements<Fq> for OpeningProof<Vesta> {
+impl ToFieldElements<Fq> for OpeningProof<Vesta, FULL_ROUNDS> {
     fn to_field_elements(&self, fields: &mut Vec<Fq>) {
         let Self {
             lr,

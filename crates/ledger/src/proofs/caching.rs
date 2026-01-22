@@ -459,14 +459,14 @@ impl From<&VerifierIndexCached> for VerifierIndex<Fq> {
             endomul_scalar_comm: endomul_scalar_comm.clone(),
             foreign_field_add_comm: foreign_field_add_comm.clone(),
             xor_comm: xor_comm.clone(),
-            shift: shift.each_ref().map(|s| s.to_field().unwrap()), // We trust cached data
+            shift: shift.each_ref().map(|s: &BigInt| s.to_field().unwrap()), // We trust cached data
             permutation_vanishing_polynomial_m: OnceCell::with_value(
                 permutation_vanishing_polynomial_m.into(),
             ),
             w: OnceCell::with_value(w.to_field().unwrap()), // We trust cached data
             endo: endo.to_field().unwrap(),                 // We trust cached data
             lookup_index: lookup_index.clone(),
-            linearization: conv_linearization(linearization, |v| v.try_into().unwrap()),
+            linearization: conv_linearization(linearization, |v: &BigInt| v.to_field().unwrap()),
             powers_of_alpha: {
                 // `Alphas` contains private data, so we can't de/serialize it.
                 // Initializing an `Alphas` is cheap anyway (for block verification).
