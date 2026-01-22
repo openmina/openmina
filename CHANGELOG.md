@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Updated `proof-systems` dependencies (`kimchi`, `mina-curves`, `mina-hasher`, `mina-poseidon`, `mina-signer`, `o1-utils`, `poly-commitment`) from `0.2.0` to `0.3.0`.
+- Adjusted ledger proofs implementation to align with `proof-systems` 0.3.0 API changes.
+- Added `.gemini/` to `.gitignore`.
 - Fix linter for latest beta Rust
   ([#2097](https://github.com/o1-labs/mina-rust/pull/2097))
 - Bumped up `rsa` from `0.9.7` `0.9.10` and `numb-bigint-dig` from `0.8.4` to
