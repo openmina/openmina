@@ -20,3 +20,4 @@ crates/ledger/3.0.0mainnet
 crates/ledger/berkeley-devnet
 mina-workdir
 .idea/
+.gemini/
