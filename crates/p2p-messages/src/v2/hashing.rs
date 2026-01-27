@@ -156,6 +156,23 @@ impl BinProtRead for TransactionHash {
     }
 }
 
+#[cfg(feature = "openapi")]
+const _: () = {
+    use utoipa::{PartialSchema, ToSchema};
+
+    impl PartialSchema for TransactionHash {
+        fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
+            // TODO(openapi): add description, example, and base58 pattern
+            <String as PartialSchema>::schema()
+        }
+    }
+    impl ToSchema for TransactionHash {
+        fn name() -> std::borrow::Cow<'static, str> {
+            std::borrow::Cow::Borrowed("TransactionHash")
+        }
+    }
+};
+
 impl generated::MinaTransactionTransactionStableV2 {
     pub fn hash(&self) -> io::Result<TransactionHash> {
         match self {
