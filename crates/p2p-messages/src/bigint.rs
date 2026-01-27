@@ -331,6 +331,30 @@ impl mina_hasher::Hashable for BigInt {
     }
 }
 
+// Manual ToSchema: serializes as hex string with 0x prefix in human-readable format
+#[cfg(feature = "openapi")]
+const _: () = {
+    use utoipa::{
+        openapi::schema::{Object, SchemaType, Type},
+        PartialSchema, ToSchema,
+    };
+    impl PartialSchema for BigInt {
+        fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
+            Object::builder()
+                .schema_type(SchemaType::Type(Type::String))
+                .description(Some("Unsigned 256-bit integer as 0x-prefixed hex string"))
+                .pattern(Some(r"^0x[0-9a-fA-F]{64}$"))
+                .build()
+                .into()
+        }
+    }
+    impl ToSchema for BigInt {
+        fn name() -> std::borrow::Cow<'static, str> {
+            std::borrow::Cow::Borrowed("BigInt")
+        }
+    }
+};
+
 #[cfg(test)]
 mod tests {
     use super::BigInt;

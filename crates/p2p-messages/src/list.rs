@@ -136,3 +136,21 @@ where
         Ok(())
     }
 }
+
+// List<T> serializes as an array, so schema is array of T's schema
+#[cfg(feature = "openapi")]
+impl<T: utoipa::PartialSchema + 'static> utoipa::PartialSchema for List<T> {
+    fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
+        utoipa::openapi::schema::Array::builder()
+            .items(T::schema())
+            .build()
+            .into()
+    }
+}
+
+#[cfg(feature = "openapi")]
+impl<T: utoipa::ToSchema + 'static> utoipa::ToSchema for List<T> {
+    fn name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Owned(format!("List<{}>", T::name()))
+    }
+}
