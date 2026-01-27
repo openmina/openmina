@@ -131,8 +131,6 @@ pub struct ActionStatsForBlock {
     pub id: u64,
     pub time: Timestamp,
     pub block_level: u32,
-    // TODO(openapi): generate ToSchema in Base58CheckOfBinProt macro
-    #[cfg_attr(feature = "openapi", schema(value_type = String))]
     pub block_hash: StateHash,
     pub cpu_idle: u64,
     pub cpu_busy: u64,

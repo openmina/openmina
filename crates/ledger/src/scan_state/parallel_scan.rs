@@ -333,6 +333,7 @@ pub mod merge {
 
 /// All the jobs on a tree that can be done. Base.Full and Merge.Full
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub enum AvailableJob<BaseJob, MergeJob> {
     Base(BaseJob),
     Merge { left: MergeJob, right: MergeJob },

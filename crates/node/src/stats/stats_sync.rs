@@ -142,11 +142,7 @@ pub struct SyncStagedLedger {
 pub struct SyncBlock {
     pub global_slot: Option<u32>,
     pub height: u32,
-    // TODO(openapi): generate ToSchema in Base58CheckOfBinProt macro
-    #[cfg_attr(feature = "openapi", schema(value_type = String))]
     pub hash: StateHash,
-    // TODO(openapi): generate ToSchema in Base58CheckOfBinProt macro
-    #[cfg_attr(feature = "openapi", schema(value_type = String))]
     pub pred_hash: StateHash,
     pub status: SyncBlockStatus,
     pub fetch_start: Option<Timestamp>,

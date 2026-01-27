@@ -217,12 +217,14 @@ pub struct RpcPeerInfo {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct RpcScanStateSummary {
     pub block: RpcScanStateSummaryBlock,
     pub scan_state: Vec<Vec<RpcScanStateSummaryScanStateJob>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct RpcScanStateSummaryBlock {
     pub hash: StateHash,
     pub height: u32,
@@ -232,6 +234,7 @@ pub struct RpcScanStateSummaryBlock {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct RpcScanStateSummaryBlockTransaction {
     /// None if hashing fails.
     pub hash: Option<TransactionHash>,
@@ -240,6 +243,7 @@ pub struct RpcScanStateSummaryBlockTransaction {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub enum RpcScanStateSummaryBlockTransactionKind {
     Payment,
     StakeDelegation,
@@ -249,6 +253,7 @@ pub enum RpcScanStateSummaryBlockTransactionKind {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 #[serde(tag = "status")]
 pub enum RpcScanStateSummaryScanStateJob {
     Empty,
@@ -276,6 +281,7 @@ pub enum RpcScanStateSummaryScanStateJob {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 #[serde(tag = "kind")]
 pub enum RpcScanStateSummaryScanStateJobKind {
     Base(RpcScanStateSummaryBlockTransaction),
@@ -283,12 +289,14 @@ pub enum RpcScanStateSummaryScanStateJobKind {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub enum RpcScanStateSummaryScanStateJobStatus {
     Todo,
     Done,
 }
 
 #[derive(Serialize, Debug, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct RpcSnarkPoolJobSummary {
     pub time: Timestamp,
     pub id: SnarkJobId,
@@ -297,15 +305,18 @@ pub struct RpcSnarkPoolJobSummary {
 }
 
 #[derive(Serialize, Debug, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct RpcSnarkPoolJobFull {
     pub time: Timestamp,
     pub id: SnarkJobId,
+    #[cfg_attr(feature = "openapi", schema(value_type = Object))]
     pub job: OneOrTwo<AvailableJobMessage>,
     pub commitment: Option<JobCommitment>,
     pub snark: Option<RpcSnarkPoolJobSnarkWork>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct RpcSnarkPoolJobSnarkWork {
     pub snarker: NonZeroCurvePoint,
     pub fee: CurrencyFeeStableV1,
@@ -314,6 +325,7 @@ pub struct RpcSnarkPoolJobSnarkWork {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct RpcSnarkPoolJobSnarkWorkDone {
     pub snarker: NonZeroCurvePoint,
     pub fee: CurrencyFeeStableV1,
@@ -337,6 +349,7 @@ pub enum RpcSnarkerJobSpecResponse {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct RpcMessageProgressResponse {
     pub messages_stats: BTreeMap<PeerId, MessagesStats>,
     pub staking_ledger_sync: Option<LedgerSyncProgress>,
@@ -345,18 +358,21 @@ pub struct RpcMessageProgressResponse {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct MessagesStats {
     pub current_request: Option<CurrentMessageProgress>,
     pub responses: BTreeMap<String, usize>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct LedgerSyncProgress {
     pub fetched: u64,
     pub estimation: u64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct RootLedgerSyncProgress {
     pub fetched: u64,
     pub estimation: u64,
@@ -364,12 +380,14 @@ pub struct RootLedgerSyncProgress {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct RootStagedLedgerSyncProgress {
     pub fetched: u64,
     pub total: u64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct CurrentMessageProgress {
     pub name: String,
     pub received_bytes: usize,
@@ -625,8 +643,6 @@ pub struct RpcNodeStatusTransitionFrontierSync {
 #[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct RpcNodeStatusTransitionFrontierBlockSummary {
     /// State hash of the block.
-    // TODO(openapi): generate ToSchema in Base58CheckOfBinProt macro
-    #[cfg_attr(feature = "openapi", schema(value_type = String))]
     pub hash: StateHash,
     /// Block height.
     pub height: u32,
