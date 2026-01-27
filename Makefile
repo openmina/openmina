@@ -317,7 +317,7 @@ setup-wasm: ## Setup the WebAssembly toolchain, using nightly
 		rustup component add rust-src --toolchain ${NIGHTLY_RUST_VERSION}-$$TARGET; \
 		rustup component add rustfmt --toolchain ${NIGHTLY_RUST_VERSION}-$$TARGET; \
 		rustup target add wasm32-unknown-unknown --toolchain ${NIGHTLY_RUST_VERSION}-$$TARGET; \
-		cargo install wasm-bindgen-cli --version ${WASM_BINDGEN_CLI_VERSION}
+		cargo install wasm-bindgen-cli --version ${WASM_BINDGEN_CLI_VERSION} --locked
 
 .PHONY: setup-taplo
 setup-taplo: ## Install taplo TOML formatter
