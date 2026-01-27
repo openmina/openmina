@@ -9,14 +9,12 @@ mod openapi;
 mod routes;
 mod types;
 
-pub use types::{AppError, AppResult, AppState};
+pub use types::{AppError, AppResult, AppState, JsonErrorResponse};
 
 use mina_node_common::rpc::RpcSender;
 use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
 use types::cors_layer;
-use utoipa::OpenApi;
-use utoipa_axum::router::OpenApiRouter;
 
 #[cfg(feature = "swagger-ui")]
 use utoipa_swagger_ui::SwaggerUi;
@@ -32,39 +30,25 @@ pub async fn run(port: u16, rpc_sender: RpcSender) -> std::io::Result<()> {
 
     let trace_layer = TraceLayer::new_for_http()
         .make_span_with(|request: &axum::http::Request<_>| {
-            tracing::debug_span!(
+            tracing::info_span!(
                 "http_request",
                 method = %request.method(),
                 uri = %request.uri(),
             )
         })
         .on_response(
-            |response: &axum::http::Response<_>, latency, _span: &tracing::Span| {
+            |response: &axum::http::Response<_>, latency, span: &tracing::Span| {
                 let status = response.status();
                 if status.is_server_error() || status.is_client_error() {
-                    tracing::error!(status = %status, latency = ?latency, "request failed");
+                    tracing::error!(parent: span, status = %status, latency = ?latency, "request failed");
                 } else {
-                    tracing::info!(status = %status, latency = ?latency, "request completed");
+                    tracing::info!(parent: span, status = %status, latency = ?latency, "request completed");
                 }
             },
         );
 
-    // Build OpenApiRouter with documented routes
-    let openapi_router = OpenApiRouter::with_openapi(openapi::ApiDoc::openapi())
-        .merge(routes::status::routes())
-        .merge(routes::state::routes())
-        .merge(routes::stats::routes())
-        .merge(routes::scan_state::routes())
-        .merge(routes::snark_pool::routes())
-        .merge(routes::snarker::routes())
-        .merge(routes::transaction::routes())
-        .merge(routes::discovery::routes());
-
-    #[cfg(feature = "p2p-webrtc")]
-    let openapi_router = openapi_router.merge(routes::webrtc::routes());
-
     // Split to get Router and OpenApi spec
-    let (app, api) = openapi_router.split_for_parts();
+    let (app, api) = routes::openapi_router().split_for_parts();
 
     // GraphQL (not documented in OpenAPI)
     let app = routes::graphql::routes(app);

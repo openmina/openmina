@@ -9,7 +9,6 @@
 
 use axum::{
     extract::{Query, State},
-    http::StatusCode,
     Json,
 };
 use serde::Deserialize;
@@ -18,7 +17,7 @@ use utoipa_axum::{router::OpenApiRouter, routes};
 use mina_node::rpc::{RpcMessageProgressResponse, RpcPeersGetResponse, RpcRequest};
 use mina_node_common::rpc::RpcStateGetResponse;
 
-use crate::http_server::{AppError, AppResult, AppState};
+use crate::http_server::{AppError, AppResult, AppState, JsonErrorResponse};
 
 /// State routes
 pub fn routes() -> OpenApiRouter<AppState> {
@@ -44,7 +43,8 @@ struct StateQueryParams {
     ),
     responses(
         (status = 200, description = "Node state"),
-        (status = 400, description = "Invalid filter expression")
+        (status = 400, description = "Invalid filter expression", body = JsonErrorResponse,
+            example = json!({"error": "failed to parse filter expression: unexpected token"}))
     )
 )]
 async fn state_get(
@@ -61,7 +61,8 @@ async fn state_get(
     tag = "state",
     responses(
         (status = 200, description = "Node state"),
-        (status = 400, description = "Invalid filter expression")
+        (status = 400, description = "Invalid filter expression", body = JsonErrorResponse,
+            example = json!({"error": "failed to parse filter expression: unexpected token"}))
     )
 )]
 async fn state_post(
@@ -84,10 +85,7 @@ async fn state_handler(
     match result {
         None => Err(AppError::ChannelDropped),
         Some(Ok(value)) => Ok(Json(value)),
-        Some(Err(err)) => Err(AppError::Json(
-            StatusCode::BAD_REQUEST,
-            serde_json::to_value(err).unwrap_or_default(),
-        )),
+        Some(Err(err)) => Err(AppError::BadRequest(err.to_string())),
     }
 }
 
@@ -97,15 +95,12 @@ async fn state_handler(
     path = "/state/peers",
     tag = "state",
     responses(
-        (status = 200, description = "Connected peers")
+        // inline: RpcPeersGetResponse is a type alias for Vec<T>, which would register as "Vec"
+        (status = 200, description = "Connected peers", body = inline(RpcPeersGetResponse))
     )
 )]
-async fn peers(State(state): State<AppState>) -> Json<Option<RpcPeersGetResponse>> {
-    let result = state
-        .rpc_sender()
-        .oneshot_request(RpcRequest::PeersGet)
-        .await;
-    Json(result)
+async fn peers(State(state): State<AppState>) -> AppResult<Json<RpcPeersGetResponse>> {
+    jsonify_rpc!(state, RpcRequest::PeersGet)
 }
 
 /// Message progress
@@ -114,15 +109,11 @@ async fn peers(State(state): State<AppState>) -> Json<Option<RpcPeersGetResponse
     path = "/state/message-progress",
     tag = "state",
     responses(
-        (status = 200, description = "Message progress information")
+        (status = 200, description = "Message progress information", body = RpcMessageProgressResponse)
     )
 )]
 async fn message_progress(
     State(state): State<AppState>,
-) -> Json<Option<RpcMessageProgressResponse>> {
-    let result = state
-        .rpc_sender()
-        .oneshot_request(RpcRequest::MessageProgressGet)
-        .await;
-    Json(result)
+) -> AppResult<Json<RpcMessageProgressResponse>> {
+    jsonify_rpc!(state, RpcRequest::MessageProgressGet)
 }

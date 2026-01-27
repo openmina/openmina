@@ -6,7 +6,6 @@
 
 use axum::{
     extract::{Query, State},
-    http::StatusCode,
     Json,
 };
 use serde::Deserialize;
@@ -17,7 +16,7 @@ use mina_node::rpc::{
     RpcSyncStatsGetResponse, SyncStatsQuery,
 };
 
-use crate::http_server::{AppError, AppResult, AppState};
+use crate::http_server::{AppError, AppResult, AppState, JsonErrorResponse};
 
 /// Stats routes
 pub fn routes() -> OpenApiRouter<AppState> {
@@ -42,27 +41,24 @@ struct ActionQueryParams {
         ("id" = Option<String>, Query, description = "\"latest\" for latest block, or numeric block ID")
     ),
     responses(
-        (status = 200, description = "Action statistics"),
-        (status = 400, description = "Invalid id parameter")
+        // inline: type alias for Option<T> would register as "Option"
+        (status = 200, description = "Action statistics", body = inline(RpcActionStatsGetResponse)),
+        (status = 400, description = "Invalid id parameter", body = JsonErrorResponse,
+            example = json!({"error": "'id' must be an u64 integer: invalid digit found in string, instead passed: foo"}))
     )
 )]
 async fn actions(
     State(state): State<AppState>,
     Query(params): Query<ActionQueryParams>,
 ) -> AppResult<Json<RpcActionStatsGetResponse>> {
-    // TODO(axum-migration): Error returns bare JSON string for warp compatibility.
-    // Migrate to structured error (e.g., `{"error": "...", "details": {...}}`).
     let query = match params.id.as_deref() {
         None => ActionStatsQuery::SinceStart,
         Some("latest") => ActionStatsQuery::ForLatestBlock,
         Some(id) => {
             let id: u64 = id.parse().map_err(|err| {
-                AppError::Json(
-                    StatusCode::BAD_REQUEST,
-                    serde_json::json!(format!(
-                        "'id' must be an u64 integer: {err}, instead passed: {id}"
-                    )),
-                )
+                AppError::BadRequest(format!(
+                    "'id' must be an u64 integer: {err}, instead passed: {id}"
+                ))
             })?;
             ActionStatsQuery::ForBlockWithId(id)
         }
@@ -86,7 +82,8 @@ struct SyncQueryParams {
         ("limit" = Option<usize>, Query, description = "Max number of sync snapshots to return")
     ),
     responses(
-        (status = 200, description = "Sync statistics")
+        // inline: type alias for Option<Vec<T>> would register as "Option"
+        (status = 200, description = "Sync statistics", body = inline(RpcSyncStatsGetResponse))
     )
 )]
 async fn sync(
@@ -102,7 +99,8 @@ async fn sync(
     path = "/stats/block_producer",
     tag = "stats",
     responses(
-        (status = 200, description = "Block producer statistics")
+        // inline: type alias for Option<T> would register as "Option"
+        (status = 200, description = "Block producer statistics", body = inline(RpcBlockProducerStatsGetResponse))
     )
 )]
 async fn block_producer(

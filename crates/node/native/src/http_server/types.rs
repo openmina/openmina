@@ -30,6 +30,22 @@ impl AppState {
 /// Result type alias for HTTP handlers.
 pub type AppResult<T> = Result<T, AppError>;
 
+/// JSON error response body.
+#[derive(Debug, serde::Serialize, utoipa::ToSchema)]
+pub struct JsonErrorResponse {
+    /// Error message
+    pub error: String,
+}
+
+impl JsonErrorResponse {
+    /// Creates a new error response with the given message.
+    pub fn new(error: impl Into<String>) -> Self {
+        Self {
+            error: error.into(),
+        }
+    }
+}
+
 /// HTTP API error type that converts to appropriate HTTP responses.
 #[derive(Debug, thiserror::Error, utoipa::ToSchema)]
 pub enum AppError {
@@ -56,17 +72,22 @@ pub enum AppError {
 
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
-        let (status, message) = match self {
+        let (status, body) = match self {
             AppError::ChannelDropped => (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                "response channel dropped, see error log for details".to_owned(),
+                JsonErrorResponse::new("response channel dropped, see error log for details"),
             ),
-            AppError::Internal(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
-            AppError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg),
-            AppError::ServiceUnavailable(msg) => (StatusCode::SERVICE_UNAVAILABLE, msg),
+            AppError::Internal(msg) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                JsonErrorResponse::new(msg),
+            ),
+            AppError::BadRequest(msg) => (StatusCode::BAD_REQUEST, JsonErrorResponse::new(msg)),
+            AppError::ServiceUnavailable(msg) => {
+                (StatusCode::SERVICE_UNAVAILABLE, JsonErrorResponse::new(msg))
+            }
             AppError::Json(status, value) => return (status, Json(value)).into_response(),
         };
-        (status, Json(serde_json::json!({"error": message}))).into_response()
+        (status, Json(body)).into_response()
     }
 }
 
