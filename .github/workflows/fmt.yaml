@@ -3,7 +3,11 @@ name: Format
 on:
   push:
     branches: [ main, develop ]
+    paths-ignore:
+      - 'frontend/**'
   pull_request:
+    paths-ignore:
+      - 'frontend/**'
 
 jobs:
   format:

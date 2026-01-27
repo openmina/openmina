@@ -3,7 +3,11 @@ name: Lint
 on:
   push:
     branches: [ main, develop ]
+    paths-ignore:
+      - 'frontend/**'
   pull_request:
+    paths-ignore:
+      - 'frontend/**'
 
 jobs:
   lint:

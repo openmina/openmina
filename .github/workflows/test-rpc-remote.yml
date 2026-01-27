@@ -6,7 +6,11 @@ name: Remote RPC Tests
 
 on:
   push:
+    paths-ignore:
+      - 'frontend/**'
   pull_request:
+    paths-ignore:
+      - 'frontend/**'
   workflow_dispatch:
   schedule:
     # Run daily at 00:30 UTC (offset from GraphQL tests)

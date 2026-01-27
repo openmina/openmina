@@ -3,7 +3,11 @@ name: Build macOS Latest
 on:
   push:
     branches: [main, develop]
+    paths-ignore:
+      - 'frontend/**'
   pull_request:
+    paths-ignore:
+      - 'frontend/**'
   workflow_dispatch:
 
 concurrency:

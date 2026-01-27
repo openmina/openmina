@@ -3,7 +3,11 @@ name: Lint (Beta Channel)
 on:
   push:
     branches: [ main, develop ]
+    paths-ignore:
+      - 'frontend/**'
   pull_request:
+    paths-ignore:
+      - 'frontend/**'
   schedule:
     # Run weekly on Mondays at 00:00 UTC
     - cron: '0 0 * * 1'

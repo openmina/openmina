@@ -3,7 +3,11 @@ name: Documentation Commands Test
 on:
   push:
     branches: [ main, develop ]
+    paths-ignore:
+      - 'frontend/**'
   pull_request:
+    paths-ignore:
+      - 'frontend/**'
   workflow_dispatch:
 
 env:
