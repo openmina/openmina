@@ -1078,6 +1078,7 @@ pub struct SignatureLibPrivateKeyStableV1(pub crate::bigint::BigInt);
 /// Gid: `125`
 /// Location: [src/int64.ml:6:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/int64.ml#L6)
 #[derive(Clone, Copy, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct UnsignedExtendedUInt64Int64ForVersionTagsStableV1(pub crate::number::UInt64);
 
 /// **OCaml name**: `Unsigned_extended.UInt32.Stable.V1`
@@ -1100,6 +1101,7 @@ pub struct UnsignedExtendedUInt64Int64ForVersionTagsStableV1(pub crate::number::
     Default,
     MallocSizeOf,
 )]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct UnsignedExtendedUInt32StableV1(pub crate::number::UInt32);
 
 /// **OCaml name**: `Protocol_version.Make_str.Stable.V2`
@@ -1136,6 +1138,7 @@ pub enum MinaNumbersGlobalSlotSpanStableV1 {
 /// Gid: `614`
 /// Location: [src/lib/mina_numbers/global_slot_since_genesis.ml:27:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_numbers/global_slot_since_genesis.ml#L27)
 #[derive(Clone, Debug, PartialEq, Serialize, BinProtRead, BinProtWrite, MallocSizeOf)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 #[serde(untagged)]
 pub enum MinaNumbersGlobalSlotSinceGenesisMStableV1 {
     SinceGenesis(UnsignedExtendedUInt32StableV1),
@@ -1177,6 +1180,7 @@ pub struct MinaStateBlockchainStateValueStableV2SignedAmount {
 /// Gid: `638`
 /// Location: [src/lib/currency/currency.ml:947:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/currency/currency.ml#L947)
 #[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite, Deref)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct CurrencyFeeStableV1(pub UnsignedExtendedUInt64Int64ForVersionTagsStableV1);
 
 impl MallocSizeOf for CurrencyFeeStableV1 {
@@ -1190,6 +1194,7 @@ impl MallocSizeOf for CurrencyFeeStableV1 {
 /// Gid: `641`
 /// Location: [src/lib/currency/currency.ml:1094:10](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/currency/currency.ml#L1094)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct CurrencyAmountStableV1(pub UnsignedExtendedUInt64Int64ForVersionTagsStableV1);
 
 impl MallocSizeOf for CurrencyAmountStableV1 {
@@ -1297,6 +1302,7 @@ pub struct BlockTimeTimeStableV1(pub UnsignedExtendedUInt64Int64ForVersionTagsSt
     Eq,
     MallocSizeOf,
 )]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct MinaBaseAccountIdDigestStableV1(pub crate::bigint::BigInt);
 
 /// **OCaml name**: `Mina_base__Account_id.Make_str.Stable.V2`
@@ -1304,6 +1310,7 @@ pub struct MinaBaseAccountIdDigestStableV1(pub crate::bigint::BigInt);
 /// Gid: `669`
 /// Location: [src/lib/mina_base/account_id.ml:151:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/account_id.ml#L151)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct MinaBaseAccountIdStableV2(pub NonZeroCurvePoint, pub MinaBaseAccountIdDigestStableV1);
 
 /// **OCaml name**: `Mina_base__Account_timing.Stable.V2`
@@ -1481,6 +1488,7 @@ pub enum MinaBaseStakeDelegationStableV2 {
 #[derive(
     Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite, strum_macros::Display,
 )]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub enum MinaBaseTransactionStatusFailureStableV2 {
     Predicate,
     SourceNotPresent,
@@ -1578,6 +1586,7 @@ pub enum MinaBaseTransactionStatusStableV2 {
 #[derive(
     Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
 )]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct MinaBaseSignedCommandPayloadCommonStableV2 {
     pub fee: CurrencyFeeStableV1,
     pub fee_payer_pk: NonZeroCurvePoint,
@@ -1609,6 +1618,7 @@ pub enum MinaBaseSignedCommandPayloadBodyStableV2 {
 #[derive(
     Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
 )]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct MinaBaseSignedCommandPayloadStableV2 {
     pub common: MinaBaseSignedCommandPayloadCommonStableV2,
     pub body: MinaBaseSignedCommandPayloadBodyStableV2,
@@ -1626,6 +1636,7 @@ pub struct MinaBaseSignedCommandPayloadStableV2 {
 #[derive(
     Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
 )]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct MinaBaseSignedCommandStableV2 {
     pub payload: MinaBaseSignedCommandPayloadStableV2,
     pub signer: NonZeroCurvePoint,
@@ -1891,6 +1902,7 @@ pub struct MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochLedger {
 #[derive(
     Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
 )]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct MinaBaseEpochLedgerValueStableV1 {
     pub hash: LedgerHash,
     pub total_currency: CurrencyAmountStableV1,
@@ -2216,6 +2228,7 @@ pub struct MinaBaseAccountUpdateBodyStableV1 {
 #[derive(
     Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
 )]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct MinaBaseAccountUpdateBodyFeePayerStableV1 {
     pub public_key: NonZeroCurvePoint,
     pub fee: CurrencyFeeStableV1,
@@ -2327,6 +2340,7 @@ pub struct MinaTransactionLogicTransactionAppliedFeeTransferAppliedStableV2FeeTr
 /// Location: [src/lib/mina_base/with_status.ml:6:4](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/with_status.ml#L6)
 /// Args: MinaBaseSignedCommandStableV2
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct MinaTransactionLogicTransactionAppliedSignedCommandAppliedCommonStableV2UserCommand {
     pub data: MinaBaseSignedCommandStableV2,
     pub status: MinaBaseTransactionStatusStableV2,
@@ -2857,6 +2871,7 @@ pub struct MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1 {
 /// Gid: `908`
 /// Location: [src/lib/transaction_logic/mina_transaction_logic.ml:17:10](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/transaction_logic/mina_transaction_logic.ml#L17)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct MinaTransactionLogicTransactionAppliedSignedCommandAppliedCommonStableV2 {
     pub user_command:
         MinaTransactionLogicTransactionAppliedSignedCommandAppliedCommonStableV2UserCommand,
@@ -3031,6 +3046,7 @@ pub struct ConsensusGlobalSlotStableV1 {
 #[derive(
     Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
 )]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1 {
     pub ledger: MinaBaseEpochLedgerValueStableV1,
     pub seed: EpochSeed,
@@ -3051,6 +3067,7 @@ pub struct ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1 
 #[derive(
     Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
 )]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1 {
     pub ledger: MinaBaseEpochLedgerValueStableV1,
     pub seed: EpochSeed,
@@ -3523,6 +3540,7 @@ pub struct TransactionSnarkScanStateTransactionWithWitnessStableV2 {
 /// Gid: `1057`
 /// Location: [src/lib/transaction_snark_scan_state/transaction_snark_scan_state.ml:65:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/transaction_snark_scan_state/transaction_snark_scan_state.ml#L65)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct TransactionSnarkScanStateLedgerProofWithSokMessageStableV2(
     pub LedgerProofProdStableV2,
     pub MinaBaseSokMessageStableV1,
@@ -3595,3 +3613,122 @@ where
         <()>::deserialize(deserializer)
     }
 }
+
+// Manual ToSchema impls for types where derive doesn't work or produces incorrect schemas.
+// - SerdeYojsonEnum types serialize to yojson array format ["Variant", ...] which doesn't
+//   match utoipa's derived enum schema.
+// - Types with tuple generics like List<(A, B)> cause utoipa's ToSchema derive to panic.
+#[cfg(feature = "openapi")]
+const _: () = {
+    use utoipa::{
+        openapi::schema::{Array, Object, Schema, SchemaType, Type},
+        PartialSchema, ToSchema,
+    };
+
+    // MinaBaseTransactionStatusFailureCollectionStableV1: List<List<FailureReason>>
+    // Serializes as array of arrays of failure reason strings
+    impl PartialSchema for MinaBaseTransactionStatusFailureCollectionStableV1 {
+        fn schema() -> utoipa::openapi::RefOr<Schema> {
+            Array::builder()
+                .items(
+                    Array::builder().items(
+                        Object::builder()
+                            .schema_type(SchemaType::Type(Type::String))
+                            .description(Some("Transaction failure reason"))
+                            .build(),
+                    ),
+                )
+                .description(Some("Collection of transaction failure reasons"))
+                .build()
+                .into()
+        }
+    }
+    impl ToSchema for MinaBaseTransactionStatusFailureCollectionStableV1 {
+        fn name() -> std::borrow::Cow<'static, str> {
+            std::borrow::Cow::Borrowed("MinaBaseTransactionStatusFailureCollectionStableV1")
+        }
+    }
+
+    // MinaBaseTransactionStatusStableV2: SerdeYojsonEnum
+    // Serializes as ["Applied"] or ["Failed", [[failure_reasons...]]]
+    impl PartialSchema for MinaBaseTransactionStatusStableV2 {
+        fn schema() -> utoipa::openapi::RefOr<Schema> {
+            // Yojson enum serializes as array, simplified schema
+            Array::builder()
+                .description(Some(
+                    r#"Yojson enum: ["Applied"] or ["Failed", [[failure_reasons...]]]"#,
+                ))
+                .build()
+                .into()
+        }
+    }
+    impl ToSchema for MinaBaseTransactionStatusStableV2 {
+        fn name() -> std::borrow::Cow<'static, str> {
+            std::borrow::Cow::Borrowed("MinaBaseTransactionStatusStableV2")
+        }
+    }
+
+    // MinaBaseSignedCommandPayloadBodyStableV2: SerdeYojsonEnum
+    // Serializes as ["Payment", {...}] or ["StakeDelegation", {...}]
+    impl PartialSchema for MinaBaseSignedCommandPayloadBodyStableV2 {
+        fn schema() -> utoipa::openapi::RefOr<Schema> {
+            Array::builder()
+                .items(Object::builder().schema_type(SchemaType::Type(Type::Object)))
+                .description(Some(
+                    r#"Yojson enum: ["Payment", {...}] or ["StakeDelegation", {...}]"#,
+                ))
+                .build()
+                .into()
+        }
+    }
+    impl ToSchema for MinaBaseSignedCommandPayloadBodyStableV2 {
+        fn name() -> std::borrow::Cow<'static, str> {
+            std::borrow::Cow::Borrowed("MinaBaseSignedCommandPayloadBodyStableV2")
+        }
+    }
+
+    // MinaTransactionLogicTransactionAppliedZkappCommandAppliedStableV1:
+    // Manual impl required because utoipa's ToSchema derive panics on tuple generics
+    // like `List<(TypeA, Option<TypeB>)>` with "TypeTree must have a path"
+    impl PartialSchema for MinaTransactionLogicTransactionAppliedZkappCommandAppliedStableV1 {
+        fn schema() -> utoipa::openapi::RefOr<Schema> {
+            // accounts: List<(AccountId, Option<Account>)> - tuple serializes as 2-element array
+            let accounts_item = Array::builder()
+                .items(Object::builder().schema_type(SchemaType::Type(Type::Object)))
+                .min_items(Some(2))
+                .max_items(Some(2))
+                .description(Some("[AccountId, Account | null]"));
+
+            Object::builder()
+                .schema_type(SchemaType::Type(Type::Object))
+                .property(
+                    "accounts",
+                    Array::builder()
+                        .items(accounts_item)
+                        .description(Some("List of (account_id, account) tuples")),
+                )
+                .property(
+                    "command",
+                    utoipa::openapi::Ref::new(
+                        "MinaTransactionLogicTransactionAppliedZkappCommandAppliedStableV1Command",
+                    ),
+                )
+                .property(
+                    "new_accounts",
+                    Array::builder().items(utoipa::openapi::Ref::new("MinaBaseAccountIdStableV2")),
+                )
+                .required("accounts")
+                .required("command")
+                .required("new_accounts")
+                .build()
+                .into()
+        }
+    }
+    impl ToSchema for MinaTransactionLogicTransactionAppliedZkappCommandAppliedStableV1 {
+        fn name() -> std::borrow::Cow<'static, str> {
+            std::borrow::Cow::Borrowed(
+                "MinaTransactionLogicTransactionAppliedZkappCommandAppliedStableV1",
+            )
+        }
+    }
+};
