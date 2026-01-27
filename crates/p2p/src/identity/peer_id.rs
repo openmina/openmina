@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 use super::PublicKey;
 
 #[derive(Ord, PartialOrd, Eq, PartialEq, Clone, Copy, MallocSizeOf)]
-#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema), schema(as = String))]
 pub struct PeerId([u64; 4]);
 
 impl PeerId {
@@ -195,6 +194,30 @@ impl BinProtRead for PeerId {
         ]))
     }
 }
+
+// Manual ToSchema: PeerId serializes as base58check string
+#[cfg(feature = "openapi")]
+const _: () = {
+    use utoipa::openapi::schema::{Object, SchemaType, Type};
+
+    impl utoipa::PartialSchema for PeerId {
+        fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
+            Object::builder()
+                .schema_type(SchemaType::Type(Type::String))
+                .description(Some("Base58check-encoded peer ID (32 bytes)"))
+                .pattern(Some(r"^[1-9A-HJ-NP-Za-km-z]{49}$"))
+                .min_length(Some(49))
+                .max_length(Some(49))
+                .build()
+                .into()
+        }
+    }
+    impl utoipa::ToSchema for PeerId {
+        fn name() -> std::borrow::Cow<'static, str> {
+            std::borrow::Cow::Borrowed("PeerId")
+        }
+    }
+};
 
 #[cfg(test)]
 mod tests {
