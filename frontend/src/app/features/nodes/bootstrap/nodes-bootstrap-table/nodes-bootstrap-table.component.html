@@ -6,13 +6,14 @@
     <span class="pl-12">Fetched Blocks</span>
     <span class="pl-12">Applied Blocks</span>
     <span class="fx-row-vert-cent flex-end">
-      <button
-        *ngIf="!openSidePanel"
-        class="h-sm w-sm fx-row-full-cent btn-selected p-0 mr-10"
-        (click)="toggleSidePanel()"
-      >
-        <span class="mina-icon f-20">view_sidebar</span>
-      </button>
+      @if (!openSidePanel) {
+        <button
+          class="h-sm w-sm fx-row-full-cent btn-selected p-0 mr-10"
+          (click)="toggleSidePanel()"
+        >
+          <span class="mina-icon f-20">view_sidebar</span>
+        </button>
+      }
     </span>
   </div>
 </ng-template>

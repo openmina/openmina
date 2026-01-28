@@ -7,13 +7,14 @@
     <span class="pl-12 p-relative">
       SNARKs
       <span class="fx-row-vert-cent h-100 p-absolute" style="top: 0; right: 0">
-        <button
-          *ngIf="!openSidePanel"
-          class="h-sm w-sm fx-row-full-cent btn-selected p-0 mr-10"
-          (click)="toggleSidePanel()"
-        >
-          <span class="mina-icon f-20">view_sidebar</span>
-        </button>
+        @if (!openSidePanel) {
+          <button
+            class="h-sm w-sm fx-row-full-cent btn-selected p-0 mr-10"
+            (click)="toggleSidePanel()"
+          >
+            <span class="mina-icon f-20">view_sidebar</span>
+          </button>
+        }
       </span>
     </span>
   </div>
@@ -32,7 +33,11 @@
     "
     [showDelay]="200"
   >
-    <span *ngIf="row.commitment; else dash" class="committed">Committed</span>
+    @if (row.commitment) {
+      <span class="committed">Committed</span>
+    } @else {
+      -
+    }
   </span>
   <span
     class="secondary"
@@ -44,22 +49,26 @@
   ></span>
   <span>{{ row.commitmentOrigin || '-' }}</span>
   <span class="fx-row-vert-cent">
-    <span
-      *ngIf="row.snark; else dash"
-      class="snarked"
-      [tooltip]="'Received at ' + (row.snark?.received_t | readableDate)"
-      [showDelay]="200"
-    >
-      Snarked
-    </span>
-    <span
-      *ngIf="row.notSameCommitter"
-      class="ml-5 aware-chip w-sm h-sm border-rad-4 fx-row-full-cent"
-      [tooltip]="'Different committer and SNARK creator'"
-      [showDelay]="200"
-    >
-      <span class="mina-icon f-20">info</span>
-    </span>
+    @if (row.snark) {
+      <span
+        class="snarked"
+        [tooltip]="'Received at ' + (row.snark?.received_t | readableDate)"
+        [showDelay]="200"
+      >
+        Snarked
+      </span>
+    } @else {
+      -
+    }
+    @if (row.notSameCommitter) {
+      <span
+        class="ml-5 aware-chip w-sm h-sm border-rad-4 fx-row-full-cent"
+        [tooltip]="'Different committer and SNARK creator'"
+        [showDelay]="200"
+      >
+        <span class="mina-icon f-20">info</span>
+      </span>
+    }
   </span>
   <span
     class="secondary"

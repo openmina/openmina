@@ -25,7 +25,7 @@ import {
   trigger,
 } from '@angular/animations';
 import { CONFIG } from '@shared/constants/config';
-import { NgClass, NgForOf, NgIf } from '@angular/common';
+import { NgClass } from '@angular/common';
 import { MinaRustEagerSharedModule } from '@mina-rust/shared';
 
 @Component({
@@ -55,7 +55,7 @@ import { MinaRustEagerSharedModule } from '@mina-rust/shared';
     ]),
   ],
   standalone: true,
-  imports: [NgClass, MinaRustEagerSharedModule, NgIf, NgForOf],
+  imports: [NgClass, MinaRustEagerSharedModule],
 })
 export class NodePickerComponent
   extends StoreDispatcher

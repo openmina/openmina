@@ -38,16 +38,17 @@
 <div class="h-lg fx-row-vert-cent flex-between w-100 pl-10">
   <div class="fx-row-vert-cent flex-wrap h-100">
     <span class="tertiary mr-10 f-600">Block candidates</span>
-    <button
-      *ngFor="let filter of allFilters"
-      (click)="toggleFilter(filter)"
-      class="mr-5 border-rad-6 f-600 fx-row-vert-cent"
-      [ngClass]="
-        activeFilters.includes(filter) ? 'btn-selected' : 'btn-primary'
-      "
-    >
-      <span>{{ filter | truncateMid }}</span>
-    </button>
+    @for (filter of allFilters; track filter) {
+      <button
+        (click)="toggleFilter(filter)"
+        class="mr-5 border-rad-6 f-600 fx-row-vert-cent"
+        [ngClass]="
+          activeFilters.includes(filter) ? 'btn-selected' : 'btn-primary'
+        "
+      >
+        <span>{{ filter | truncateMid }}</span>
+      </button>
+    }
   </div>
 
   <button

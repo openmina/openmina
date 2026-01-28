@@ -1,97 +1,107 @@
-<div
-  class="epoch flex-column flex-end"
-  [class.active-epoch]="activeEpoch?.epochNumber === epoch.epochNumber"
-  *ngFor="let epoch of epochs; let i = index"
->
-  <div class="title tertiary ml-5 mt-5">
-    <span *ngIf="i === 0" class="secondary">Epoch</span>
-    {{ epoch.epochNumber }}
-  </div>
-
-  <div class="flex-column flex-grow">
-    <div class="positive flex-row align-end">
-      <div
-        [style.height.%]="
-          getHeight(
-            !w.canonical && !w.orphaned && !w.missed
-              ? w.futureRights
-              : w.canonical
-          )
-        "
-        [class.future]="!w.canonical && !w.orphaned && !w.missed"
-        [tooltip]="
-          '<div class=\'tertiary\'>Slots ' +
-          w.interval[0] +
-          ' - ' +
-          w.interval[1] +
-          '</div>' +
-          '<div>' +
-          (i + 1 > epoch.finishedWindows
-            ? w.futureRights + ' future right' + (w.futureRights | plural)
-            : w.canonical + ' block' + (w.canonical | plural) + ' produced') +
-          '</div>'
-        "
-        [html]="true"
-        [noAnimation]="true"
-        *ngFor="let w of epoch.windows; let i = index"
-      ></div>
+@for (epoch of epochs; track epoch.epochNumber; let i = $index) {
+  <div
+    class="epoch flex-column flex-end"
+    [class.active-epoch]="activeEpoch?.epochNumber === epoch.epochNumber"
+  >
+    <div class="title tertiary ml-5 mt-5">
+      @if (i === 0) {
+        <span class="secondary">Epoch</span>
+      }
+      {{ epoch.epochNumber }}
     </div>
-    <div class="negative flex-row">
-      <div class="flex-column h-100 bar" *ngFor="let w of epoch.windows">
-        <div
-          [style.height.%]="getHeight(w.orphaned)"
-          [tooltip]="
-            '<div class=\'tertiary\'>Slots ' +
-            w.interval[0] +
-            ' - ' +
-            w.interval[1] +
-            '</div>' +
-            '<div>' +
-            w.orphaned +
-            ' block' +
-            (w.orphaned | plural) +
-            ' orphaned</div>'
-          "
-          [html]="true"
-          [noAnimation]="true"
-        ></div>
-        <div
-          [style.height.%]="getHeight(w.missed)"
-          [tooltip]="
-            '<div class=\'tertiary\'>Slots ' +
-            w.interval[0] +
-            ' - ' +
-            w.interval[1] +
-            '</div>' +
-            '<div>' +
-            w.missed +
-            ' block' +
-            (w.missed | plural) +
-            ' missed</div>'
-          "
-          [html]="true"
-          [noAnimation]="true"
-        ></div>
+
+    <div class="flex-column flex-grow">
+      <div class="positive flex-row align-end">
+        @for (w of epoch.windows; track w.interval[0]; let j = $index) {
+          <div
+            [style.height.%]="
+              getHeight(
+                !w.canonical && !w.orphaned && !w.missed
+                  ? w.futureRights
+                  : w.canonical
+              )
+            "
+            [class.future]="!w.canonical && !w.orphaned && !w.missed"
+            [tooltip]="
+              '<div class=\'tertiary\'>Slots ' +
+              w.interval[0] +
+              ' - ' +
+              w.interval[1] +
+              '</div>' +
+              '<div>' +
+              (j + 1 > epoch.finishedWindows
+                ? w.futureRights + ' future right' + (w.futureRights | plural)
+                : w.canonical +
+                  ' block' +
+                  (w.canonical | plural) +
+                  ' produced') +
+              '</div>'
+            "
+            [html]="true"
+            [noAnimation]="true"
+          ></div>
+        }
+      </div>
+      <div class="negative flex-row">
+        @for (w of epoch.windows; track w.interval[0]) {
+          <div class="flex-column h-100 bar">
+            <div
+              [style.height.%]="getHeight(w.orphaned)"
+              [tooltip]="
+                '<div class=\'tertiary\'>Slots ' +
+                w.interval[0] +
+                ' - ' +
+                w.interval[1] +
+                '</div>' +
+                '<div>' +
+                w.orphaned +
+                ' block' +
+                (w.orphaned | plural) +
+                ' orphaned</div>'
+              "
+              [html]="true"
+              [noAnimation]="true"
+            ></div>
+            <div
+              [style.height.%]="getHeight(w.missed)"
+              [tooltip]="
+                '<div class=\'tertiary\'>Slots ' +
+                w.interval[0] +
+                ' - ' +
+                w.interval[1] +
+                '</div>' +
+                '<div>' +
+                w.missed +
+                ' block' +
+                (w.missed | plural) +
+                ' missed</div>'
+              "
+              [html]="true"
+              [noAnimation]="true"
+            ></div>
+          </div>
+        }
       </div>
     </div>
+    @if (epoch.windows.length > 0) {
+      <div
+        class="overlay p-absolute h-100"
+        [class.border-remove]="
+          epoch.windows[epoch.windows.length - 1].canonical !== 0 ||
+          epoch.windows[epoch.windows.length - 1].orphaned !== 0 ||
+          epoch.windows[epoch.windows.length - 1].missed !== 0
+        "
+        [style.width]="
+          'calc((100% - 9px) / ' +
+          15 / epoch.finishedWindows +
+          ' + ' +
+          (epoch.finishedWindows === 15 ? 9 : 5) +
+          'px)'
+        "
+        [class.bg-selected-container]="
+          activeEpoch?.epochNumber === epoch.epochNumber
+        "
+      ></div>
+    }
   </div>
-  <div
-    class="overlay p-absolute h-100"
-    *ngIf="epoch.windows.length > 0"
-    [class.border-remove]="
-      epoch.windows[epoch.windows.length - 1].canonical !== 0 ||
-      epoch.windows[epoch.windows.length - 1].orphaned !== 0 ||
-      epoch.windows[epoch.windows.length - 1].missed !== 0
-    "
-    [style.width]="
-      'calc((100% - 9px) / ' +
-      15 / epoch.finishedWindows +
-      ' + ' +
-      (epoch.finishedWindows === 15 ? 9 : 5) +
-      'px)'
-    "
-    [class.bg-selected-container]="
-      activeEpoch?.epochNumber === epoch.epochNumber
-    "
-  ></div>
-</div>
+}

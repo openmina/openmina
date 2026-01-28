@@ -5,7 +5,7 @@
 
 <ng-template #template>
   <div class="menus fx-row-vert-cent flex-stretch h-100 w-100">
-    @for (menu of menuItems; track trackMenus) {
+    @for (menu of menuItems; track menu.name) {
       <div
         class="menu fx-col-full-cent"
         [routerLink]="'/' + menu.name.toLowerCase().split(' ').join('-')"

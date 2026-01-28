@@ -67,7 +67,16 @@
             "define": {
               "MINA_WEBNODE_BOOTNODES": "\"\"",
               "MINA_WEBNODE_SEED_URLS": "\"\""
-            }
+            },
+            "allowedCommonJsDependencies": [
+              "jszip",
+              "typed-function",
+              "fraction.js",
+              "javascript-natural-sort",
+              "tiny-emitter",
+              "escape-latex",
+              "seedrandom"
+            ]
           },
           "configurations": {
             "production": {
@@ -100,7 +109,10 @@
                   "with": "src/environments/environment.local.ts"
                 }
               ],
-              "outputHashing": "all"
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true,
+              "namedChunks": true
             },
             "webnode-local": {
               "fileReplacements": [

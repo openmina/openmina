@@ -36,13 +36,19 @@
 </ng-template>
 
 <ng-template #icon let-type="type">
-  <ng-container [ngSwitch]="type">
-    <div *ngSwitchCase="'Failed'" class="fx-col-full-cent warn-primary">
-      <span class="mina-icon icon-200">error</span>
-    </div>
-    <mina-loading-spinner *ngSwitchCase="'Ongoing'"></mina-loading-spinner>
-    <div *ngSwitchCase="'Successful'" class="fx-col-full-cent success-primary">
-      <span class="mina-icon icon-200">task_alt</span>
-    </div>
-  </ng-container>
+  @switch (type) {
+    @case ('Failed') {
+      <div class="fx-col-full-cent warn-primary">
+        <span class="mina-icon icon-200">error</span>
+      </div>
+    }
+    @case ('Ongoing') {
+      <mina-loading-spinner></mina-loading-spinner>
+    }
+    @case ('Successful') {
+      <div class="fx-col-full-cent success-primary">
+        <span class="mina-icon icon-200">task_alt</span>
+      </div>
+    }
+  }
 </ng-template>

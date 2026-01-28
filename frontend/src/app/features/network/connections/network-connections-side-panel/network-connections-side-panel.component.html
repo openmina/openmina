@@ -7,7 +7,7 @@
     close
   </span>
 </div>
-<ng-container *ngIf="connection">
+@if (connection) {
   <div class="h-lg flex-row pl-12 pb-10">
     <button class="btn-primary mr-8" (click)="expandEntireJSON()">
       Expand All
@@ -20,7 +20,7 @@
     </button>
     <button class="btn-primary" (click)="downloadJson()">Save</button>
   </div>
-</ng-container>
+}
 <div class="flex-column flex-grow overflow-y-scroll">
   <mina-json-viewer
     [expanded]="false"

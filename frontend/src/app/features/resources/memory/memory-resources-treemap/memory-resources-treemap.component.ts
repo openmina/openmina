@@ -4,7 +4,6 @@ import {
   Component,
   ElementRef,
   HostListener,
-  NgZone,
   ViewChild,
 } from '@angular/core';
 import { MemoryResource } from '@shared/types/resources/memory/memory-resource.type';
@@ -98,7 +97,6 @@ export class MemoryResourcesTreemapComponent
   }
 
   constructor(
-    private ngZone: NgZone,
     private sizePipe: ResourcesSizePipe,
     private tooltipService: TooltipService,
   ) {

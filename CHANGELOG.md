@@ -72,6 +72,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changes
 
+- **Frontend**: Upgrade Angular from 19.x to 21.x, migrate templates from
+  `*ngIf`/`*ngFor` to `@if`/`@for` control flow syntax, update NgRx to 19.x,
+  and remove unused directive imports
+  ([#2091](https://github.com/o1-labs/mina-rust/pull/2091))
 - Bump webpack-bundle-analyzer from 4.9.0 to 5.1.1 in /frontend
   ([#1958](https://github.com/o1-labs/mina-rust/pull/1958))
 - Bump webpack from 5.88.2 to 5.104.1 in /frontend

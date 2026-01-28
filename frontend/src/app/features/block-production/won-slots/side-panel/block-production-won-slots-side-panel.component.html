@@ -19,14 +19,14 @@
       <div class="percentage success-primary">{{ percentage }}%</div>
     }
   </div>
-  <div
-    *ngIf="percentage > 0"
-    [style.width.%]="percentage"
-    class="progress-bar p-absolute"
-  >
-    <div class="highlight p-absolute" *ngIf="percentage < 100"></div>
-    <div class="progress p-absolute w-100"></div>
-  </div>
+  @if (percentage > 0) {
+    <div [style.width.%]="percentage" class="progress-bar p-absolute">
+      @if (percentage < 100) {
+        <div class="highlight p-absolute"></div>
+      }
+      <div class="progress p-absolute w-100"></div>
+    </div>
+  }
 </div>
 <div class="h-minus-lg pb-10 flex-column overflow-auto">
   <div class="flex-column pl-12 pr-12 border-bottom">
@@ -78,10 +78,14 @@
         <span class="mina-icon mr-8">check_circle</span>
         <span>Created Staged Ledger Diff</span>
       </div>
-      <div *ngIf="slot?.times?.stagedLedgerDiffCreate !== null; else waiting">
-        <span class="tertiary">in</span>
-        {{ slot?.times?.stagedLedgerDiffCreate | secDuration: config }}
-      </div>
+      @if (slot?.times?.stagedLedgerDiffCreate !== null) {
+        <div>
+          <span class="tertiary">in</span>
+          {{ slot?.times?.stagedLedgerDiffCreate | secDuration: config }}
+        </div>
+      } @else {
+        <span class="mina-icon tertiary f-18">more_horiz</span>
+      }
     </div>
     <ng-container #ledger></ng-container>
     <div
@@ -92,10 +96,14 @@
         <span class="mina-icon mr-8">check_circle</span>
         <span>Produced Block</span>
       </div>
-      <div *ngIf="slot?.times?.produced !== null; else waiting">
-        <span class="tertiary">in</span>
-        {{ slot?.times?.produced | secDuration: config }}
-      </div>
+      @if (slot?.times?.produced !== null) {
+        <div>
+          <span class="tertiary">in</span>
+          {{ slot?.times?.produced | secDuration: config }}
+        </div>
+      } @else {
+        <span class="mina-icon tertiary f-18">more_horiz</span>
+      }
     </div>
     <ng-container #produced></ng-container>
     <div
@@ -106,10 +114,14 @@
         <span class="mina-icon mr-8">check_circle</span>
         <span>Proof Created</span>
       </div>
-      <div *ngIf="slot?.times?.proofCreate !== null; else waiting">
-        <span class="tertiary">in</span>
-        {{ slot?.times?.proofCreate | secDuration: config }}
-      </div>
+      @if (slot?.times?.proofCreate !== null) {
+        <div>
+          <span class="tertiary">in</span>
+          {{ slot?.times?.proofCreate | secDuration: config }}
+        </div>
+      } @else {
+        <span class="mina-icon tertiary f-18">more_horiz</span>
+      }
     </div>
     <ng-container #proof></ng-container>
     <div
@@ -120,10 +132,14 @@
         <span class="mina-icon mr-8">check_circle</span>
         <span>Applied Block</span>
       </div>
-      <div *ngIf="slot?.times?.blockApply !== null; else waiting">
-        <span class="tertiary">in</span>
-        {{ slot?.times?.blockApply | secDuration: config }}
-      </div>
+      @if (slot?.times?.blockApply !== null) {
+        <div>
+          <span class="tertiary">in</span>
+          {{ slot?.times?.blockApply | secDuration: config }}
+        </div>
+      } @else {
+        <span class="mina-icon tertiary f-18">more_horiz</span>
+      }
     </div>
     <ng-container #apply></ng-container>
     <div
@@ -134,10 +150,16 @@
         <span class="mina-icon mr-8">check_circle</span>
         <span>Commited Block</span>
       </div>
-      <div *ngIf="slot?.times?.committed !== null; else waiting">
-        <span *ngIf="slot?.times?.committed" class="tertiary">on</span>
-        {{ slot?.times?.committed | readableDate }}
-      </div>
+      @if (slot?.times?.committed !== null) {
+        <div>
+          @if (slot?.times?.committed) {
+            <span class="tertiary">on</span>
+          }
+          {{ slot?.times?.committed | readableDate }}
+        </div>
+      } @else {
+        <span class="mina-icon tertiary f-18">more_horiz</span>
+      }
     </div>
   </div>
   <div class="flex-column pl-12 pr-12">
@@ -154,56 +176,44 @@
     </div>
     <div class="fx-row-vert-cent flex-between h-lg">
       <span class="tertiary">Consensus</span>
-      <ng-container
-        *ngIf="slot?.status === BlockProductionWonSlotsStatus.Canonical"
-      >
+      @if (slot?.status === BlockProductionWonSlotsStatus.Canonical) {
         <div>
           <span class="success-primary">Included&nbsp;</span>
           <span class="tertiary">in Main Chain</span>
         </div>
-      </ng-container>
-      <ng-container
-        *ngIf="slot?.status === BlockProductionWonSlotsStatus.Orphaned"
-      >
+      }
+      @if (slot?.status === BlockProductionWonSlotsStatus.Orphaned) {
         <div>
           <span class="aware-primary">Dropped&nbsp;</span>
           <span class="tertiary">from Main Chain</span>
         </div>
-      </ng-container>
-      <span
-        *ngIf="
-          slot?.status !== BlockProductionWonSlotsStatus.Orphaned &&
-          slot?.status !== BlockProductionWonSlotsStatus.Canonical
-        "
-      >
-        Not observed
-      </span>
+      }
+      @if (
+        slot?.status !== BlockProductionWonSlotsStatus.Orphaned &&
+        slot?.status !== BlockProductionWonSlotsStatus.Canonical
+      ) {
+        <span>Not observed</span>
+      }
     </div>
-    <div
-      class="fx-row-vert-cent flex-between h-lg"
-      *ngIf="slot?.status === BlockProductionWonSlotsStatus.Canonical"
-    >
-      <span class="tertiary">Confirmations</span>
-      <span>{{ slot.lastObservedConfirmations }}</span>
-    </div>
-    <div
-      class="fx-row-vert-cent flex-between h-lg"
-      *ngIf="slot?.status === BlockProductionWonSlotsStatus.Orphaned"
-    >
-      <span class="tertiary">Dropped in favor</span>
-      <span>
-        <mina-copy
-          [display]="slot.orphanedBy | truncateMid"
-          [value]="slot.orphanedBy"
-        ></mina-copy>
-      </span>
-    </div>
+    @if (slot?.status === BlockProductionWonSlotsStatus.Canonical) {
+      <div class="fx-row-vert-cent flex-between h-lg">
+        <span class="tertiary">Confirmations</span>
+        <span>{{ slot.lastObservedConfirmations }}</span>
+      </div>
+    }
+    @if (slot?.status === BlockProductionWonSlotsStatus.Orphaned) {
+      <div class="fx-row-vert-cent flex-between h-lg">
+        <span class="tertiary">Dropped in favor</span>
+        <span>
+          <mina-copy
+            [display]="slot.orphanedBy | truncateMid"
+            [value]="slot.orphanedBy"
+          ></mina-copy>
+        </span>
+      </div>
+    }
   </div>
 </div>
-
-<ng-template #waiting>
-  <span class="mina-icon tertiary f-18">more_horiz</span>
-</ng-template>
 
 <ng-template #discarded>
   <div

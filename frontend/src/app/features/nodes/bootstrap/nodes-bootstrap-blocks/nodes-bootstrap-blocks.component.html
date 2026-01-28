@@ -35,21 +35,23 @@
     <span class="pr-12">Time&nbsp;</span>
   </div>
   <div class="overflow-y-scroll flex-column pl-12 pr-12 pr-5 h-minus-xl">
-    <div class="row" *ngFor="let block of blockList">
-      <span>
-        <mina-copy
-          [display]="block.hash | truncateMid"
-          [value]="block.hash"
-        ></mina-copy>
-      </span>
-      <span>{{ block.height }}</span>
-      <span
-        class="tertiary"
-        [innerHTML]="
-          block[type === 'fetch' ? 'fetchDuration' : 'applyDuration']
-            | secDuration: secConfig
-        "
-      ></span>
-    </div>
+    @for (block of blockList; track block.hash) {
+      <div class="row">
+        <span>
+          <mina-copy
+            [display]="block.hash | truncateMid"
+            [value]="block.hash"
+          ></mina-copy>
+        </span>
+        <span>{{ block.height }}</span>
+        <span
+          class="tertiary"
+          [innerHTML]="
+            block[type === 'fetch' ? 'fetchDuration' : 'applyDuration']
+              | secDuration: secConfig
+          "
+        ></span>
+      </div>
+    }
   </div>
 </ng-template>

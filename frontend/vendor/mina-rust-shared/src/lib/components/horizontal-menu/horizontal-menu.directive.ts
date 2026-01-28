@@ -73,8 +73,8 @@ export class HorizontalMenuDirective implements AfterViewInit {
       .subscribe(() => this.checkArrows());
   }
 
-  @HostListener('scroll', ['$event'])
-  private checkArrows(): void {
+  @HostListener('scroll')
+  checkArrows(): void {
     const response: ArrowHide = {
       showLeftArrow: false,
       showRightArrow: false,

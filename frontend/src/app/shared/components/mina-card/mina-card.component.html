@@ -1,13 +1,14 @@
 <div class="fx-row-vert-cent h-xs">
   <span class="label" [style.color]="labelColor">{{ label }}</span>
-  <span
-    class="mina-icon tertiary icon-200 f-20"
-    [tooltip]="tooltipText"
-    [tooltipDisabled]="!tooltipText"
-    *ngIf="icon"
-  >
-    {{ icon }}
-  </span>
+  @if (icon) {
+    <span
+      class="mina-icon tertiary icon-200 f-20"
+      [tooltip]="tooltipText"
+      [tooltipDisabled]="!tooltipText"
+    >
+      {{ icon }}
+    </span>
+  }
 </div>
 <div class="value f-600 text-capitalize" [style.color]="color">
   {{ value ?? '-' }}

@@ -24,7 +24,6 @@ import { Overlay, OverlayRef } from '@angular/cdk/overlay';
 import { ComponentPortal } from '@angular/cdk/portal';
 import { EnvBuildModalComponent } from '@app/layout/env-build-modal/env-build-modal.component';
 import { RouterLink } from '@angular/router';
-import { NgForOf, NgIf } from '@angular/common';
 
 export interface MenuItem {
   name: string;
@@ -53,7 +52,7 @@ export const MENU_ITEMS: MenuItem[] = [
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex-column flex-between h-100 pb-5' },
   standalone: true,
-  imports: [MinaRustEagerSharedModule, RouterLink, NgIf, NgForOf],
+  imports: [MinaRustEagerSharedModule, RouterLink],
 })
 export class MenuComponent extends ManualDetection implements OnInit {
   protected readonly TooltipPosition = TooltipPosition;

@@ -8,7 +8,7 @@ import {
 import { MinaErrorType } from '@shared/types/error-preview/mina-error-type.enum';
 import { MinaError } from '@shared/types/error-preview/mina-error.type';
 import { ManualDetection, MinaRustEagerSharedModule } from '@mina-rust/shared';
-import { NgClass, NgForOf, NgIf } from '@angular/common';
+import { NgClass } from '@angular/common';
 
 @Component({
   selector: 'mina-error-list',
@@ -17,7 +17,7 @@ import { NgClass, NgForOf, NgIf } from '@angular/common';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'border-rad-6 border overflow-y-auto' },
   standalone: true,
-  imports: [NgClass, MinaRustEagerSharedModule, NgForOf, NgIf],
+  imports: [NgClass, MinaRustEagerSharedModule],
 })
 export class ErrorListComponent extends ManualDetection {
   readonly errorIconMap: any = {

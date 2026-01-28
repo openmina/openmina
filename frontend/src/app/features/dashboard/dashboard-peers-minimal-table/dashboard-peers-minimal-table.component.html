@@ -2,12 +2,11 @@
 
 <ng-template #rowTemplate let-row="row">
   <span class="fx-row-vert-cent text-capitalize" [ngClass]="row.status">
-    <mina-loading-spinner
-      *ngIf="row.status === DashboardPeerStatus.CONNECTING; else circle"
-    ></mina-loading-spinner>
-    <ng-template #circle>
+    @if (row.status === DashboardPeerStatus.CONNECTING) {
+      <mina-loading-spinner></mina-loading-spinner>
+    } @else {
       <span class="mina-icon icon-200 f-big">circle</span>
-    </ng-template>
+    }
     {{ row.status }}
   </span>
   <span>{{ row.datetime }}</span>

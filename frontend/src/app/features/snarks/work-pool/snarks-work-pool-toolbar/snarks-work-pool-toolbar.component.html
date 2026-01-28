@@ -3,14 +3,15 @@
   <div class="fx-row-vert-cent flex-between w-100">
     <div class="fx-row-vert-cent">
       <div class="tertiary f-600 mr-10">Filters</div>
-      <div
-        class="filter pointer bg-container h-sm lh-sm pl-8 pr-8 border-rad-6 mr-5 text-capitalize f-600 text-nowrap"
-        *ngFor="let filter of allFilters"
-        (click)="toggleFilter(filter)"
-        [class.active]="activeFilters.includes(filter)"
-      >
-        {{ filter }}
-      </div>
+      @for (filter of allFilters; track filter) {
+        <div
+          class="filter pointer bg-container h-sm lh-sm pl-8 pr-8 border-rad-6 mr-5 text-capitalize f-600 text-nowrap"
+          (click)="toggleFilter(filter)"
+          [class.active]="activeFilters.includes(filter)"
+        >
+          {{ filter }}
+        </div>
+      }
     </div>
     <div class="fx-row-vert-cent tertiary shrink-0">
       Total Jobs

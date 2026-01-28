@@ -66,34 +66,36 @@
   </div>
 
   <div class="flex-column align-start f-600">
-    <div *ngFor="let feature of features" class="flex-column align-start">
-      <div
-        [class.checked]="feature.checked"
-        (click)="onFeatureCheck(feature)"
-        class="feature fx-row-vert-cent mr-10 h-md lh-md pointer"
-      >
-        <div class="fx-row-full-cent mr-5">
-          <span class="mina-icon f-20">check_small</span>
-        </div>
-        <div>{{ feature.name }}</div>
-      </div>
-      <div
-        *ngIf="feature.subFeatures.length"
-        class="flex-row flex-wrap ml-16 pl-12"
-      >
+    @for (feature of features; track feature.name) {
+      <div class="flex-column align-start">
         <div
-          class="fx-row-vert-cent mr-10 feature pointer h-md lh-md"
-          [class.checked]="sub.checked"
-          (click)="onSubFeatureCheck(sub, feature)"
-          *ngFor="let sub of feature.subFeatures"
+          [class.checked]="feature.checked"
+          (click)="onFeatureCheck(feature)"
+          class="feature fx-row-vert-cent mr-10 h-md lh-md pointer"
         >
           <div class="fx-row-full-cent mr-5">
             <span class="mina-icon f-20">check_small</span>
           </div>
-          <div class="text-capitalize">{{ sub.name }}</div>
+          <div>{{ feature.name }}</div>
         </div>
+        @if (feature.subFeatures.length) {
+          <div class="flex-row flex-wrap ml-16 pl-12">
+            @for (sub of feature.subFeatures; track sub.name) {
+              <div
+                class="fx-row-vert-cent mr-10 feature pointer h-md lh-md"
+                [class.checked]="sub.checked"
+                (click)="onSubFeatureCheck(sub, feature)"
+              >
+                <div class="fx-row-full-cent mr-5">
+                  <span class="mina-icon f-20">check_small</span>
+                </div>
+                <div class="text-capitalize">{{ sub.name }}</div>
+              </div>
+            }
+          </div>
+        }
       </div>
-    </div>
+    }
   </div>
 </form>
 

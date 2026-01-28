@@ -1,5 +1,5 @@
 import { Action, Store } from '@ngrx/store';
-import { Directive, inject, OnDestroy } from '@angular/core';
+import { Directive, inject, NgZone, OnDestroy } from '@angular/core';
 import { ManualDetection } from './manual-detection.class';
 import { UntilDestroy, untilDestroyed } from '@ngneat/until-destroy';
 import { Observable, OperatorFunction } from 'rxjs';
@@ -10,6 +10,7 @@ import { FeatureAction } from '../types/store/feature-action.type';
 export abstract class BaseStoreDispatcher<State> extends ManualDetection implements OnDestroy {
 
   protected store: Store<State> = inject<Store<State>>(Store<State>);
+  protected ngZone: NgZone = inject(NgZone);
 
   protected dispatch<Action extends FeatureAction<any>, P>(actionClass: new (payload?: P) => any, payload?: P): void {
     this.store.dispatch<Action>(new actionClass(payload));

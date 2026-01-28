@@ -8,9 +8,7 @@
       "./src/assets/styles"
     ]
   },
-  "allowedNonPeerDependencies": [
-    "@angular/fire"
-  ],
+  "allowedNonPeerDependencies": [],
   "assets": [
     "src/assets/styles/**/*.scss"
   ]

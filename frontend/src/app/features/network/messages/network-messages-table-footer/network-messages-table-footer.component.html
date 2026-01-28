@@ -1,4 +1,4 @@
-<ng-container *ngIf="state">
+@if (state) {
   <button
     (click)="goLive()"
     class="ml-8 live-button"
@@ -45,12 +45,13 @@
     (click)="openIntervalPicker($event)"
   >
     <span class="truncate">{{ activeInterval ?? 'Time filter' }}</span>
-    <div
-      *ngIf="activeInterval"
-      (click)="clearTimestampInterval($event)"
-      class="icon-wrap ml-10 flex-row align-center flex-center"
-    >
-      <span class="mina-icon f-20">close</span>
-    </div>
+    @if (activeInterval) {
+      <div
+        (click)="clearTimestampInterval($event)"
+        class="icon-wrap ml-10 flex-row align-center flex-center"
+      >
+        <span class="mina-icon f-20">close</span>
+      </div>
+    }
   </button>
-</ng-container>
+}

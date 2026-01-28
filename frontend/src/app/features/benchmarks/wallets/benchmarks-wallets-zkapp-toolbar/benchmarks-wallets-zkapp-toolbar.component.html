@@ -47,37 +47,39 @@
           Specific Sender
         </button>
       </div>
-      <button
-        class="btn-selected h-sm fx-row-vert-cent flex-between mr-5"
-        *ngIf="!randomWallet"
-        #dropdownTrigger
-        (click)="openDropdown($event)"
-      >
-        <div class="fx-row-vert-cent">
-          <span class="mina-icon f-20 mr-5">account_balance_wallet</span>
-          <span *ngIf="!activeWallet" class="selected-secondary">
-            Loading wallet..
-          </span>
+      @if (!randomWallet) {
+        <button
+          class="btn-selected h-sm fx-row-vert-cent flex-between mr-5"
+          #dropdownTrigger
+          (click)="openDropdown($event)"
+        >
+          <div class="fx-row-vert-cent">
+            <span class="mina-icon f-20 mr-5">account_balance_wallet</span>
+            @if (!activeWallet) {
+              <span class="selected-secondary">Loading wallet..</span>
+            }
+          </div>
+          <div class="fx-row-vert-cent">
+            <span class="selected-secondary monospace">
+              {{ activeWallet?.publicKey | truncateMid }}
+            </span>
+            <span class="mina-icon">arrow_drop_down</span>
+          </div>
+        </button>
+      }
+      @if (updates$ | async; as updates) {
+        <div class="tertiary text-italic ml-10">
+          @if (updates.step) {
+            {{ updates.step }}
+            <span class="secondary">
+              {{ updates.duration }}
+              @if (updates.duration) {
+                <span>s</span>
+              }
+            </span>
+          }
         </div>
-        <div class="fx-row-vert-cent">
-          <span class="selected-secondary monospace">
-            {{ activeWallet?.publicKey | truncateMid }}
-          </span>
-          <span class="mina-icon">arrow_drop_down</span>
-        </div>
-      </button>
-      <div
-        class="tertiary text-italic ml-10"
-        *ngIf="updates$ | async as updates"
-      >
-        <ng-container *ngIf="updates.step">
-          {{ updates.step }}
-          <span class="secondary">
-            {{ updates.duration }}
-            <span *ngIf="updates.duration">s</span>
-          </span>
-        </ng-container>
-      </div>
+      }
     </form>
   </div>
 </ng-template>

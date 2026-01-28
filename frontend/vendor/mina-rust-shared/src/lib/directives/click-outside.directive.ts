@@ -9,8 +9,8 @@ export class ClickOutsideDirective {
   @Output() clickOutside: EventEmitter<void> = new EventEmitter<void>();
 
   @HostListener('document:click', ['$event.target'])
-  onClick(target: HTMLElement): void {
-    const clickedInside = this.elementRef.nativeElement.contains(target);
+  onClick(target: EventTarget | null): void {
+    const clickedInside = this.elementRef.nativeElement.contains(target as Node);
     if (!clickedInside) {
       this.clickOutside.emit();
     }

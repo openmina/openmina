@@ -5,7 +5,7 @@
 
 <ng-template #template>
   <div class="submenus fx-row-vert-cent flex-stretch h-100">
-    <ng-container *ngFor="let subMenu of subMenus; let i = index">
+    @for (subMenu of subMenus; track subMenu.route; let i = $index) {
       <div class="a-wrap fx-row-vert-cent">
         <a
           [class.active]="activeSubMenu === subMenu.route"
@@ -16,8 +16,10 @@
         >
           {{ subMenu.name }}
         </a>
-        <div *ngIf="i < subMenus.length - 1" class="bar border-right"></div>
+        @if (i < subMenus.length - 1) {
+          <div class="bar border-right"></div>
+        }
       </div>
-    </ng-container>
+    }
   </div>
 </ng-template>

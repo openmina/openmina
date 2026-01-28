@@ -1,42 +1,44 @@
-<div
-  *ngIf="menu"
-  class="menu flex-column"
-  [class.collapsed]="menu.collapsed && !menu.isMobile"
->
-  <button
-    class="menu-toggle f-big h-xl primary pointer flex-row align-center f-400"
-    [class.flex-between]="menu.isMobile"
-    (click)="toggleMenu()"
+@if (menu) {
+  <div
+    class="menu flex-column"
+    [class.collapsed]="menu.collapsed && !menu.isMobile"
   >
-    <span class="fx-row-vert-cent mina-rust-node">The Mina Rust Node</span>
-    <span
-      [class.flipped]="menu.isMobile ? false : menu.collapsed"
-      class="mina-icon f-20"
+    <button
+      class="menu-toggle f-big h-xl primary pointer flex-row align-center f-400"
+      [class.flex-between]="menu.isMobile"
+      (click)="toggleMenu()"
     >
-      {{ !menu.isMobile ? 'first_page' : 'close' }}
-    </span>
-  </button>
-  <a
-    *ngFor="let item of menuItems"
-    [routerLink]="'/' + item.name.toLowerCase().split(' ').join('-')"
-    [queryParams]="activeNode ? { node: activeNode.name } : null"
-    [tooltip]="item.tooltip || item.name"
-    [globalTooltip]="false"
-    [tooltipDisabled]="!menu.collapsed || menu.isMobile"
-    [position]="TooltipPosition.RIGHT"
-    [class.active]="
-      activeRoute === item.name.toLowerCase().split(' ').join('-')
-    "
-    [class.border-bottom]="menu.isMobile"
-    (click)="showHideMenu()"
-    class="item h-lg"
-  >
-    <span class="item-content h-sm">
-      <span class="mina-icon">{{ item.icon }}</span>
-      <span class="text-nowrap">{{ item.name }}</span>
-    </span>
-  </a>
-</div>
+      <span class="fx-row-vert-cent mina-rust-node">The Mina Rust Node</span>
+      <span
+        [class.flipped]="menu.isMobile ? false : menu.collapsed"
+        class="mina-icon f-20"
+      >
+        {{ !menu.isMobile ? 'first_page' : 'close' }}
+      </span>
+    </button>
+    @for (item of menuItems; track item.name) {
+      <a
+        [routerLink]="'/' + item.name.toLowerCase().split(' ').join('-')"
+        [queryParams]="activeNode ? { node: activeNode.name } : null"
+        [tooltip]="item.tooltip || item.name"
+        [globalTooltip]="false"
+        [tooltipDisabled]="!menu.collapsed || menu.isMobile"
+        [position]="TooltipPosition.RIGHT"
+        [class.active]="
+          activeRoute === item.name.toLowerCase().split(' ').join('-')
+        "
+        [class.border-bottom]="menu.isMobile"
+        (click)="showHideMenu()"
+        class="item h-lg"
+      >
+        <span class="item-content h-sm">
+          <span class="mina-icon">{{ item.icon }}</span>
+          <span class="text-nowrap">{{ item.name }}</span>
+        </span>
+      </a>
+    }
+  </div>
+}
 
 <div class="flex-column">
   <div class="flex-row align-center p-relative">
@@ -48,16 +50,17 @@
         {{ currentTheme === 'light' ? 'dark_mode' : 'wb_sunny' }}
       </span>
     </button>
-    <div
-      *ngIf="appIdentifier"
-      [class.collapsed]="menu.collapsed && !menu.isMobile"
-      [style.width.px]="menu.isMobile ? 170 : 110"
-      class="identifier tertiary p-absolute flex-row align-stretch h-md"
-    >
-      <span class="border border-rad-4 pl-5 pr-5 fx-row-vert-cent">
-        <span class="truncate">{{ appIdentifier }}</span>
-      </span>
-    </div>
+    @if (appIdentifier) {
+      <div
+        [class.collapsed]="menu.collapsed && !menu.isMobile"
+        [style.width.px]="menu.isMobile ? 170 : 110"
+        class="identifier tertiary p-absolute flex-row align-stretch h-md"
+      >
+        <span class="border border-rad-4 pl-5 pr-5 fx-row-vert-cent">
+          <span class="truncate">{{ appIdentifier }}</span>
+        </span>
+      </div>
+    }
   </div>
 
   @if (!hideNodeStats) {
