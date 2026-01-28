@@ -59,10 +59,10 @@
 //! ## Example Usage
 //!
 //! ```rust,no_run
-//! use snark::{SnarkConfig, SnarkState};
+//! use mina_snark::{SnarkConfig, SnarkState};
 //!
 //! // Initialize SNARK state with configuration
-//! let config = SnarkConfig { /* ... */ };
+//! let config: SnarkConfig = todo!();
 //! let state = SnarkState::new(config);
 //!
 //! // The state machine handles verification requests through actions

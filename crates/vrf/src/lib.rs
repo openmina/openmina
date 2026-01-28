@@ -171,7 +171,7 @@ pub fn keypair_from_bs58_string(str: &str) -> Keypair {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use std::str::FromStr;
 
     use ledger::AccountIndex;
@@ -235,7 +235,7 @@ mod test {
             account_pub_key: AccountSecretKey::genesis_producer().public_key(),
         };
 
-        let evaluation_result = evaluate_vrf(vrf_input).expect("Failed to evaluate vrf");
+        let evaluation_result = evaluate_vrf(vrf_input.clone()).expect("Failed to evaluate vrf");
 
         if let VrfEvaluationOutput::SlotWon(won_slot) = evaluation_result {
             assert_eq!(
@@ -250,11 +250,10 @@ mod test {
         } else {
             panic!("Slot should have been won!")
         }
-
-        // assert_eq!(expected, evaluation_result)
     }
 
     #[test]
+    // #[ignore = "Runs long, remember to re-enable me!"]
     fn test_slot_calculation_time_big_producer() {
         let start = redux::Instant::now();
         for i in 1..14403 {
@@ -284,6 +283,7 @@ mod test {
     }
 
     #[test]
+    // #[ignore = "Runs long, remember to re-enable me!"]
     fn test_first_winning_slot() {
         for i in 0..7000 {
             let vrf_input = VrfEvaluationInput {

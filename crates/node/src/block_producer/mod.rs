@@ -18,9 +18,9 @@ mod block_producer_reducer;
 
 use ledger::AccountIndex;
 use mina_core::{block::ArcBlockWithHash, constants::constraint_constants};
+use mina_hasher::{Hashable, Hasher, ROInput};
 use mina_p2p_messages::{list::List, v2};
 use mina_vrf::output::VrfOutput;
-use poseidon::hash::params::MINA_EPOCH_SEED;
 use serde::{Deserialize, Serialize};
 
 use self::vrf_evaluator::VrfWonSlotWithHash;
@@ -199,12 +199,31 @@ impl BlockWithoutProof {
     }
 }
 
+#[derive(Clone)]
+struct EpochSeedHashable(ROInput);
+
+impl Hashable for EpochSeedHashable {
+    type D = ();
+    fn to_roinput(&self) -> ROInput {
+        self.0.clone()
+    }
+    fn domain_string(_: Self::D) -> Option<String> {
+        Some("MinaEpochSeed".to_string())
+    }
+}
+
 pub fn calc_epoch_seed(
     prev_epoch_seed: &v2::EpochSeed,
     vrf_hash: mina_curves::pasta::Fp,
 ) -> v2::EpochSeed {
     // TODO(adonagy): fix this unwrap
     let old_seed = prev_epoch_seed.to_field().unwrap();
-    let new_seed = poseidon::hash::hash_with_kimchi(&MINA_EPOCH_SEED, &[old_seed, vrf_hash]);
+
+    let inputs = ROInput::new().append_field(old_seed).append_field(vrf_hash);
+
+    let mut hasher = mina_hasher::create_kimchi::<EpochSeedHashable>(());
+    hasher.update(&EpochSeedHashable(inputs));
+    let new_seed = hasher.digest();
+
     v2::MinaBaseEpochSeedStableV1(new_seed.into()).into()
 }

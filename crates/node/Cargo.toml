@@ -29,7 +29,6 @@ mina-snark = { workspace = true }
 mina-vrf = { workspace = true }
 multihash = { workspace = true }
 num_enum = { workspace = true }
-poseidon = { workspace = true }
 postcard = { workspace = true }
 rand = { workspace = true }
 redux = { workspace = true }

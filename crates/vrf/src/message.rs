@@ -1,21 +1,34 @@
-use ark_ff::{Field, One, Zero};
+use ark_ff::{BigInteger256, Field, One, Zero};
 
-use ledger::{proofs::transaction::legacy_input::to_bits, ToInputs};
 use mina_curves::pasta::curves::pallas::Pallas as CurvePoint;
+use mina_hasher::{Hashable, Hasher, ROInput};
 use mina_p2p_messages::v2::EpochSeed;
+use num::BigUint;
 use o1_utils::FieldHelpers;
-use poseidon::hash::{params::MINA_VRF_MESSAGE, Inputs};
 use serde::{Deserialize, Serialize};
 
 use super::{BaseField, VrfError, VrfResult};
 
-const LEDGER_DEPTH: usize = 35;
+pub const LEDGER_DEPTH: usize = 35;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct VrfMessage {
-    global_slot: u32,
-    epoch_seed: EpochSeed,
-    delegator_index: u64,
+    pub global_slot: u32,
+    pub epoch_seed: EpochSeed,
+    pub delegator_index: u64,
+}
+
+#[derive(Clone)]
+struct VrfMessageHashable(ROInput);
+
+impl Hashable for VrfMessageHashable {
+    type D = ();
+    fn to_roinput(&self) -> ROInput {
+        self.0.clone()
+    }
+    fn domain_string(_: Self::D) -> Option<String> {
+        Some("MinaVrfMessage".to_string())
+    }
 }
 
 impl VrfMessage {
@@ -27,8 +40,44 @@ impl VrfMessage {
         }
     }
 
+    pub fn to_roinput(&self) -> ROInput {
+        let mut inputs = ROInput::new();
+        let epoch_seed = match self.epoch_seed.to_field() {
+            Ok(epoch_seed) => epoch_seed,
+            Err(_) => {
+                // TODO: Return an error somehow
+                mina_curves::pasta::Fp::zero()
+            }
+        };
+        inputs = inputs.append_field(epoch_seed);
+
+        // OCaml's Message.to_input includes seed as a field element and
+        // global_slot + delegator as packed chunks.
+        // Since mina_hasher::ROInput appends packed chunks AFTER all field elements,
+        // we can just append them here and they will be in the correct relative order.
+        // However, VrfOutput::hash needs to insert x and y BEFORE these packed chunks.
+
+        // For VrfMessage::hash, we can just append them now.
+        let packed_field = self.pack_slot_and_index();
+        inputs = inputs.append_field(packed_field);
+        inputs
+    }
+
+    pub(crate) fn pack_slot_and_index(&self) -> mina_curves::pasta::Fp {
+        let mut packed = BigUint::from(self.global_slot);
+        for i in 0..LEDGER_DEPTH {
+            let bit = (self.delegator_index >> i) & 1 == 1;
+            packed = (packed << 1) + (if bit { 1u64 } else { 0u64 });
+        }
+
+        mina_curves::pasta::Fp::new(BigInteger256::try_from(packed).unwrap())
+    }
+
     pub fn hash(&self) -> BaseField {
-        self.hash_with_param(&MINA_VRF_MESSAGE)
+        let mut hasher = mina_hasher::create_kimchi::<VrfMessageHashable>(());
+        let inputs = self.to_roinput();
+        hasher.update(&VrfMessageHashable(inputs));
+        hasher.digest()
     }
 
     pub fn to_group(&self) -> VrfResult<CurvePoint> {
@@ -85,22 +134,5 @@ impl VrfMessage {
         }
 
         Err(VrfError::ToGroupError(t))
-    }
-}
-
-impl ToInputs for VrfMessage {
-    fn to_inputs(&self, inputs: &mut Inputs) {
-        let epoch_seed = match self.epoch_seed.to_field() {
-            Ok(epoch_seed) => epoch_seed,
-            Err(_) => {
-                // TODO: Return an error somehow
-                mina_curves::pasta::Fp::zero()
-            }
-        };
-        inputs.append_field(epoch_seed);
-        inputs.append_u32(self.global_slot);
-        for bit in to_bits::<_, LEDGER_DEPTH>(self.delegator_index) {
-            inputs.append_bool(bit);
-        }
     }
 }

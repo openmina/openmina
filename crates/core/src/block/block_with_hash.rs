@@ -138,19 +138,19 @@ impl<T: AsRef<Block>> BlockWithHash<T> {
     ) -> Box<
         dyn 'a + Iterator<Item = &'a v2::StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B>,
     > {
-        self.body().commands_iter()
+        Box::new(self.body().commands_iter())
     }
 
-    pub fn coinbase_fee_transfers_iter(
-        &self,
-    ) -> impl Iterator<Item = &v2::StagedLedgerDiffDiffFtStableV1> {
-        self.body().coinbase_fee_transfers_iter()
+    pub fn coinbase_fee_transfers_iter<'a>(
+        &'a self,
+    ) -> Box<dyn 'a + Iterator<Item = &'a v2::StagedLedgerDiffDiffFtStableV1>> {
+        Box::new(self.body().coinbase_fee_transfers_iter())
     }
 
     pub fn completed_works_iter<'a>(
         &'a self,
     ) -> Box<dyn 'a + Iterator<Item = &'a v2::TransactionSnarkWorkTStableV2>> {
-        self.body().completed_works_iter()
+        Box::new(self.body().completed_works_iter())
     }
 
     pub fn block_stake_winner(&self) -> &v2::NonZeroCurvePoint {

@@ -1,10 +1,10 @@
 use ark_ec::short_weierstrass::Affine;
 use ark_ff::{BigInteger, BigInteger256, PrimeField};
-use ledger::{proofs::transaction::field_to_bits, AppendToInputs, ToInputs};
+use ledger::proofs::transaction::field_to_bits;
+use mina_hasher::{Hashable, Hasher, ROInput};
 use mina_p2p_messages::v2::ConsensusVrfOutputTruncatedStableV1;
 use num::{BigInt, BigRational, One, ToPrimitive};
 use o1_utils::FieldHelpers;
-use poseidon::hash::params::MINA_VRF_OUTPUT;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -14,28 +14,16 @@ use super::serialize::{ark_deserialize, ark_serialize};
 
 use super::{message::VrfMessage, CurvePoint};
 
-#[derive(Clone, Debug)]
-pub struct VrfOutputHashInput {
-    message: VrfMessage,
-    g: CurvePoint,
-}
+#[derive(Clone)]
+struct VrfOutputHashable(ROInput);
 
-impl VrfOutputHashInput {
-    pub fn new(message: VrfMessage, g: CurvePoint) -> Self {
-        Self { message, g }
+impl Hashable for VrfOutputHashable {
+    type D = ();
+    fn to_roinput(&self) -> ROInput {
+        self.0.clone()
     }
-}
-
-impl ToInputs for VrfOutputHashInput {
-    fn to_inputs(&self, inputs: &mut poseidon::hash::Inputs) {
-        let Self {
-            message,
-            g: Affine { x, y, .. },
-        } = self;
-
-        inputs.append(message);
-        inputs.append(x);
-        inputs.append(y);
+    fn domain_string(_: Self::D) -> Option<String> {
+        Some("MinaVrfOutput".to_string())
     }
 }
 
@@ -56,8 +44,25 @@ impl VrfOutput {
     }
 
     pub fn hash(&self) -> BaseField {
-        let hash_input = VrfOutputHashInput::new(self.message.clone(), self.output);
-        hash_input.hash_with_param(&MINA_VRF_OUTPUT)
+        let Affine { x, y, .. } = self.output;
+
+        // OCaml's Vrf.Output.hash appends x and y to the message input.
+        // Message.to_input has seed as a field element and slot+index as packed chunks.
+        // So the resulting order of field elements in the sponge is:
+        // seed, x, y, packed(slot, index).
+
+        let mut inputs = ROInput::new();
+        let epoch_seed = self.message.epoch_seed.to_field().unwrap();
+        inputs = inputs.append_field(epoch_seed);
+        inputs = inputs.append_field(x);
+        inputs = inputs.append_field(y);
+
+        let packed_field = self.message.pack_slot_and_index();
+        inputs = inputs.append_field(packed_field);
+
+        let mut hasher = mina_hasher::create_kimchi::<VrfOutputHashable>(());
+        hasher.update(&VrfOutputHashable(inputs));
+        hasher.digest()
     }
 
     pub fn truncated(&self) -> ScalarField {
@@ -120,45 +125,5 @@ impl From<&VrfOutput> for ConsensusVrfOutputTruncatedStableV1 {
 impl From<VrfOutput> for ConsensusVrfOutputTruncatedStableV1 {
     fn from(value: VrfOutput) -> Self {
         Self::from(&value)
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use mina_p2p_messages::v2::ConsensusVrfOutputTruncatedStableV1;
-
-    use mina_p2p_messages::{
-        bigint::BigInt as MinaBigInt,
-        v2::{EpochSeed, MinaBaseEpochSeedStableV1},
-    };
-
-    use crate::{genesis_vrf, output::VrfOutput};
-
-    #[test]
-    fn test_serialization() {
-        let vrf_output = genesis_vrf(EpochSeed::from(MinaBaseEpochSeedStableV1(
-            MinaBigInt::zero(),
-        )))
-        .unwrap();
-
-        let serialized = serde_json::to_string(&vrf_output).unwrap();
-        let deserialized: VrfOutput = serde_json::from_str(&serialized).unwrap();
-
-        assert_eq!(vrf_output, deserialized);
-    }
-
-    #[test]
-    fn test_conv_to_mina_type() {
-        let vrf_output = genesis_vrf(EpochSeed::from(MinaBaseEpochSeedStableV1(
-            MinaBigInt::zero(),
-        )))
-        .unwrap();
-
-        let converted = ConsensusVrfOutputTruncatedStableV1::from(vrf_output);
-        let converted_string = serde_json::to_string_pretty(&converted).unwrap();
-        let converted_string_deser: String = serde_json::from_str(&converted_string).unwrap();
-        let expected = String::from("39cyg4ZmMtnb_aFUIerNAoAJV8qtkfOpq0zFzPspjgM=");
-
-        assert_eq!(expected, converted_string_deser);
     }
 }

@@ -27,7 +27,7 @@ pub mod for_tests;
 pub fn trivial_verification_key() -> VerificationKey {
     use mina_p2p_messages::v2::MinaBaseVerificationKeyWireStableV1;
 
-    let mut cursor = std::io::Cursor::new(include_bytes!("trivial_vk.bin"));
+    let mut cursor = std::io::Cursor::new(include_bytes!("./dummy/trivial_vk.bin"));
     let vk = MinaBaseVerificationKeyWireStableV1::binprot_read(&mut cursor).unwrap();
 
     let vk: VerificationKey = (&vk).try_into().unwrap();
