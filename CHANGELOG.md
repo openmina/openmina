@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- **Documentation**: add interactive OpenAPI documentation (Swagger UI, Stoplight
+  Elements, Scalar) to the website, with `cargo xtask` for static spec generation
+  ([#2119](https://github.com/o1-labs/mina-rust/pull/2119))
+- **Node**: add OpenAPI documentation endpoints (`/api-docs/*`)
+  ([#2119](https://github.com/o1-labs/mina-rust/pull/2119))
+
 ### Changed
 
 - **CI**: Add `merge_group` trigger to workflows for merge queue support
@@ -23,6 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Frontend**: remove old code adding so-called "deployment" information,
   leaking engineer information
   ([#2092](https://github.com/o1-labs/mina-rust/pull/2092))
+- **Node**: migrate HTTP server from warp to axum
+  ([#2119](https://github.com/o1-labs/mina-rust/pull/2119))
 
 ### Dependencies
 
