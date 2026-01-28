@@ -43,15 +43,15 @@ jobs:
         run: make docs-install
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: ./.github/actions/setup-rust
         with:
-          components: rustfmt
           # This should be in line with the verison in:
           # - Makefile
           # - ./github/workflows/docs.yaml
           # - ./github/workflows/fmt.yaml
           # - ./github/workflows/lint.yaml
           toolchain: nightly
+          cache-prefix: docs
 
       - name: Verify code references in documentation (PR mode)
         if: github.event_name == 'pull_request'
@@ -130,15 +130,10 @@ jobs:
         run: make docs-install
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: ./.github/actions/setup-rust
         with:
-          components: rustfmt
-          # This should be in line with the verison in:
-          # - Makefile
-          # - ./github/workflows/docs.yaml
-          # - ./github/workflows/fmt.yaml
-          # - ./github/workflows/lint.yaml
           toolchain: nightly
+          cache-prefix: docs
 
       - name: Build documentation
         run: make docs-build
