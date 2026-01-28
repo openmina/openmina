@@ -39,3 +39,12 @@ pub fn openapi_router() -> OpenApiRouter<AppState> {
 
     router
 }
+
+/// Returns the OpenAPI specification for the HTTP API.
+///
+/// This builds the same spec that the running server uses,
+/// without requiring a running server or AppState instance.
+pub fn openapi_spec() -> utoipa::openapi::OpenApi {
+    let (_router, api) = openapi_router().split_for_parts();
+    api
+}

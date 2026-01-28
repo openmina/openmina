@@ -9,6 +9,7 @@ mod openapi;
 mod routes;
 mod types;
 
+pub use routes::openapi_spec;
 pub use types::{AppError, AppResult, AppState, JsonErrorResponse};
 
 use mina_node_common::rpc::RpcSender;
