@@ -37,6 +37,8 @@ members = [
   "libs/redux",
   # Vendored third-party libraries
   "vendor/salsa-simple",
+  # Build/CI tooling
+  "xtask",
 ]
 
 resolver = "2"

@@ -74,3 +74,8 @@ rustflags = [
   "-C",
   "link-args=--export=__tls_base",
 ]
+
+# Cargo aliases for xtask
+[alias]
+xtask = "run --package xtask --"
+x-openapi-gen = "run --package xtask --features xtask/openapi-gen -- openapi"

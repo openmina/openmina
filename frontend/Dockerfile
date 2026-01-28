@@ -70,6 +70,7 @@ COPY libs ./libs
 COPY poseidon ./poseidon
 COPY tools ./tools
 COPY vendor ./vendor
+COPY xtask ./xtask
 
 # Build WebAssembly using Makefile (source VERGEN variables from .env.docker)
 RUN bash -c 'set -a && source .env.docker && make build-wasm'
