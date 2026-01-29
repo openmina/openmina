@@ -114,3 +114,37 @@ pub fn cors_layer() -> CorsLayer {
             HeaderName::from_static("sec-fetch-mode"),
         ])
 }
+
+/// JSON extractor that doesn't require Content-Type header.
+/// - If Content-Type is present and not application/json → 415
+/// - If Content-Type is missing or is application/json → parse as JSON
+/// - Parse failure → 422 (axum default)
+pub struct AssumeJson<T>(pub T);
+
+impl<S, T> axum::extract::FromRequest<S> for AssumeJson<T>
+where
+    S: Send + Sync,
+    T: serde::de::DeserializeOwned,
+{
+    type Rejection = (StatusCode, String);
+
+    async fn from_request(req: axum::extract::Request, state: &S) -> Result<Self, Self::Rejection> {
+        use axum::{body::Bytes, extract::Json, http::header::CONTENT_TYPE};
+        if let Some(content_type) = req.headers().get(CONTENT_TYPE) {
+            let ct = content_type.to_str().unwrap_or("");
+            if !ct.starts_with("application/json") {
+                return Err((
+                    StatusCode::UNSUPPORTED_MEDIA_TYPE,
+                    "expected Content-Type: application/json".into(),
+                ));
+            }
+        }
+
+        let bytes = Bytes::from_request(req, state)
+            .await
+            .map_err(|e| (e.status(), e.body_text()))?;
+        Json::from_bytes(&bytes)
+            .map(|Json(j)| AssumeJson(j))
+            .map_err(|e| (e.status(), e.body_text()))
+    }
+}

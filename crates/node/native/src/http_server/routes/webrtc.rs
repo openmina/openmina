@@ -22,7 +22,7 @@ use mina_node::{
 };
 use mina_node_common::rpc::RpcP2pConnectionIncomingResponse;
 
-use crate::http_server::AppState;
+use crate::http_server::{types::AssumeJson, AppState};
 
 /// WebRTC routes
 pub fn routes() -> OpenApiRouter<AppState> {
@@ -74,13 +74,14 @@ async fn signal_get(
     responses(
         (status = 200, description = "Connection accepted or rejected"),
         (status = 400, description = "Bad offer"),
+        (status = 415, description = "Unsupported Content-Type"),
         (status = 422, description = "Malformed JSON"),
         (status = 500, description = "Internal error")
     )
 )]
 async fn signal_post(
     State(state): State<AppState>,
-    Json(offer): Json<Box<webrtc::Offer>>,
+    AssumeJson(offer): AssumeJson<Box<webrtc::Offer>>,
 ) -> (StatusCode, Json<P2pConnectionResponse>) {
     // TODO(axum-migration): Malformed JSON returns 422 (axum default) vs warp's 400.
     // Both are framework defaults, not explicit choices. 422 is arguably more correct
