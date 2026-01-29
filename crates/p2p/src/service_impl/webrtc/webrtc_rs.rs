@@ -45,8 +45,6 @@ pub struct RTCChannel(Arc<RTCDataChannel>);
 
 #[derive(thiserror::Error, derive_more::From, Debug)]
 pub enum RTCSignalingError {
-    #[error("serialization failed: {0}")]
-    Serialize(serde_json::Error),
     #[error("http request failed: {0}")]
     Http(reqwest::Error),
 }
@@ -182,7 +180,7 @@ pub async fn webrtc_signal_send(
     let client = reqwest::Client::new();
     let res = client
         .post(url)
-        .body(serde_json::to_string(&offer)?)
+        .json(&offer) // Sets Content-Type: application/json automatically
         .send()
         .await?
         .json()
