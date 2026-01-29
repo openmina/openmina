@@ -39,14 +39,6 @@ export interface MinaEnv {
   /** Hide the transactions pill in the status bar */
   hideTxPill?: boolean;
 
-  /** Sentry error tracking configuration */
-  sentry?: {
-    /** Sentry Data Source Name for error reporting */
-    dsn: string;
-    /** Origins to trace for performance monitoring */
-    tracingOrigins: string[];
-  };
-
   /** Global configuration shared across all nodes */
   globalConfig?: {
     /** Feature flags configuration defining which UI sections are available */

@@ -5,10 +5,7 @@ import { NodesOverviewNode } from '@shared/types/nodes/dashboard/nodes-overview-
 import { NodesOverviewNodeBlockStatus } from '@shared/types/nodes/dashboard/nodes-overview-block.type';
 import { isDesktop, lastItem, ONE_MILLION } from '@mina-rust/shared';
 import { DashboardPeer } from '@shared/types/dashboard/dashboard.peer';
-import { SentryService } from '@core/services/sentry.service';
 import { AppActions } from '@app/app.actions';
-import { WebNodeService } from '@core/services/web-node.service';
-import { RustService } from '@core/services/rust.service';
 
 const PENDING = 'Pending';
 const SYNCED = 'Synced';
@@ -38,13 +35,7 @@ export class DashboardBlocksSyncComponent
   remaining: number;
   lengthWithoutRoot: number = null;
 
-  private syncStartTime: number = Date.now();
-
-  constructor(
-    private sentryService: SentryService,
-    private webNodeService: WebNodeService,
-    private rustService: RustService,
-  ) {
+  constructor() {
     super();
   }
 
@@ -100,14 +91,6 @@ export class DashboardBlocksSyncComponent
 
           this.extractNodesData(nodes);
           this.extractPeersData(peers);
-
-          if (this.rustService.activeNodeIsWebNode) {
-            this.sentryService.updateBlockSyncStatus(
-              nodes[0].blocks,
-              this.syncStartTime,
-              this.webNodeService.publicKey,
-            );
-          }
 
           if (this.appliedPercentage === 100) {
             this.dispatch2(AppActions.getNodeDetails());

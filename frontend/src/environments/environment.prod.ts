@@ -55,5 +55,4 @@ export const environment: Readonly<MinaEnv> = {
       url: 'https://mina-rust-seed-3.gcp.o1test.net/',
     },
   ],
-  sentry: undefined,
 };

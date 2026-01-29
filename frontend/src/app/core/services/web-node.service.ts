@@ -22,11 +22,9 @@ import {
   safelyExecuteInBrowser,
   getLocalStorage,
 } from '@mina-rust/shared';
-import { sendSentryEvent } from '@shared/helpers/webnode.helper';
 import { DashboardPeerStatus } from '@shared/types/dashboard/dashboard.peer';
 import { FileProgressHelper } from '@core/helpers/file-progress.helper';
 import { CONFIG } from '@shared/constants/config';
-import { SentryService } from '@core/services/sentry.service';
 
 export interface PrivateStake {
   publicKey: string;
@@ -57,7 +55,7 @@ export class WebNodeService {
   private readonly wasm$: BehaviorSubject<any> = new BehaviorSubject<any>(null);
 
   private webNodeStartTime: number;
-  private sentryEvents: any = {};
+  private firstPeerConnected: boolean = false;
 
   readonly webnodeProgress$: BehaviorSubject<string> =
     new BehaviorSubject<string>('');
@@ -65,7 +63,7 @@ export class WebNodeService {
   memory: WebAssembly.MemoryDescriptor;
   blockProducerConfig: BlockProducerConfig = { mode: 'auto' };
 
-  constructor(private sentryService: SentryService) {
+  constructor() {
     FileProgressHelper.initDownloadProgress();
     const basex = base(
       '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz',
@@ -224,7 +222,7 @@ export class WebNodeService {
           this.webnodeProgress$.next('Started');
         }),
         catchError(error => {
-          sendSentryEvent('WebNode failed to start: ' + error.message);
+          console.error('WebNode failed to start:', error.message);
           return throwError(() => new Error(error.message));
         }),
       );
@@ -251,22 +249,13 @@ export class WebNodeService {
       filter(Boolean),
       switchMap(webnode => from(any(webnode).state().peers())),
       tap((peers: any) => {
-        // if (!this.sentryEvents.sentNoPeersEvent && Date.now() - this.webNodeStartTime >= 5000 && peers.length === 0) {
-        //   sendSentryEvent('WebNode has no peers after 5 seconds from startup.');
-        //   this.sentryEvents.sentNoPeersEvent = true;
-        // }
-        // if (!this.sentryEvents.sentPeersEvent && peers.length > 0) {
-        //   this.sentryEvents.sentPeersEvent = true;
-        // }
         if (
-          !this.sentryEvents.firstPeerConnected &&
+          !this.firstPeerConnected &&
           peers.some(
             (p: any) => p.connection_status === DashboardPeerStatus.CONNECTED,
           )
         ) {
-          const seconds = (Date.now() - this.webNodeStartTime) / 1000;
-          this.sentryService.updatePeersConnected(seconds, this.publicKey);
-          this.sentryEvents.firstPeerConnected = true;
+          this.firstPeerConnected = true;
           this.webnodeProgress$.next('Connected');
         }
       }),
