@@ -4,6 +4,7 @@ on:
     types: [assigned, opened, synchronize, reopened, labeled, unlabeled]
     branches:
       - develop
+  merge_group:
 
 jobs:
   check-changelog:
