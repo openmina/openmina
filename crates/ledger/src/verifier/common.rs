@@ -1,7 +1,7 @@
 use crate::{
     decompress_pk,
     scan_state::transaction_logic::{
-        transaction_union_payload::TransactionUnionPayload,
+        transaction_union_payload::{LegacyInputs, TransactionUnionPayload},
         valid, verifiable,
         zkapp_command::{self, valid::of_verifiable, AccountUpdate},
         zkapp_statement::{TransactionCommitment, ZkappStatement},
@@ -11,10 +11,32 @@ use crate::{
 };
 use ark_ec::{AffineRepr, CurveGroup};
 use ark_ff::PrimeField;
+use mina_hasher::{Hashable, Hasher, ROInput};
 use mina_p2p_messages::v2::PicklesProofProofsVerifiedMaxStableV2;
 use mina_signer::{CompressedPubKey, PubKey, Signature};
-use poseidon::hash::hash_with_kimchi;
 use std::sync::Arc;
+
+#[derive(Clone)]
+struct SignatureHashable(Vec<mina_curves::pasta::Fp>);
+
+impl Hashable for SignatureHashable {
+    type D = mina_signer::NetworkId;
+
+    fn to_roinput(&self) -> ROInput {
+        let mut roi = ROInput::new();
+        for f in &self.0 {
+            roi = roi.append_field(*f);
+        }
+        roi
+    }
+
+    fn domain_string(network_id: Self::D) -> Option<String> {
+        match network_id {
+            mina_signer::NetworkId::MAINNET => Some("MinaSignatureMainnet".to_string()),
+            mina_signer::NetworkId::TESTNET => Some("CodaSignature".to_string()),
+        }
+    }
+}
 
 #[derive(Debug)]
 pub enum CheckResult {
@@ -151,8 +173,15 @@ fn verify_signature(signature: &Signature, pubkey: &PubKey, msg: &TransactionCom
     let Pallas { x, y, .. } = pubkey.point();
     let Signature { rx, s } = signature;
 
-    let signature_prefix = mina_core::NetworkConfig::global().signature_prefix;
-    let hash = hash_with_kimchi(signature_prefix, &[**msg, *x, *y, *rx]);
+    let network_id = match mina_core::NetworkConfig::global().network_id {
+        mina_core::network::NetworkId::MAINNET => mina_signer::NetworkId::MAINNET,
+        mina_core::network::NetworkId::TESTNET => mina_signer::NetworkId::TESTNET,
+    };
+
+    let mut hasher = mina_hasher::create_kimchi::<SignatureHashable>(network_id);
+    hasher.update(&SignatureHashable(vec![**msg, *x, *y, *rx]));
+    let hash = hasher.digest();
+
     let hash: Fq = Fq::from(hash.into_bigint()); // Never fail, `Fq` is larger than `Fp`
 
     let sv: CurvePoint = CurvePoint::generator().mul(*s).into_affine();
@@ -171,7 +200,6 @@ pub fn legacy_verify_signature(
     pubkey: &PubKey,
     msg: &TransactionUnionPayload,
 ) -> bool {
-    use ::poseidon::hash::legacy;
     use ark_ff::{BigInteger, Zero};
     use core::ops::{Mul, Neg};
     use mina_curves::pasta::{Fq, Pallas};
@@ -180,14 +208,22 @@ pub fn legacy_verify_signature(
     let Pallas { x, y, .. } = pubkey.point();
     let Signature { rx, s } = signature;
 
-    let signature_prefix = mina_core::NetworkConfig::global().legacy_signature_prefix;
+    let network_id = match mina_core::NetworkConfig::global().network_id {
+        mina_core::network::NetworkId::MAINNET => mina_signer::NetworkId::MAINNET,
+        mina_core::network::NetworkId::TESTNET => mina_signer::NetworkId::TESTNET,
+    };
 
-    let mut inputs = msg.to_input_legacy();
+    let mut inputs: LegacyInputs = msg.to_input_legacy();
     inputs.append_field(*x);
     inputs.append_field(*y);
     inputs.append_field(*rx);
 
-    let hash = legacy::hash_with_kimchi(signature_prefix, &inputs.to_fields());
+    let fields = inputs.to_fields();
+
+    let mut hasher = mina_hasher::create_legacy::<SignatureHashable>(network_id);
+    hasher.update(&SignatureHashable(fields));
+    let hash = hasher.digest();
+
     let hash: Fq = Fq::from(hash.into_bigint()); // Never fail, `Fq` is larger than `Fp`
 
     let sv: CurvePoint = CurvePoint::generator().mul(*s).into_affine();

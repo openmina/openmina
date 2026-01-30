@@ -83,7 +83,7 @@ use crate::{
 };
 use ark_ff::PrimeField;
 use mina_curves::pasta::Fp;
-use mina_hasher::{Hashable, ROInput as LegacyInput};
+use mina_hasher::{Hashable, Hasher, ROInput as LegacyInput};
 use mina_signer::{CompressedPubKey, NetworkId, PubKey, Signature};
 use poseidon::hash::{hash_with_kimchi, params::CODA_RECEIPT_UC, Inputs};
 
@@ -282,8 +282,8 @@ impl TransactionUnionPayload {
     }
 
     /// <https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/transaction_union_payload.ml#L309>
-    pub fn to_input_legacy(&self) -> ::poseidon::hash::legacy::Inputs<Fp> {
-        let mut roi = ::poseidon::hash::legacy::Inputs::new();
+    pub fn to_input_legacy(&self) -> LegacyInputs {
+        let mut roi = LegacyInputs::new();
 
         // Self.common
         {
@@ -337,6 +337,69 @@ impl TransactionUnionPayload {
         }
 
         roi
+    }
+}
+
+pub struct LegacyInputs {
+    fields: Vec<Fp>,
+    bits: Vec<bool>,
+}
+
+impl LegacyInputs {
+    pub fn new() -> Self {
+        Self {
+            fields: Vec::with_capacity(256),
+            bits: Vec::with_capacity(512),
+        }
+    }
+
+    pub fn append_bit(&mut self, bit: bool) {
+        self.bits.push(bit);
+    }
+
+    pub fn append_bool(&mut self, value: bool) {
+        self.append_bit(value);
+    }
+
+    pub fn append_bytes(&mut self, bytes: &[u8]) {
+        const BITS: [u8; 8] = [1, 2, 4, 8, 16, 32, 64, 128];
+        self.bits.reserve(bytes.len() * 8);
+        for byte in bytes {
+            for bit in BITS {
+                self.append_bit(byte & bit != 0);
+            }
+        }
+    }
+
+    pub fn append_u64(&mut self, value: u64) {
+        self.append_bytes(&value.to_le_bytes());
+    }
+
+    pub fn append_u32(&mut self, value: u32) {
+        self.append_bytes(&value.to_le_bytes());
+    }
+
+    pub fn append_field(&mut self, field: Fp) {
+        self.fields.push(field);
+    }
+
+    pub fn to_fields(mut self) -> Vec<Fp> {
+        use ark_ff::BigInteger256;
+        const NBITS: usize = 255 - 1;
+
+        self.fields.reserve(self.bits.len() / NBITS);
+        self.fields.extend(self.bits.chunks(NBITS).map(|bits| {
+            let mut field = [0u64; 4];
+            for (index, bit) in bits.iter().enumerate() {
+                let limb_index = index / 64;
+                let bit_index = index % 64;
+                if *bit {
+                    field[limb_index] |= 1 << bit_index;
+                }
+            }
+            Fp::from(BigInteger256::new(field))
+        }));
+        self.fields
     }
 }
 
@@ -467,6 +530,22 @@ impl TransactionUnion {
     }
 }
 
+#[derive(Clone)]
+struct ReceiptHashable(Vec<Fp>);
+impl Hashable for ReceiptHashable {
+    type D = ();
+    fn to_roinput(&self) -> LegacyInput {
+        let mut roi = LegacyInput::new();
+        for f in &self.0 {
+            roi = roi.append_field(*f);
+        }
+        roi
+    }
+    fn domain_string(_: Self::D) -> Option<String> {
+        Some("CodaReceiptUC".to_string())
+    }
+}
+
 /// Returns the new `receipt_chain_hash`
 pub fn cons_signed_command_payload(
     command_payload: &SignedCommandPayload,
@@ -474,14 +553,16 @@ pub fn cons_signed_command_payload(
 ) -> ReceiptChainHash {
     // Note: Not sure why they use the legacy way of hashing here
 
-    use poseidon::hash::legacy;
-
     let ReceiptChainHash(last_receipt_chain_hash) = last_receipt_chain_hash;
     let union = TransactionUnionPayload::of_user_command_payload(command_payload);
 
     let mut inputs = union.to_input_legacy();
     inputs.append_field(last_receipt_chain_hash);
-    let hash = legacy::hash_with_kimchi(&legacy::params::CODA_RECEIPT_UC, &inputs.to_fields());
+    let fields = inputs.to_fields();
+
+    let mut hasher = mina_hasher::create_legacy::<ReceiptHashable>(());
+    hasher.update(&ReceiptHashable(fields));
+    let hash = hasher.digest();
 
     ReceiptChainHash(hash)
 }

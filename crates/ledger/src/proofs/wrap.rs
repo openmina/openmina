@@ -29,8 +29,8 @@ use crate::{
         },
         step::OptFlag,
         transaction::{
-            create_proof, endos, make_group, CreateProofParams, InnerCurve, ProofWithPublic,
-            StepStatementWithHash,
+            create_proof, endos, make_group, poseidon::SpongeParamsForField, CreateProofParams,
+            InnerCurve, ProofWithPublic, StepStatementWithHash,
         },
         unfinalized::{dummy_ipa_wrap_challenges, Unfinalized},
         util::{challenge_polynomial, proof_evaluation_to_list},
@@ -2075,7 +2075,7 @@ pub mod wrap_verifier {
         }
     }
 
-    pub fn bullet_reduce<F: FieldWitness>(
+    pub fn bullet_reduce<F: FieldWitness + SpongeParamsForField<F>>(
         sponge: &mut Sponge<F>,
         gammas: &[(GroupAffine<F>, GroupAffine<F>)],
         w: &mut Witness<F>,
@@ -2435,7 +2435,7 @@ pub mod wrap_verifier {
 
         let mut sponge = {
             use crate::proofs::opt_sponge::SpongeState as OptSpongeState;
-            use ::poseidon::SpongeState;
+            use mina_poseidon::poseidon::SpongeState;
 
             let OptSpongeState::Squeezed(n_squeezed) = sponge.sponge_state else {
                 // We just called `sample_scalar`

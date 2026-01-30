@@ -668,7 +668,7 @@ pub mod step_verifier {
                         sponge.absorb(zeta_omega, w);
 
                         // TODO: Does it panic in OCaml ?
-                        use ::poseidon::SpongeState::{Absorbed, Squeezed};
+                        use mina_poseidon::poseidon::SpongeState::{Absorbed, Squeezed};
                         match (sponge_state_before, &sponge.sponge_state) {
                             (Absorbed(x), Absorbed(y)) => assert_eq!(x, *y),
                             (Squeezed(x), Squeezed(y)) => assert_eq!(x, *y),
