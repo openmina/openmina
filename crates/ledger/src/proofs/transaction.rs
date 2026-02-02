@@ -2079,7 +2079,10 @@ pub mod poseidon {
         }
     }
 
-    fn apply_mds_matrix<F: Field + SpongeParamsForField<F> + proofs::field::FieldWitness, C: SpongeConstants>(
+    fn apply_mds_matrix<
+        F: Field + SpongeParamsForField<F> + proofs::field::FieldWitness,
+        C: SpongeConstants,
+    >(
         state: &[F; 3],
     ) -> [F; 3] {
         let is_legacy = C::PERM_INITIAL_ARK;

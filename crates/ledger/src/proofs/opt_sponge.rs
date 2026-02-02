@@ -159,7 +159,10 @@ struct ConsumeParams<'a, F: FieldWitness> {
     state: [F; 3],
 }
 
-fn consume<F: FieldWitness + SpongeParamsForField<F>>(params: ConsumeParams<F>, w: &mut Witness<F>) -> [F; 3] {
+fn consume<F: FieldWitness + SpongeParamsForField<F>>(
+    params: ConsumeParams<F>,
+    w: &mut Witness<F>,
+) -> [F; 3] {
     let ConsumeParams {
         needs_final_permute_if_empty,
         start_pos,
@@ -257,7 +260,10 @@ fn consume<F: FieldWitness + SpongeParamsForField<F>>(params: ConsumeParams<F>, 
     state
 }
 
-fn block_cipher<F: FieldWitness + SpongeParamsForField<F>>(mut state: [F; M], w: &mut Witness<F>) -> [F; M] {
+fn block_cipher<F: FieldWitness + SpongeParamsForField<F>>(
+    mut state: [F; M],
+    w: &mut Witness<F>,
+) -> [F; M] {
     w.exists(state);
     for r in 0..PERM_ROUNDS_FULL {
         full_round(&mut state, r, w);
@@ -265,7 +271,11 @@ fn block_cipher<F: FieldWitness + SpongeParamsForField<F>>(mut state: [F; M], w:
     state
 }
 
-fn full_round<F: FieldWitness + SpongeParamsForField<F>>(state: &mut [F; M], r: usize, w: &mut Witness<F>) {
+fn full_round<F: FieldWitness + SpongeParamsForField<F>>(
+    state: &mut [F; M],
+    r: usize,
+    w: &mut Witness<F>,
+) {
     let round_constants = <F as SpongeParamsForField<F>>::get_params(false).round_constants();
 
     for state_i in state.iter_mut() {
