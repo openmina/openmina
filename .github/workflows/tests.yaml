@@ -8,6 +8,7 @@ on:
     paths-ignore:
       - 'frontend/**'
   merge_group:
+    types: [checks_requested]
   workflow_dispatch:
     inputs:
       refresh_cache:
