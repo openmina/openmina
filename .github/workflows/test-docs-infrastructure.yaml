@@ -15,6 +15,8 @@ on:
     # Allow manual triggering for testing
   pull_request:
     # Always run on pull requests
+  merge_group:
+    types: [checks_requested]
   push:
     branches: [ main, develop ]
 

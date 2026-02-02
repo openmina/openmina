@@ -8,6 +8,8 @@ on:
   pull_request:
     paths-ignore:
       - 'frontend/**'
+  merge_group:
+    types: [checks_requested]
   schedule:
     # Run weekly on Mondays at 00:00 UTC
     - cron: '0 0 * * 1'

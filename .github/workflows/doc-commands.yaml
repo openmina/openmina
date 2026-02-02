@@ -8,6 +8,8 @@ on:
   pull_request:
     paths-ignore:
       - 'frontend/**'
+  merge_group:
+    types: [checks_requested]
   workflow_dispatch:
 
 env:
