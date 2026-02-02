@@ -9,6 +9,7 @@ on:
     paths-ignore:
       - 'frontend/**'
   merge_group:
+    types: [checks_requested]
 
 jobs:
   format:
