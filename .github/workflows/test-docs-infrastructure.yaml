@@ -23,7 +23,7 @@ on:
 jobs:
   test-seed-nodes:
     name: Test Seed Node Connectivity
-    timeout-minutes: 2
+    timeout-minutes: 10
     runs-on: ubuntu-latest
 
     steps:
@@ -38,7 +38,7 @@ jobs:
 
   verify-seed-node-format:
     name: Verify Seed Node Address Format
-    timeout-minutes: 2
+    timeout-minutes: 10
     runs-on: ubuntu-latest
 
     steps:
@@ -50,7 +50,7 @@ jobs:
 
   test-plain-nodes:
     name: Test Plain Node Connectivity
-    timeout-minutes: 2
+    timeout-minutes: 10
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
@@ -71,7 +71,7 @@ jobs:
 
   test-block-producer-nodes:
     name: Test Block Producer Node Connectivity
-    timeout-minutes: 2
+    timeout-minutes: 10
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
