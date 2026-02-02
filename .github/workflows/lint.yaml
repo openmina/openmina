@@ -9,6 +9,7 @@ on:
     paths-ignore:
       - 'frontend/**'
   merge_group:
+    types: [checks_requested]
 
 jobs:
   lint:
@@ -67,7 +68,7 @@ jobs:
         run: make check-tx-fuzzing
 
   shellcheck:
-    timeout-minutes: 1
+    timeout-minutes: 5
     name: Shellcheck - ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -85,7 +86,7 @@ jobs:
         run: make lint-bash
 
   hadolint:
-    timeout-minutes: 1
+    timeout-minutes: 5
     name: Hadolint - ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
