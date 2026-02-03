@@ -27,7 +27,7 @@ OCaml references are added as single-line doc comments directly above the Rust
 type or function, using a clickable hyperlink format:
 
 ```rust
-/// OCaml: <https://github.com/MinaProtocol/mina/blob/5da42ccd72e791f164d4d200cf1ce300262873b3/src/lib/mina_base/transaction_status.ml#L9-L51>
+/// OCaml: <https://github.com/MinaProtocol/mina/blob/55582d249cdb225f722dbbb3b1420ce7570d501f/src/lib/mina_base/transaction_status.ml#L9-L113>
 pub enum TransactionFailure {
     // ...
 }
