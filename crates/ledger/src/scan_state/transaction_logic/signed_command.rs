@@ -222,7 +222,7 @@ impl SignedCommand {
         match status {
             Applied => vec![(self.fee_payer(), Accessed), (self.receiver(), Accessed)],
             // Note: The fee payer is always accessed, even if the transaction fails
-            // OCaml reference: src/lib/mina_base/signed_command_payload.mli L:205-209
+            // OCaml: <https://github.com/MinaProtocol/mina/blob/5da42ccd72e791f164d4d200cf1ce300262873b3/src/lib/mina_base/signed_command_payload.mli#L205-L209>
             Failed(_) => vec![(self.fee_payer(), Accessed), (self.receiver(), NotAccessed)],
         }
     }
