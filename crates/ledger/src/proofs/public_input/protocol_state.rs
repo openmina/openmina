@@ -2,6 +2,7 @@ use mina_curves::pasta::Fp;
 use mina_p2p_messages::v2::MinaBaseProtocolConstantsCheckedValueStableV1;
 
 use crate::{
+    hash::Inputs,
     proofs::block::{
         consensus::{CheckedConsensusState, ConsensusState},
         ProtocolStateBody,
@@ -9,7 +10,6 @@ use crate::{
     scan_state::transaction_logic::protocol_state::{EpochData, EpochLedger},
     AppendToInputs as _, ToInputs,
 };
-use crate::hash::Inputs;
 
 impl ToInputs for crate::proofs::block::BlockchainState {
     fn to_inputs(&self, inputs: &mut Inputs) {

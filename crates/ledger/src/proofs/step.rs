@@ -45,8 +45,11 @@ use kimchi::proof::{PointEvaluations, ProverCommitments, RecursionChallenge};
 use mina_curves::pasta::{Fp, Fq, Pallas, VestaParameters};
 use mina_p2p_messages::{bigint::InvalidBigInt, v2};
 use mina_poseidon::{
-    constants::PlonkSpongeConstantsKimchi, pasta::FULL_ROUNDS, poseidon::{ArithmeticSponge, Sponge},
-    sponge::DefaultFqSponge, FqSponge,
+    constants::PlonkSpongeConstantsKimchi,
+    pasta::FULL_ROUNDS,
+    poseidon::{ArithmeticSponge, Sponge},
+    sponge::DefaultFqSponge,
+    FqSponge,
 };
 use poly_commitment::{commitment::b_poly_coefficients, ipa::OpeningProof};
 use std::rc::Rc;
@@ -2011,9 +2014,10 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> anyhow::Result<DeferredV
         sponge.squeeze()
     };
 
-    let mut sponge = DefaultFqSponge::<VestaParameters, PlonkSpongeConstantsKimchi, FULL_ROUNDS>::new(
-        mina_poseidon::pasta::fq_kimchi::static_params(),
-    );
+    let mut sponge =
+        DefaultFqSponge::<VestaParameters, PlonkSpongeConstantsKimchi, FULL_ROUNDS>::new(
+            mina_poseidon::pasta::fq_kimchi::static_params(),
+        );
     sponge.absorb_fq(&to_fqs(&[four_u64_to_field(
         &proof_state.sponge_digest_before_evaluations,
     )?]));
@@ -2707,18 +2711,10 @@ pub struct StepProof {
 }
 
 fn to_fqs(fps: &[Fp]) -> Vec<Fq> {
-
     fps.iter().map(|fp| Fq::from((*fp).into_bigint())).collect()
-
 }
 
-
-
-
-
-pub fn step<
-
-C: ProofConstants, const N_PREVIOUS: usize>(
+pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
     params: StepParams<N_PREVIOUS>,
     w: &mut Witness<Fp>,
 ) -> anyhow::Result<StepProof> {

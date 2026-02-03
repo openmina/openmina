@@ -1,9 +1,9 @@
 use std::collections::{BTreeMap, HashMap, VecDeque};
 
+use crate::hash::params::get_merkle_param_for_height;
 use ark_ff::Zero;
 use mina_curves::pasta::Fp;
 use mina_signer::CompressedPubKey;
-use crate::hash::params::get_merkle_param_for_height;
 
 use crate::{
     scan_state::{currency::Slot, transaction_logic::AccountState},

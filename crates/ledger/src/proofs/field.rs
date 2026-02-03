@@ -9,7 +9,6 @@ use mina_poseidon::{
     constants::PlonkSpongeConstantsKimchi, pasta::FULL_ROUNDS, sponge::DefaultFqSponge,
 };
 
-
 use crate::proofs;
 
 use super::{

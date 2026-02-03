@@ -1,8 +1,5 @@
 use std::{cell::Cell, marker::PhantomData};
 
-use ark_ff::Zero;
-use mina_curves::pasta::Fp;
-use mina_signer::CompressedPubKey;
 use crate::hash::{
     params::{
         get_merkle_param_for_height, CODA_RECEIPT_UC, MINA_ACCOUNT_UPDATE_CONS,
@@ -11,6 +8,9 @@ use crate::hash::{
     },
     Inputs,
 };
+use ark_ff::Zero;
+use mina_curves::pasta::Fp;
+use mina_signer::CompressedPubKey;
 
 use crate::{
     checked_equal_compressed_key, checked_equal_compressed_key_const_and,

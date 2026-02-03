@@ -31,9 +31,9 @@
 //! Port of the implementation from:
 //! <https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/fee_excess.ml#L1>
 
+use crate::hash::Inputs;
 use ark_ff::{BigInteger, BigInteger256, Zero};
 use mina_curves::pasta::Fp;
-use crate::hash::Inputs;
 
 use crate::{
     proofs::{

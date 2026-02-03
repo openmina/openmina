@@ -1,14 +1,14 @@
 use std::{cell::RefCell, rc::Rc};
 
+use crate::hash::{
+    hash_with_kimchi,
+    params::{MINA_ACCOUNT_UPDATE_CONS, MINA_PROTO_STATE_BODY},
+};
 use ark_ff::{BigInteger256, Zero};
 use kimchi::proof::PointEvaluations;
 use mina_curves::pasta::{Fp, Fq};
 use mina_p2p_messages::{bigint::InvalidBigInt, v2};
 use poly_commitment::ipa::OpeningProof;
-use crate::hash::{
-    hash_with_kimchi,
-    params::{MINA_ACCOUNT_UPDATE_CONS, MINA_PROTO_STATE_BODY},
-};
 
 use crate::{
     proofs::{
@@ -961,9 +961,8 @@ fn check_protocol_state(params: CheckProtocolStateParams, w: &mut Witness<Fp>) {
         state_body,
     } = params;
 
-            let state_body_hash = state_body.checked_hash_with_param(MINA_PROTO_STATE_BODY, w);
+    let state_body_hash = state_body.checked_hash_with_param(MINA_PROTO_STATE_BODY, w);
 
-    
     let global_slot = block_global_slot;
     let computed_pending_coinbase_stack_after =
         pending_coinbase_stack_init.checked_push_state(state_body_hash, global_slot, w);

@@ -1,6 +1,6 @@
+use crate::hash::Inputs;
 use ark_ff::PrimeField;
 use mina_curves::pasta::Fp;
-use crate::hash::Inputs;
 use sha2::{Digest, Sha256};
 
 use crate::{

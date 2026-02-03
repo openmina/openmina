@@ -2398,6 +2398,7 @@ pub mod transaction_snark {
     use crate::{
         checked_equal_compressed_key, checked_equal_compressed_key_const_and,
         checked_verify_merkle_path,
+        hash::Inputs,
         proofs::{
             block::ProtocolStateBody,
             numbers::{
@@ -2416,7 +2417,6 @@ pub mod transaction_snark {
         zkapps::interfaces::{SignedAmountBranchParam, SignedAmountInterface},
         AccountId, PermissionTo, PermsConst, Timing, TimingAsRecordChecked, ToInputs,
     };
-    use crate::hash::Inputs;
     use ark_ff::Zero;
 
     use crate::scan_state::{

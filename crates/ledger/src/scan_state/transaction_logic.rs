@@ -70,6 +70,7 @@ use super::{
     scan_state::transaction_snark::OneOrTwo,
 };
 use crate::{
+    hash::params::MINA_ZKAPP_MEMO,
     scan_state::transaction_logic::{
         transaction_applied::{CommandApplied, Varying},
         zkapp_command::MaybeWithStatus,
@@ -87,7 +88,6 @@ use mina_p2p_messages::{
     v2::{MinaBaseUserCommandStableV2, MinaTransactionTransactionStableV2},
 };
 use mina_signer::CompressedPubKey;
-use crate::hash::params::MINA_ZKAPP_MEMO;
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     fmt::Display,

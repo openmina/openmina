@@ -1,5 +1,13 @@
 use crate::{
     gen_compressed,
+    hash::{
+        hash_noinputs, hash_with_kimchi,
+        params::{
+            get_merkle_param_for_height, MINA_ACCOUNT, MINA_DERIVE_TOKEN_ID, MINA_SIDELOADED_VK,
+            MINA_ZKAPP_ACCOUNT, MINA_ZKAPP_URI, NO_INPUT_ZKAPP_ACTION_STATE_EMPTY_ELT,
+        },
+        Inputs,
+    },
     proofs::{
         field::{Boolean, FieldWitness, ToBoolean},
         numbers::{
@@ -26,14 +34,6 @@ use mina_p2p_messages::{
 };
 use mina_signer::CompressedPubKey;
 use once_cell::sync::{Lazy, OnceCell};
-use crate::hash::{
-    hash_noinputs, hash_with_kimchi,
-    params::{
-        get_merkle_param_for_height, MINA_ACCOUNT, MINA_DERIVE_TOKEN_ID, MINA_SIDELOADED_VK,
-        MINA_ZKAPP_ACCOUNT, MINA_ZKAPP_URI, NO_INPUT_ZKAPP_ACTION_STATE_EMPTY_ELT,
-    },
-    Inputs,
-};
 use rand::{prelude::ThreadRng, seq::SliceRandom, Rng};
 use serde::{Deserialize, Serialize};
 use std::{io::Cursor, str::FromStr, sync::Arc};

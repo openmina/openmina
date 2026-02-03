@@ -1,10 +1,13 @@
 use mina_curves::pasta::Fp;
 
-use crate::{proofs::block::ProtocolState, ToInputs};
-use crate::hash::{
-    hash_with_kimchi,
-    params::{MINA_PROTO_STATE, MINA_PROTO_STATE_BODY},
-    Inputs,
+use crate::{
+    hash::{
+        hash_with_kimchi,
+        params::{MINA_PROTO_STATE, MINA_PROTO_STATE_BODY},
+        Inputs,
+    },
+    proofs::block::ProtocolState,
+    ToInputs,
 };
 
 pub trait MinaHash {

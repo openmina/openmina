@@ -1,14 +1,14 @@
 use std::{rc::Rc, sync::Arc};
 
+use crate::hash::{
+    params::{MINA_PROTO_STATE, MINA_PROTO_STATE_BODY},
+    Inputs,
+};
 use anyhow::Context;
 use consensus::ConsensusState;
 use mina_core::constants::{constraint_constants, ForkConstants};
 use mina_curves::pasta::{Fp, Fq};
 use mina_p2p_messages::{bigint::InvalidBigInt, v2};
-use crate::hash::{
-    params::{MINA_PROTO_STATE, MINA_PROTO_STATE_BODY},
-    Inputs,
-};
 
 use crate::{
     dummy,
@@ -609,8 +609,8 @@ mod snarky_taylor {
 mod vrf {
     use std::ops::Neg;
 
-    use mina_signer::{CompressedPubKey, PubKey};
     use crate::hash::params::{MINA_VRF_MESSAGE, MINA_VRF_OUTPUT};
+    use mina_signer::{CompressedPubKey, PubKey};
 
     use crate::{
         checked_verify_merkle_path,
@@ -814,9 +814,9 @@ mod vrf {
 }
 
 pub mod consensus {
+    use crate::hash::params::MINA_EPOCH_SEED;
     use ark_ff::Zero;
     use mina_signer::CompressedPubKey;
-    use crate::hash::params::MINA_EPOCH_SEED;
 
     use super::{vrf::VRF_OUTPUT_NBITS, *};
     use crate::{

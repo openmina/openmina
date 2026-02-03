@@ -20,11 +20,6 @@
 /// Stack operations are done for transaction snarks and tree operations are done for the blockchain snark*)
 use std::{collections::HashMap, fmt::Write, marker::PhantomData};
 
-use ark_ff::Zero;
-use mina_core::constants::constraint_constants;
-use mina_curves::pasta::Fp;
-use mina_p2p_messages::bigint::InvalidBigInt;
-use mina_signer::CompressedPubKey;
 use crate::hash::{
     hash_noinputs, hash_with_kimchi,
     params::{
@@ -32,6 +27,11 @@ use crate::hash::{
     },
     Inputs,
 };
+use ark_ff::Zero;
+use mina_core::constants::constraint_constants;
+use mina_curves::pasta::Fp;
+use mina_p2p_messages::bigint::InvalidBigInt;
+use mina_signer::CompressedPubKey;
 use sha2::{Digest, Sha256};
 
 use crate::{

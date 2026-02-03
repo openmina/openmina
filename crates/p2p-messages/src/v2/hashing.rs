@@ -429,7 +429,9 @@ fn fp_state_hash_from_fp_hashes(previous_state_hash: Fp, body_hash: Fp) -> Fp {
     let inputs = ROInput::new()
         .append_field(previous_state_hash)
         .append_field(body_hash);
-    mina_hasher::create_kimchi::<MinaProtoState>(()).update(&MinaProtoState(inputs)).digest()
+    mina_hasher::create_kimchi::<MinaProtoState>(())
+        .update(&MinaProtoState(inputs))
+        .digest()
 }
 
 impl StateHash {

@@ -5,9 +5,9 @@ use crate::{proofs::witness::Witness, scan_state::currency};
 use mina_hasher::{DomainParameter, Hashable, Hasher, ROInput};
 use mina_poseidon::{
     constants::PlonkSpongeConstantsKimchi,
+    pasta::FULL_ROUNDS,
     poseidon::{ArithmeticSponge, Sponge},
 };
-use mina_poseidon::pasta::FULL_ROUNDS;
 
 #[derive(Clone)]
 pub struct CustomDomain(pub String);
@@ -221,8 +221,7 @@ pub fn hash_fields_fq(fields: &[Fq]) -> Fq {
 }
 
 pub fn hash_noinputs(domain: &str) -> Fp {
-    mina_hasher::create_kimchi::<GenericHashable>(CustomDomain(domain.to_string()))
-        .digest()
+    mina_hasher::create_kimchi::<GenericHashable>(CustomDomain(domain.to_string())).digest()
 }
 
 #[derive(Clone)]

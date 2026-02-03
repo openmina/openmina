@@ -226,7 +226,8 @@ impl Hashable for TransactionUnionPayload {
             roi = roi.append_bool(tag & bit != 0);
         }
 
-        roi = roi.append_bool(self.body.source_pk.is_odd)
+        roi = roi
+            .append_bool(self.body.source_pk.is_odd)
             .append_bool(self.body.receiver_pk.is_odd)
             .append_u64(token_id)
             .append_u64(self.body.amount.as_u64())
@@ -611,7 +612,7 @@ pub fn cons_zkapp_command_commitment(
     impl Hashable for ZkappReceiptHashable {
         type D = ();
         fn to_roinput(&self) -> ROInput {
-            self.0.0.clone()
+            self.0 .0.clone()
         }
         fn domain_string(_: ()) -> Option<String> {
             Some("CodaReceiptUC".to_string())

@@ -1,6 +1,8 @@
-use crate::account::{get_legacy_hash_of, Account, AccountLegacy, TokenId, TokenIdLegacy};
+use crate::{
+    account::{get_legacy_hash_of, Account, AccountLegacy, TokenId, TokenIdLegacy},
+    hash::params::get_merkle_param_for_height,
+};
 use mina_curves::pasta::Fp;
-use crate::hash::params::get_merkle_param_for_height;
 use std::{fmt::Debug, hash::Hash};
 
 pub trait TreeVersion {
