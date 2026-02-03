@@ -44,14 +44,37 @@ Remove the local `poseidon` crate and standardize all hashing (Pure and Witness-
     - [x] `test_transaction_logic` passes.
 
 ## Phase 4: Final Cleanup
+
 **Target:** Workspace
 
-- [ ] **Remove Residual Imports:**
-    - [ ] Remove `use ::poseidon::...` in `transaction.rs` (`LazyParam`, `MINA_PROTO_STATE_BODY`).
-    - [ ] Replace `LazyParam` with local equivalent or direct state passing.
-- [ ] **Remove Crate:**
-    - [ ] Remove `poseidon` from `crates/ledger/Cargo.toml`.
-    - [ ] Remove `poseidon` from `Cargo.toml` (workspace).
-    - [ ] Delete `poseidon` directory.
+
+
+- [x] **Remove Residual Imports:**
+
+    - [x] Remove `use ::poseidon::...` in `transaction.rs` (`LazyParam`, `MINA_PROTO_STATE_BODY`).
+
+    - [x] Replace `LazyParam` with `CustomDomain` newtype and runtime domain strings.
+
+- [x] **Standardize Mutable Interface:**
+
+    - [x] Implemented `Inputs` wrapper around `ROInput` in `hash.rs` to maintain mutable API and minimize codebase-wide changes.
+
+- [x] **Remove Crate:**
+
+    - [x] Remove `poseidon` from all `Cargo.toml` files.
+
+    - [x] Remove `poseidon` from `Cargo.toml` (workspace).
+
+    - [x] Delete `poseidon` directory.
+
 - [ ] **Final Verification:**
+
+    - [ ] `mina-p2p-messages` fixed and compiling.
+
+    - [ ] `mina-core` fixed and compiling.
+
+    - [x] `mina-tree` fixed and compiling.
+
+    - [ ] `mina-snark` pending fixes for `MerkleTreeNode` and `DomainParameter`.
+
     - [ ] Full workspace build and test.
