@@ -115,9 +115,7 @@ pub use transaction_union_payload::{
     ExistingOrNew, Tag, TimingValidation, TransactionUnion, TransactionUnionPayload,
 };
 
-/// OCaml reference: src/lib/mina_base/transaction_status.ml L:9-51
-/// Commit: 5da42ccd72e791f164d4d200cf1ce300262873b3
-/// Last verified: 2025-10-08
+/// OCaml: <https://github.com/MinaProtocol/mina/blob/5da42ccd72e791f164d4d200cf1ce300262873b3/src/lib/mina_base/transaction_status.ml#L9-L51>
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum TransactionFailure {
     Predicate,
@@ -233,9 +231,7 @@ impl Display for TransactionFailure {
     }
 }
 
-/// OCaml reference: src/lib/mina_base/transaction_status.ml L:452-454
-/// Commit: 5da42ccd72e791f164d4d200cf1ce300262873b3
-/// Last verified: 2025-10-08
+/// OCaml: <https://github.com/MinaProtocol/mina/blob/5da42ccd72e791f164d4d200cf1ce300262873b3/src/lib/mina_base/transaction_status.ml#L452-L454>
 #[derive(SerdeYojsonEnum, Debug, Clone, PartialEq, Eq)]
 pub enum TransactionStatus {
     Applied,
@@ -251,9 +247,7 @@ impl TransactionStatus {
     }
 }
 
-/// OCaml reference: src/lib/mina_base/with_status.ml L:6-10
-/// Commit: 5da42ccd72e791f164d4d200cf1ce300262873b3
-/// Last verified: 2025-10-08
+/// OCaml: <https://github.com/MinaProtocol/mina/blob/5da42ccd72e791f164d4d200cf1ce300262873b3/src/lib/mina_base/with_status.ml#L6-L10>
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
 pub struct WithStatus<T> {
     pub data: T,
@@ -323,9 +317,7 @@ where
     }
 }
 
-/// OCaml reference: src/lib/mina_base/fee_transfer.ml L:76-80
-/// Commit: 5da42ccd72e791f164d4d200cf1ce300262873b3
-/// Last verified: 2025-10-10
+/// OCaml: <https://github.com/MinaProtocol/mina/blob/5da42ccd72e791f164d4d200cf1ce300262873b3/src/lib/mina_base/fee_transfer.ml#L76-L80>
 #[derive(Debug, Clone, PartialEq)]
 pub struct SingleFeeTransfer {
     pub receiver_pk: CompressedPubKey,
@@ -350,9 +342,7 @@ impl SingleFeeTransfer {
     }
 }
 
-/// OCaml reference: src/lib/mina_base/fee_transfer.ml L:68-69
-/// Commit: 5da42ccd72e791f164d4d200cf1ce300262873b3
-/// Last verified: 2025-10-10
+/// OCaml: <https://github.com/MinaProtocol/mina/blob/5da42ccd72e791f164d4d200cf1ce300262873b3/src/lib/mina_base/fee_transfer.ml#L68-L69>
 #[derive(Debug, Clone, PartialEq)]
 pub struct FeeTransfer(pub(super) OneOrTwo<SingleFeeTransfer>);
 
@@ -380,9 +370,7 @@ impl FeeTransfer {
         })
     }
 
-    /// OCaml reference: src/lib/mina_base/fee_transfer.ml L:110-114
-    /// Commit: 5da42ccd72e791f164d4d200cf1ce300262873b3
-    /// Last verified: 2025-10-10
+    /// OCaml: <https://github.com/MinaProtocol/mina/blob/5da42ccd72e791f164d4d200cf1ce300262873b3/src/lib/mina_base/fee_transfer.ml#L110-L114>
     pub fn fee_excess(&self) -> Result<FeeExcess, String> {
         let one_or_two = self.0.map(|SingleFeeTransfer { fee, fee_token, .. }| {
             (fee_token.clone(), Signed::<Fee>::of_unsigned(*fee).negate())
@@ -390,9 +378,7 @@ impl FeeTransfer {
         FeeExcess::of_one_or_two(one_or_two)
     }
 
-    /// OCaml reference: src/lib/mina_base/fee_transfer.ml L:85-97
-    /// Commit: 5da42ccd72e791f164d4d200cf1ce300262873b3
-    /// Last verified: 2025-10-10
+    /// OCaml: <https://github.com/MinaProtocol/mina/blob/5da42ccd72e791f164d4d200cf1ce300262873b3/src/lib/mina_base/fee_transfer.ml#L85-L97>
     pub fn of_singles(singles: OneOrTwo<SingleFeeTransfer>) -> Result<Self, String> {
         match singles {
             OneOrTwo::One(a) => Ok(Self(OneOrTwo::One(a))),
@@ -431,9 +417,7 @@ impl CoinbaseFeeTransfer {
     }
 }
 
-/// OCaml reference: src/lib/mina_base/coinbase.ml L:17-21
-/// Commit: 5da42ccd72e791f164d4d200cf1ce300262873b3
-/// Last verified: 2025-10-10
+/// OCaml: <https://github.com/MinaProtocol/mina/blob/5da42ccd72e791f164d4d200cf1ce300262873b3/src/lib/mina_base/coinbase.ml#L17-L21>
 #[derive(Debug, Clone, PartialEq)]
 pub struct Coinbase {
     pub receiver: CompressedPubKey,
@@ -475,9 +459,7 @@ impl Coinbase {
         }
     }
 
-    /// OCaml reference: src/lib/mina_base/coinbase.ml L:92-100
-    /// Commit: 5da42ccd72e791f164d4d200cf1ce300262873b3
-    /// Last verified: 2025-10-10
+    /// OCaml: <https://github.com/MinaProtocol/mina/blob/5da42ccd72e791f164d4d200cf1ce300262873b3/src/lib/mina_base/coinbase.ml#L92-L100>
     fn expected_supply_increase(&self) -> Result<Amount, String> {
         let Self {
             amount,
@@ -499,16 +481,12 @@ impl Coinbase {
         self.expected_supply_increase().map(|_| FeeExcess::empty())
     }
 
-    /// OCaml reference: src/lib/mina_base/coinbase.ml L:39-39
-    /// Commit: 5da42ccd72e791f164d4d200cf1ce300262873b3
-    /// Last verified: 2025-10-10
+    /// OCaml: <https://github.com/MinaProtocol/mina/blob/5da42ccd72e791f164d4d200cf1ce300262873b3/src/lib/mina_base/coinbase.ml#L39-L39>
     pub fn receiver(&self) -> AccountId {
         AccountId::new(self.receiver.clone(), TokenId::default())
     }
 
-    /// OCaml reference: src/lib/mina_base/coinbase.ml L:51-65
-    /// Commit: 5da42ccd72e791f164d4d200cf1ce300262873b3
-    /// Last verified: 2025-10-10
+    /// OCaml: <https://github.com/MinaProtocol/mina/blob/5da42ccd72e791f164d4d200cf1ce300262873b3/src/lib/mina_base/coinbase.ml#L51-L65>
     pub fn account_access_statuses(
         &self,
         status: &TransactionStatus,
@@ -529,9 +507,7 @@ impl Coinbase {
         ids
     }
 
-    /// OCaml reference: src/lib/mina_base/coinbase.ml L:67-69
-    /// Commit: 5da42ccd72e791f164d4d200cf1ce300262873b3
-    /// Last verified: 2025-10-10
+    /// OCaml: <https://github.com/MinaProtocol/mina/blob/5da42ccd72e791f164d4d200cf1ce300262873b3/src/lib/mina_base/coinbase.ml#L67-L69>
     pub fn accounts_referenced(&self) -> Vec<AccountId> {
         self.account_access_statuses(&TransactionStatus::Applied)
             .into_iter()
@@ -634,9 +610,7 @@ impl Memo {
         self.0.as_slice()
     }
 
-    /// OCaml reference: src/lib/mina_base/signed_command_memo.ml L:156-156
-    /// Commit: 5da42ccd72e791f164d4d200cf1ce300262873b3
-    /// Last verified: 2025-10-10
+    /// OCaml: <https://github.com/MinaProtocol/mina/blob/5da42ccd72e791f164d4d200cf1ce300262873b3/src/lib/mina_base/signed_command_memo.ml#L156-L156>
     pub fn dummy() -> Self {
         // TODO
         Self([0; 34])
@@ -663,9 +637,7 @@ impl Memo {
         Self(s.into_bytes().try_into().unwrap())
     }
 
-    /// OCaml reference: src/lib/mina_base/signed_command_memo.ml L:117-120
-    /// Commit: 5da42ccd72e791f164d4d200cf1ce300262873b3
-    /// Last verified: 2025-10-10
+    /// OCaml: <https://github.com/MinaProtocol/mina/blob/5da42ccd72e791f164d4d200cf1ce300262873b3/src/lib/mina_base/signed_command_memo.ml#L117-L120>
     fn create_by_digesting_string_exn(s: &str) -> Self {
         if s.len() > Self::MAX_DIGESTIBLE_STRING_LENGTH {
             panic!("Too_long_digestible_string");
@@ -686,9 +658,7 @@ impl Memo {
         Self(memo)
     }
 
-    /// OCaml reference: src/lib/mina_base/signed_command_memo.ml L:205-207
-    /// Commit: 5da42ccd72e791f164d4d200cf1ce300262873b3
-    /// Last verified: 2025-10-10
+    /// OCaml: <https://github.com/MinaProtocol/mina/blob/5da42ccd72e791f164d4d200cf1ce300262873b3/src/lib/mina_base/signed_command_memo.ml#L205-L207>
     pub fn gen() -> Self {
         use rand::distributions::{Alphanumeric, DistString};
         let random_string = Alphanumeric.sample_string(&mut rand::thread_rng(), 50);
@@ -749,9 +719,7 @@ impl binprot::BinProtRead for UserCommand {
 }
 
 impl UserCommand {
-    /// OCaml reference: src/lib/mina_base/user_command.ml L:239
-    /// Commit: 5da42ccd72e791f164d4d200cf1ce300262873b3
-    /// Last verified: 2025-10-10
+    /// OCaml: <https://github.com/MinaProtocol/mina/blob/5da42ccd72e791f164d4d200cf1ce300262873b3/src/lib/mina_base/user_command.ml#L239>
     pub fn account_access_statuses(
         &self,
         status: &TransactionStatus,
@@ -762,9 +730,7 @@ impl UserCommand {
         }
     }
 
-    /// OCaml reference: src/lib/mina_base/user_command.ml L:306-307
-    /// Commit: 5da42ccd72e791f164d4d200cf1ce300262873b3
-    /// Last verified: 2025-10-10
+    /// OCaml: <https://github.com/MinaProtocol/mina/blob/5da42ccd72e791f164d4d200cf1ce300262873b3/src/lib/mina_base/user_command.ml#L306-L307>
     pub fn accounts_referenced(&self) -> Vec<AccountId> {
         self.account_access_statuses(&TransactionStatus::Applied)
             .into_iter()
@@ -800,9 +766,7 @@ impl UserCommand {
         self.applicable_at_nonce().succ()
     }
 
-    /// OCaml reference: src/lib/mina_base/user_command.ml L:283-287
-    /// Commit: 5da42ccd72e791f164d4d200cf1ce300262873b3
-    /// Last verified: 2025-10-10
+    /// OCaml: <https://github.com/MinaProtocol/mina/blob/5da42ccd72e791f164d4d200cf1ce300262873b3/src/lib/mina_base/user_command.ml#L283-L287>
     pub fn fee(&self) -> Fee {
         match self {
             UserCommand::SignedCommand(cmd) => cmd.fee(),
@@ -836,9 +800,7 @@ impl UserCommand {
         }
     }
 
-    /// OCaml reference: src/lib/mina_base/user_command.ml L:388-401
-    /// Commit: 5da42ccd72e791f164d4d200cf1ce300262873b3
-    /// Last verified: 2025-10-10
+    /// OCaml: <https://github.com/MinaProtocol/mina/blob/5da42ccd72e791f164d4d200cf1ce300262873b3/src/lib/mina_base/user_command.ml#L388-L401>
     pub fn to_valid_unsafe(self) -> valid::UserCommand {
         match self {
             UserCommand::SignedCommand(cmd) => valid::UserCommand::SignedCommand(cmd),
@@ -850,9 +812,7 @@ impl UserCommand {
         }
     }
 
-    /// OCaml reference: src/lib/mina_base/user_command.ml L:220-226
-    /// Commit: 5da42ccd72e791f164d4d200cf1ce300262873b3
-    /// Last verified: 2025-10-10
+    /// OCaml: <https://github.com/MinaProtocol/mina/blob/5da42ccd72e791f164d4d200cf1ce300262873b3/src/lib/mina_base/user_command.ml#L220-L226>
     pub fn to_verifiable<F>(
         &self,
         status: &TransactionStatus,
@@ -1086,9 +1046,7 @@ impl GenericTransaction for Transaction {
 /// types and implements conversion to/from the p2p wire format
 /// [`MinaTransactionTransactionStableV2`].
 ///
-/// OCaml reference: src/lib/transaction/transaction.ml L:8-11
-/// Commit: 5da42ccd72e791f164d4d200cf1ce300262873b3
-/// Last verified: 2025-10-10
+/// OCaml: <https://github.com/MinaProtocol/mina/blob/5da42ccd72e791f164d4d200cf1ce300262873b3/src/lib/transaction/transaction.ml#L8-L11>
 #[derive(Clone, Debug, derive_more::From)]
 pub enum Transaction {
     /// User-initiated transaction: signed command or zkApp command
@@ -1116,9 +1074,7 @@ impl Transaction {
         }
     }
 
-    /// OCaml reference: src/lib/transaction/transaction.ml L:98-110
-    /// Commit: 5da42ccd72e791f164d4d200cf1ce300262873b3
-    /// Last verified: 2025-10-10
+    /// OCaml: <https://github.com/MinaProtocol/mina/blob/5da42ccd72e791f164d4d200cf1ce300262873b3/src/lib/transaction/transaction.ml#L98-L110>
     pub fn public_keys(&self) -> Vec<CompressedPubKey> {
         use Transaction::*;
         use UserCommand::*;
@@ -1133,9 +1089,7 @@ impl Transaction {
         }
     }
 
-    /// OCaml reference: src/lib/transaction/transaction.ml L:112-124
-    /// Commit: 5da42ccd72e791f164d4d200cf1ce300262873b3
-    /// Last verified: 2025-10-10
+    /// OCaml: <https://github.com/MinaProtocol/mina/blob/5da42ccd72e791f164d4d200cf1ce300262873b3/src/lib/transaction/transaction.ml#L112-L124>
     pub fn account_access_statuses(
         &self,
         status: &TransactionStatus,
@@ -1154,9 +1108,7 @@ impl Transaction {
         }
     }
 
-    /// OCaml reference: src/lib/transaction/transaction.ml L:126-128
-    /// Commit: 5da42ccd72e791f164d4d200cf1ce300262873b3
-    /// Last verified: 2025-10-10
+    /// OCaml: <https://github.com/MinaProtocol/mina/blob/5da42ccd72e791f164d4d200cf1ce300262873b3/src/lib/transaction/transaction.ml#L126-L128>
     pub fn accounts_referenced(&self) -> Vec<AccountId> {
         self.account_access_statuses(&TransactionStatus::Applied)
             .into_iter()

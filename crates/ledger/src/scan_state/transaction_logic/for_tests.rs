@@ -60,15 +60,11 @@ impl PartialOrd for HashableCompressedPubKey {
     }
 }
 
-/// OCaml reference: src/lib/transaction_logic/mina_transaction_logic.ml L:2285-2285
-/// Commit: 5da42ccd72e791f164d4d200cf1ce300262873b3
-/// Last verified: 2025-10-10
+/// OCaml: <https://github.com/MinaProtocol/mina/blob/5da42ccd72e791f164d4d200cf1ce300262873b3/src/lib/transaction_logic/mina_transaction_logic.ml#L2285-L2285>
 #[derive(Debug)]
 pub struct InitLedger(pub Vec<(Keypair, u64)>);
 
-/// OCaml reference: src/lib/transaction_logic/mina_transaction_logic.ml L:2351-2356
-/// Commit: 5da42ccd72e791f164d4d200cf1ce300262873b3
-/// Last verified: 2025-10-10
+/// OCaml: <https://github.com/MinaProtocol/mina/blob/5da42ccd72e791f164d4d200cf1ce300262873b3/src/lib/transaction_logic/mina_transaction_logic.ml#L2351-L2356>
 #[derive(Debug)]
 pub struct TransactionSpec {
     pub fee: Fee,
@@ -77,9 +73,7 @@ pub struct TransactionSpec {
     pub amount: Amount,
 }
 
-/// OCaml reference: src/lib/transaction_logic/mina_transaction_logic.ml L:2407
-/// Commit: 5da42ccd72e791f164d4d200cf1ce300262873b3
-/// Last verified: 2025-10-10
+/// OCaml: <https://github.com/MinaProtocol/mina/blob/5da42ccd72e791f164d4d200cf1ce300262873b3/src/lib/transaction_logic/mina_transaction_logic.ml#L2407>
 #[derive(Debug)]
 pub struct TestSpec {
     pub init_ledger: InitLedger,
