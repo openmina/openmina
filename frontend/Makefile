@@ -21,13 +21,6 @@ build-local: ## Build the frontend with local configuration
 	cp dist/frontend/browser/assets/environments/local.js \
 		dist/frontend/browser/assets/environments/env.js
 
-.PHONY: build-production-sentry
-build-production-sentry: ## Build the frontend for production with Sentry sourcemaps
-	npx ng build --configuration production
-	cp dist/frontend/browser/assets/environments/production.js \
-		dist/frontend/browser/assets/environments/env.js
-	$(MAKE) sentry-sourcemaps
-
 .PHONY: build-production
 build-production: ## Build the frontend with production configuration
 	npx ng build --configuration production
@@ -75,13 +68,6 @@ prettify: ## Format HTML, SCSS, TypeScript, and JavaScript files with Prettier
 
 .PHONY: rebuild
 rebuild: clean install-deps build ## Clean, reinstall dependencies, and rebuild
-
-.PHONY: sentry-sourcemaps
-sentry-sourcemaps: ## Upload sourcemaps to Sentry
-	sentry-cli sourcemaps inject --org mina-rust-uv --project mina-rust \
-		./dist/frontend/browser
-	sentry-cli sourcemaps upload --org mina-rust-uv --project mina-rust \
-		./dist/frontend/browser
 
 .PHONY: start
 start: install-deps ## Start the development server

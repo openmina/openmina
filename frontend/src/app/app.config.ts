@@ -5,7 +5,7 @@ import {
   Injectable,
   LOCALE_ID,
 } from '@angular/core';
-import { provideRouter, Router } from '@angular/router';
+import { provideRouter } from '@angular/router';
 import { provideAnimations } from '@angular/platform-browser/animations';
 import {
   provideHttpClient,
@@ -19,7 +19,6 @@ import { provideStore } from '@ngrx/store';
 import { EffectsModule, provideEffects } from '@ngrx/effects';
 import { provideRouterStore } from '@ngrx/router-store';
 import { provideStoreDevtools } from '@ngrx/store-devtools';
-import * as Sentry from '@sentry/angular';
 import { registerLocaleData } from '@angular/common';
 import {
   GlobalErrorHandlerService,
@@ -126,7 +125,6 @@ export class AppGlobalErrorhandler implements ErrorHandler {
   }
 
   handleError(error: any): void {
-    Sentry.captureException(error);
     if (typeof error === 'string') {
       error = new Error(error);
     }
@@ -158,13 +156,11 @@ export const appConfig: ApplicationConfig = {
     // Your custom providers
     THEME_PROVIDER,
     { provide: LOCALE_ID, useValue: 'en' },
-    { provide: ErrorHandler, useValue: Sentry.createErrorHandler() },
     {
       provide: ErrorHandler,
       useClass: AppGlobalErrorhandler,
       deps: [GlobalErrorHandlerService],
       multi: false,
     },
-    { provide: Sentry.TraceService, deps: [Router] },
   ],
 };

@@ -1,13 +1,3 @@
-import * as Sentry from '@sentry/angular';
-import { SeverityLevel } from '@sentry/angular';
-
-export function sendSentryEvent(
-  message: string,
-  level: SeverityLevel = 'error',
-): void {
-  Sentry.captureEvent({ message: message, level, tags: { type: 'webnode' } });
-}
-
 export function iOSversion(): number[] {
   if (/iP(hone|od|ad)/.test(navigator.platform)) {
     // supports iOS 2.0 and later: <http://bit.ly/TJjs1V>

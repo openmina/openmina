@@ -22,9 +22,7 @@ import { TemplatePortal } from '@angular/cdk/portal';
 import { DashboardRpcStats } from '@shared/types/dashboard/dashboard-rpc-stats.type';
 import { AppSelectors } from '@app/app.state';
 import { MinaNode } from '@shared/types/core/environment/mina-env.type';
-import { SentryService } from '@core/services/sentry.service';
 import { take } from 'rxjs';
-import { WebNodeService } from '@core/services/web-node.service';
 
 type LedgerConfigMap = {
   stakingEpoch: SecDurationConfig;
@@ -123,8 +121,6 @@ export class DashboardLedgerComponent
   constructor(
     private overlay: Overlay,
     private viewContainerRef: ViewContainerRef,
-    private sentryService: SentryService,
-    private webNodeService: WebNodeService,
   ) {
     super();
   }
@@ -336,11 +332,6 @@ export class DashboardLedgerComponent
               this.rootSnarkedProgress +
               this.rootStagedProgress) /
             4;
-
-          this.sentryService.updateLedgerSyncStatus(
-            this.ledgers,
-            this.webNodeService.publicKey,
-          );
         }
         this.detect();
       },

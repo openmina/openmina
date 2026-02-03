@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Frontend**: remove Sentry error tracking dependencies and services
+  ([#2130](https://github.com/o1-labs/mina-rust/pull/2130))
 - **CI**: Add `merge_group` trigger to workflows for merge queue support
   ([#2127](https://github.com/o1-labs/mina-rust/pull/2127))
 - **CI**: Add path filtering to skip Rust/backend workflows when only frontend

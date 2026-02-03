@@ -11,8 +11,6 @@ import { getNetwork } from '@shared/helpers/mina.helper';
 import { getLocalStorage, nanOrElse, ONE_MILLION } from '@mina-rust/shared';
 import { BlockProductionWonSlotsStatus } from '@shared/types/block-production/won-slots/block-production-won-slots-slot.type';
 import { AppEnvBuild } from '@shared/types/app/app-env-build.type';
-import { SentryService } from '@core/services/sentry.service';
-import { WebNodeService } from '@core/services/web-node.service';
 
 @Injectable({
   providedIn: 'root',
@@ -20,11 +18,7 @@ import { WebNodeService } from '@core/services/web-node.service';
 export class AppService {
   private previousProducedBlock: BlockProductionAttempt;
 
-  constructor(
-    private rust: RustService,
-    private sentryService: SentryService,
-    private webnodeService: WebNodeService,
-  ) {}
+  constructor(private rust: RustService) {}
 
   getActiveNode(nodes: MinaNode[]): Observable<MinaNode> {
     const nodeName = new URL(location.href).searchParams.get('node');
@@ -46,7 +40,9 @@ export class AppService {
 
   getActiveNodeDetails(): Observable<AppNodeDetails> {
     return this.rust.get<NodeDetailsResponse>('/status').pipe(
-      tap((data: NodeDetailsResponse) => this.notifyPrevBlockChanged(data)),
+      tap((data: NodeDetailsResponse) => {
+        this.previousProducedBlock = data.previous_block_production_attempt;
+      }),
       map(
         (data: NodeDetailsResponse): AppNodeDetails =>
           ({
@@ -77,32 +73,6 @@ export class AppService {
           }) as AppNodeDetails,
       ),
     );
-  }
-
-  private notifyPrevBlockChanged(data: NodeDetailsResponse): void {
-    if (!this.rust.activeNodeIsWebNode) {
-      return;
-    }
-
-    const isInProduction = (status: BlockProductionWonSlotsStatus) =>
-      ![
-        BlockProductionWonSlotsStatus.Discarded,
-        BlockProductionWonSlotsStatus.Orphaned,
-        BlockProductionWonSlotsStatus.Canonical,
-      ].includes(status);
-
-    if (
-      this.previousProducedBlock &&
-      data.previous_block_production_attempt &&
-      isInProduction(this.previousProducedBlock.status) !==
-        isInProduction(data.previous_block_production_attempt.status)
-    ) {
-      this.sentryService.updateProducedBlock(
-        data.previous_block_production_attempt,
-        this.webnodeService.publicKey,
-      );
-    }
-    this.previousProducedBlock = data.previous_block_production_attempt;
   }
 
   private getStatus(data: NodeDetailsResponse): AppNodeStatus {

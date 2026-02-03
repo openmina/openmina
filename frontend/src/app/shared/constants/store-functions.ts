@@ -13,7 +13,6 @@ import { MinaErrorType } from '@shared/types/error-preview/mina-error-type.enum'
 import { Selector, Store, Action } from '@ngrx/store';
 import { MinaState } from '@app/app.setup';
 import { concatLatestFrom } from '@ngrx/operators';
-import * as Sentry from '@sentry/angular';
 
 export const catchErrorAndRepeat = <T>(
   errType: MinaErrorType,
@@ -35,7 +34,6 @@ export const addError = (
   type: MinaErrorType,
 ): ErrorAdd => {
   console.error(error);
-  Sentry.captureException(error, { tags: { type } });
   return {
     type: ADD_ERROR,
     payload: {
