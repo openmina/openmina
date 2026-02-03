@@ -21,7 +21,6 @@ members = [
   "crates/vrf",
   # Crates to be removed (kept at root for now)
   # poseidon: https://github.com/o1-labs/mina-rust/issues/1215
-  "poseidon",
   # Tools
   "tools/archive-breadcrumb-compare",
   "tools/bootstrap-sandbox",
@@ -189,7 +188,6 @@ pcap = "2.4"
 percent-encoding = "2.3"
 pin-project-lite = "0.2.10"
 poly-commitment = { git = "https://github.com/o1-labs/proof-systems", tag = "0.3.0" }
-poseidon = { path = "poseidon" }
 postcard = { version = "1.0.9", features = ["use-std"] }
 proc-macro2 = "1.0.103"
 prost = "0.12.4"

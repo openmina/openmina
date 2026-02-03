@@ -118,7 +118,7 @@ pub mod transaction_snark {
     };
 
     use super::Fee;
-    use poseidon::hash::Inputs;
+    use crate::hash::Inputs;
 
     pub type LedgerHash = Fp;
 

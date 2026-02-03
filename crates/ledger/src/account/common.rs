@@ -63,7 +63,7 @@ impl ToFieldElements<Fp> for VotingFor {
 }
 
 impl ToInputs for VotingFor {
-    fn to_inputs(&self, inputs: &mut poseidon::hash::Inputs) {
+    fn to_inputs(&self, inputs: &mut crate::hash::Inputs) {
         inputs.append_field(self.0);
     }
 }
@@ -72,7 +72,7 @@ impl ToInputs for VotingFor {
 pub struct ReceiptChainHash(pub Fp);
 
 impl ToInputs for ReceiptChainHash {
-    fn to_inputs(&self, inputs: &mut poseidon::hash::Inputs) {
+    fn to_inputs(&self, inputs: &mut crate::hash::Inputs) {
         inputs.append_field(self.0);
     }
 }

@@ -13,7 +13,6 @@ use binprot::{BinProtRead, BinProtWrite};
 use binprot_derive::{BinProtRead, BinProtWrite};
 use derive_more::Deref;
 use malloc_size_of_derive::MallocSizeOf;
-use poseidon::hash::params::NO_INPUT_COINBASE_STACK;
 use serde::{de::Visitor, ser::SerializeTuple, Deserialize, Serialize, Serializer};
 use time::OffsetDateTime;
 
@@ -575,7 +574,21 @@ impl CoinbaseStackData {
     pub fn empty() -> Self {
         // In OCaml: https://github.com/MinaProtocol/mina/blob/68b49fdaafabed0f2cd400c4c69f91e81db681e7/src/lib/mina_base/pending_coinbase.ml#L186
         // let empty = Random_oracle.salt "CoinbaseStack" |> Random_oracle.digest
-        let empty = poseidon::hash::hash_noinputs(&NO_INPUT_COINBASE_STACK);
+        use mina_hasher::{Hashable, Hasher, ROInput};
+
+        #[derive(Clone)]
+        struct CoinbaseStackDomain;
+        impl Hashable for CoinbaseStackDomain {
+            type D = ();
+            fn to_roinput(&self) -> ROInput {
+                ROInput::new()
+            }
+            fn domain_string(_: ()) -> Option<String> {
+                Some("CoinbaseStack".to_string())
+            }
+        }
+
+        let empty = mina_hasher::create_kimchi::<CoinbaseStackDomain>(()).digest();
         MinaBasePendingCoinbaseCoinbaseStackStableV1(empty.into()).into()
     }
 }

@@ -3,11 +3,7 @@ use std::{fmt, io, sync::Arc};
 use binprot::{BinProtRead, BinProtWrite};
 use generated::MinaStateBlockchainStateValueStableV2;
 use mina_curves::pasta::Fp;
-use poseidon::hash::{
-    hash_with_kimchi,
-    params::{MINA_PROTO_STATE, MINA_PROTO_STATE_BODY},
-    Inputs,
-};
+use mina_hasher::{Hashable, Hasher, ROInput};
 use serde::{Deserialize, Serialize};
 use sha2::{
     digest::{generic_array::GenericArray, typenum::U32},
@@ -41,6 +37,30 @@ use super::{
     NonZeroCurvePointUncompressedStableV1, PendingCoinbaseHash, SgnStableV1, SignedAmount,
     StateHash, TokenFeeExcess,
 };
+
+#[derive(Clone)]
+struct MinaProtoState(ROInput);
+impl Hashable for MinaProtoState {
+    type D = ();
+    fn to_roinput(&self) -> ROInput {
+        self.0.clone()
+    }
+    fn domain_string(_: ()) -> Option<String> {
+        Some("MinaProtoState".to_string())
+    }
+}
+
+#[derive(Clone)]
+struct MinaProtoStateBody(ROInput);
+impl Hashable for MinaProtoStateBody {
+    type D = ();
+    fn to_roinput(&self) -> ROInput {
+        self.0.clone()
+    }
+    fn domain_string(_: ()) -> Option<String> {
+        Some("MinaProtoStateBody".to_string())
+    }
+}
 
 impl generated::MinaBaseStagedLedgerHashNonSnarkStableV1 {
     pub fn sha256(&self) -> GenericArray<u8, U32> {
@@ -406,10 +426,10 @@ mod tests {
 }
 
 fn fp_state_hash_from_fp_hashes(previous_state_hash: Fp, body_hash: Fp) -> Fp {
-    let mut inputs = Inputs::new();
-    inputs.append_field(previous_state_hash);
-    inputs.append_field(body_hash);
-    hash_with_kimchi(&MINA_PROTO_STATE, &inputs.to_fields())
+    let inputs = ROInput::new()
+        .append_field(previous_state_hash)
+        .append_field(body_hash);
+    mina_hasher::create_kimchi::<MinaProtoState>(()).update(&MinaProtoState(inputs)).digest()
 }
 
 impl StateHash {
@@ -475,12 +495,10 @@ impl generated::MinaBlockBlockStableV2 {
 
 impl MinaHash for MinaStateProtocolStateBodyValueStableV2 {
     fn try_hash(&self) -> Result<mina_curves::pasta::Fp, InvalidBigInt> {
-        let mut inputs = Inputs::new();
-        self.to_input(&mut inputs)?;
-        Ok(hash_with_kimchi(
-            &MINA_PROTO_STATE_BODY,
-            &inputs.to_fields(),
-        ))
+        let inputs = self.to_input(ROInput::new())?;
+        Ok(mina_hasher::create_kimchi::<MinaProtoStateBody>(())
+            .update(&MinaProtoStateBody(inputs))
+            .digest())
     }
 }
 
@@ -496,7 +514,7 @@ impl MinaHash for MinaStateProtocolStateValueStableV2 {
 }
 
 impl FailableToInputs for MinaStateProtocolStateBodyValueStableV2 {
-    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
+    fn to_input(&self, mut inputs: ROInput) -> Result<ROInput, InvalidBigInt> {
         let MinaStateProtocolStateBodyValueStableV2 {
             genesis_state_hash,
             blockchain_state,
@@ -504,16 +522,16 @@ impl FailableToInputs for MinaStateProtocolStateBodyValueStableV2 {
             constants,
         } = self;
 
-        constants.to_input(inputs)?;
-        genesis_state_hash.to_input(inputs)?;
-        blockchain_state.to_input(inputs)?;
-        consensus_state.to_input(inputs)?;
-        Ok(())
+        inputs = constants.to_input(inputs)?;
+        inputs = genesis_state_hash.to_input(inputs)?;
+        inputs = blockchain_state.to_input(inputs)?;
+        inputs = consensus_state.to_input(inputs)?;
+        Ok(inputs)
     }
 }
 
 impl FailableToInputs for MinaBaseProtocolConstantsCheckedValueStableV1 {
-    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
+    fn to_input(&self, mut inputs: ROInput) -> Result<ROInput, InvalidBigInt> {
         let MinaBaseProtocolConstantsCheckedValueStableV1 {
             k,
             slots_per_epoch,
@@ -523,18 +541,18 @@ impl FailableToInputs for MinaBaseProtocolConstantsCheckedValueStableV1 {
             genesis_state_timestamp,
         } = self;
 
-        k.to_input(inputs)?;
-        delta.to_input(inputs)?;
-        slots_per_epoch.to_input(inputs)?;
-        slots_per_sub_window.to_input(inputs)?;
-        grace_period_slots.to_input(inputs)?;
-        genesis_state_timestamp.to_input(inputs)?;
-        Ok(())
+        inputs = k.to_input(inputs)?;
+        inputs = delta.to_input(inputs)?;
+        inputs = slots_per_epoch.to_input(inputs)?;
+        inputs = slots_per_sub_window.to_input(inputs)?;
+        inputs = grace_period_slots.to_input(inputs)?;
+        inputs = genesis_state_timestamp.to_input(inputs)?;
+        Ok(inputs)
     }
 }
 
 impl FailableToInputs for MinaStateBlockchainStateValueStableV2 {
-    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
+    fn to_input(&self, mut inputs: ROInput) -> Result<ROInput, InvalidBigInt> {
         let MinaStateBlockchainStateValueStableV2 {
             staged_ledger_hash,
             genesis_ledger_hash,
@@ -543,18 +561,18 @@ impl FailableToInputs for MinaStateBlockchainStateValueStableV2 {
             body_reference,
         } = self;
 
-        staged_ledger_hash.to_input(inputs)?;
-        genesis_ledger_hash.to_input(inputs)?;
-        ledger_proof_statement.to_input(inputs)?;
-        timestamp.to_input(inputs)?;
-        body_reference.to_input(inputs)?;
+        inputs = staged_ledger_hash.to_input(inputs)?;
+        inputs = genesis_ledger_hash.to_input(inputs)?;
+        inputs = ledger_proof_statement.to_input(inputs)?;
+        inputs = timestamp.to_input(inputs)?;
+        inputs = body_reference.to_input(inputs)?;
 
-        Ok(())
+        Ok(inputs)
     }
 }
 
 impl FailableToInputs for ConsensusProofOfStakeDataConsensusStateValueStableV2 {
-    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
+    fn to_input(&self, mut inputs: ROInput) -> Result<ROInput, InvalidBigInt> {
         let ConsensusProofOfStakeDataConsensusStateValueStableV2 {
             blockchain_length,
             epoch_count,
@@ -572,46 +590,45 @@ impl FailableToInputs for ConsensusProofOfStakeDataConsensusStateValueStableV2 {
             coinbase_receiver,
             supercharge_coinbase,
         } = self;
-        blockchain_length.to_input(inputs)?;
-        epoch_count.to_input(inputs)?;
-        min_window_density.to_input(inputs)?;
-        sub_window_densities.to_input(inputs)?;
-        last_vrf_output.to_input(inputs)?;
-        total_currency.to_input(inputs)?;
-        curr_global_slot_since_hard_fork.to_input(inputs)?;
-        global_slot_since_genesis.to_input(inputs)?;
-        has_ancestor_in_same_checkpoint_window.to_input(inputs)?;
-        supercharge_coinbase.to_input(inputs)?;
-        staking_epoch_data.to_input(inputs)?;
-        next_epoch_data.to_input(inputs)?;
-        block_stake_winner.to_input(inputs)?;
-        block_creator.to_input(inputs)?;
-        coinbase_receiver.to_input(inputs)?;
-        Ok(())
+        inputs = blockchain_length.to_input(inputs)?;
+        inputs = epoch_count.to_input(inputs)?;
+        inputs = min_window_density.to_input(inputs)?;
+        inputs = sub_window_densities.to_input(inputs)?;
+        inputs = last_vrf_output.to_input(inputs)?;
+        inputs = total_currency.to_input(inputs)?;
+        inputs = curr_global_slot_since_hard_fork.to_input(inputs)?;
+        inputs = global_slot_since_genesis.to_input(inputs)?;
+        inputs = has_ancestor_in_same_checkpoint_window.to_input(inputs)?;
+        inputs = supercharge_coinbase.to_input(inputs)?;
+        inputs = staking_epoch_data.to_input(inputs)?;
+        inputs = next_epoch_data.to_input(inputs)?;
+        inputs = block_stake_winner.to_input(inputs)?;
+        inputs = block_creator.to_input(inputs)?;
+        inputs = coinbase_receiver.to_input(inputs)?;
+        Ok(inputs)
     }
 }
 
 impl FailableToInputs for MinaBaseStagedLedgerHashStableV1 {
-    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
+    fn to_input(&self, mut inputs: ROInput) -> Result<ROInput, InvalidBigInt> {
         let MinaBaseStagedLedgerHashStableV1 {
             non_snark,
             pending_coinbase_hash,
         } = self;
-        non_snark.to_input(inputs)?;
-        pending_coinbase_hash.to_input(inputs)?;
-        Ok(())
+        inputs = non_snark.to_input(inputs)?;
+        inputs = pending_coinbase_hash.to_input(inputs)?;
+        Ok(inputs)
     }
 }
 
 impl FailableToInputs for MinaBaseStagedLedgerHashNonSnarkStableV1 {
-    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
-        inputs.append_bytes(self.sha256().as_ref());
-        Ok(())
+    fn to_input(&self, inputs: ROInput) -> Result<ROInput, InvalidBigInt> {
+        Ok(inputs.append_bytes(self.sha256().as_ref()))
     }
 }
 
 impl FailableToInputs for MinaStateBlockchainStateValueStableV2LedgerProofStatement {
-    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
+    fn to_input(&self, mut inputs: ROInput) -> Result<ROInput, InvalidBigInt> {
         let MinaStateBlockchainStateValueStableV2LedgerProofStatement {
             source,
             target,
@@ -621,50 +638,49 @@ impl FailableToInputs for MinaStateBlockchainStateValueStableV2LedgerProofStatem
             fee_excess,
             sok_digest: _,
         } = self;
-        source.to_input(inputs)?;
-        target.to_input(inputs)?;
-        connecting_ledger_left.to_input(inputs)?;
-        connecting_ledger_right.to_input(inputs)?;
-        supply_increase.to_input(inputs)?;
-        fee_excess.to_input(inputs)?;
-        Ok(())
+        inputs = source.to_input(inputs)?;
+        inputs = target.to_input(inputs)?;
+        inputs = connecting_ledger_left.to_input(inputs)?;
+        inputs = connecting_ledger_right.to_input(inputs)?;
+        inputs = supply_increase.to_input(inputs)?;
+        inputs = fee_excess.to_input(inputs)?;
+        Ok(inputs)
     }
 }
 
 impl FailableToInputs for ConsensusBodyReferenceStableV1 {
-    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
-        inputs.append_bytes(self.as_ref());
-        Ok(())
+    fn to_input(&self, inputs: ROInput) -> Result<ROInput, InvalidBigInt> {
+        Ok(inputs.append_bytes(self.as_ref()))
     }
 }
 
 impl FailableToInputs for ConsensusVrfOutputTruncatedStableV1 {
-    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
+    fn to_input(&self, mut inputs: ROInput) -> Result<ROInput, InvalidBigInt> {
         let vrf: &[u8] = self.as_ref();
-        inputs.append_bytes(&vrf[..31]);
+        inputs = inputs.append_bytes(&vrf[..31]);
         // Ignore the last 3 bits
         let last_byte = vrf[31];
         for bit in [1, 2, 4, 8, 16] {
-            inputs.append_bool(last_byte & bit != 0);
+            inputs = inputs.append_bool(last_byte & bit != 0);
         }
-        Ok(())
+        Ok(inputs)
     }
 }
 
 impl FailableToInputs for ConsensusGlobalSlotStableV1 {
-    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
+    fn to_input(&self, mut inputs: ROInput) -> Result<ROInput, InvalidBigInt> {
         let ConsensusGlobalSlotStableV1 {
             slot_number,
             slots_per_epoch,
         } = self;
-        slot_number.to_input(inputs)?;
-        slots_per_epoch.to_input(inputs)?;
-        Ok(())
+        inputs = slot_number.to_input(inputs)?;
+        inputs = slots_per_epoch.to_input(inputs)?;
+        Ok(inputs)
     }
 }
 
 impl FailableToInputs for ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1 {
-    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
+    fn to_input(&self, mut inputs: ROInput) -> Result<ROInput, InvalidBigInt> {
         let ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1 {
             ledger,
             seed,
@@ -672,17 +688,17 @@ impl FailableToInputs for ConsensusProofOfStakeDataEpochDataStakingValueVersione
             lock_checkpoint,
             epoch_length,
         } = self;
-        seed.to_input(inputs)?;
-        start_checkpoint.to_input(inputs)?;
-        epoch_length.to_input(inputs)?;
-        ledger.to_input(inputs)?;
-        lock_checkpoint.to_input(inputs)?;
-        Ok(())
+        inputs = seed.to_input(inputs)?;
+        inputs = start_checkpoint.to_input(inputs)?;
+        inputs = epoch_length.to_input(inputs)?;
+        inputs = ledger.to_input(inputs)?;
+        inputs = lock_checkpoint.to_input(inputs)?;
+        Ok(inputs)
     }
 }
 
 impl FailableToInputs for ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1 {
-    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
+    fn to_input(&self, mut inputs: ROInput) -> Result<ROInput, InvalidBigInt> {
         let ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1 {
             ledger,
             seed,
@@ -690,99 +706,99 @@ impl FailableToInputs for ConsensusProofOfStakeDataEpochDataNextValueVersionedVa
             lock_checkpoint,
             epoch_length,
         } = self;
-        seed.to_input(inputs)?;
-        start_checkpoint.to_input(inputs)?;
-        epoch_length.to_input(inputs)?;
-        ledger.to_input(inputs)?;
-        lock_checkpoint.to_input(inputs)?;
-        Ok(())
+        inputs = seed.to_input(inputs)?;
+        inputs = start_checkpoint.to_input(inputs)?;
+        inputs = epoch_length.to_input(inputs)?;
+        inputs = ledger.to_input(inputs)?;
+        inputs = lock_checkpoint.to_input(inputs)?;
+        Ok(inputs)
     }
 }
 
 impl FailableToInputs for NonZeroCurvePointUncompressedStableV1 {
-    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
+    fn to_input(&self, mut inputs: ROInput) -> Result<ROInput, InvalidBigInt> {
         let NonZeroCurvePointUncompressedStableV1 { x, is_odd } = self;
-        x.to_input(inputs)?;
-        is_odd.to_input(inputs)?;
-        Ok(())
+        inputs = x.to_input(inputs)?;
+        inputs = is_odd.to_input(inputs)?;
+        Ok(inputs)
     }
 }
 
 impl FailableToInputs for MinaStateBlockchainStateValueStableV2LedgerProofStatementSource {
-    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
+    fn to_input(&self, mut inputs: ROInput) -> Result<ROInput, InvalidBigInt> {
         let MinaStateBlockchainStateValueStableV2LedgerProofStatementSource {
             first_pass_ledger,
             second_pass_ledger,
             pending_coinbase_stack,
             local_state,
         } = self;
-        first_pass_ledger.to_input(inputs)?;
-        second_pass_ledger.to_input(inputs)?;
-        pending_coinbase_stack.to_input(inputs)?;
-        local_state.to_input(inputs)?;
-        Ok(())
+        inputs = first_pass_ledger.to_input(inputs)?;
+        inputs = second_pass_ledger.to_input(inputs)?;
+        inputs = pending_coinbase_stack.to_input(inputs)?;
+        inputs = local_state.to_input(inputs)?;
+        Ok(inputs)
     }
 }
 
 impl FailableToInputs for SignedAmount {
-    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
+    fn to_input(&self, mut inputs: ROInput) -> Result<ROInput, InvalidBigInt> {
         let SignedAmount { magnitude, sgn } = self;
-        magnitude.to_input(inputs)?;
-        sgn.to_input(inputs)?;
-        Ok(())
+        inputs = magnitude.to_input(inputs)?;
+        inputs = sgn.to_input(inputs)?;
+        Ok(inputs)
     }
 }
 
 impl FailableToInputs for MinaBaseFeeExcessStableV1 {
-    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
+    fn to_input(&self, mut inputs: ROInput) -> Result<ROInput, InvalidBigInt> {
         let MinaBaseFeeExcessStableV1(left, right) = self;
-        left.to_input(inputs)?;
-        right.to_input(inputs)?;
-        Ok(())
+        inputs = left.to_input(inputs)?;
+        inputs = right.to_input(inputs)?;
+        Ok(inputs)
     }
 }
 
 impl FailableToInputs for TokenFeeExcess {
-    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
+    fn to_input(&self, mut inputs: ROInput) -> Result<ROInput, InvalidBigInt> {
         let TokenFeeExcess { token, amount } = self;
-        token.to_input(inputs)?;
-        amount.to_input(inputs)?;
-        Ok(())
+        inputs = token.to_input(inputs)?;
+        inputs = amount.to_input(inputs)?;
+        Ok(inputs)
     }
 }
 
 impl FailableToInputs for MinaBaseEpochLedgerValueStableV1 {
-    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
+    fn to_input(&self, mut inputs: ROInput) -> Result<ROInput, InvalidBigInt> {
         let MinaBaseEpochLedgerValueStableV1 {
             hash,
             total_currency,
         } = self;
-        hash.to_input(inputs)?;
-        total_currency.to_input(inputs)?;
-        Ok(())
+        inputs = hash.to_input(inputs)?;
+        inputs = total_currency.to_input(inputs)?;
+        Ok(inputs)
     }
 }
 
 impl FailableToInputs for MinaBasePendingCoinbaseStackVersionedStableV1 {
-    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
+    fn to_input(&self, mut inputs: ROInput) -> Result<ROInput, InvalidBigInt> {
         let MinaBasePendingCoinbaseStackVersionedStableV1 { data, state } = self;
-        data.to_input(inputs)?;
-        state.to_input(inputs)?;
-        Ok(())
+        inputs = data.to_input(inputs)?;
+        inputs = state.to_input(inputs)?;
+        Ok(inputs)
     }
 }
 
 impl FailableToInputs for MinaBasePendingCoinbaseStateStackStableV1 {
-    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
+    fn to_input(&self, mut inputs: ROInput) -> Result<ROInput, InvalidBigInt> {
         let MinaBasePendingCoinbaseStateStackStableV1 { init, curr } = self;
-        init.to_input(inputs)?;
-        curr.to_input(inputs)?;
-        Ok(())
+        inputs = init.to_input(inputs)?;
+        inputs = curr.to_input(inputs)?;
+        Ok(inputs)
     }
 }
 
 impl FailableToInputs for MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1 {
-    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
+    fn to_input(&self, mut inputs: ROInput) -> Result<ROInput, InvalidBigInt> {
         let MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1 {
             stack_frame,
             call_stack,
@@ -796,29 +812,28 @@ impl FailableToInputs for MinaTransactionLogicZkappCommandLogicLocalStateValueSt
             failure_status_tbl: _,
             will_succeed,
         } = self;
-        stack_frame.to_input(inputs)?;
-        call_stack.to_input(inputs)?;
-        transaction_commitment.to_input(inputs)?;
-        full_transaction_commitment.to_input(inputs)?;
-        excess.to_input(inputs)?;
-        supply_increase.to_input(inputs)?;
-        ledger.to_input(inputs)?;
-        account_update_index.to_input(inputs)?;
-        success.to_input(inputs)?;
-        will_succeed.to_input(inputs)?;
-        Ok(())
+        inputs = stack_frame.to_input(inputs)?;
+        inputs = call_stack.to_input(inputs)?;
+        inputs = transaction_commitment.to_input(inputs)?;
+        inputs = full_transaction_commitment.to_input(inputs)?;
+        inputs = excess.to_input(inputs)?;
+        inputs = supply_increase.to_input(inputs)?;
+        inputs = ledger.to_input(inputs)?;
+        inputs = account_update_index.to_input(inputs)?;
+        inputs = success.to_input(inputs)?;
+        inputs = will_succeed.to_input(inputs)?;
+        Ok(inputs)
     }
 }
 
 impl FailableToInputs for SgnStableV1 {
-    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
-        inputs.append_bool(self == &SgnStableV1::Pos);
-        Ok(())
+    fn to_input(&self, inputs: ROInput) -> Result<ROInput, InvalidBigInt> {
+        Ok(inputs.append_bool(self == &SgnStableV1::Pos))
     }
 }
 
 impl FailableToInputs for MinaNumbersGlobalSlotSinceGenesisMStableV1 {
-    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
+    fn to_input(&self, inputs: ROInput) -> Result<ROInput, InvalidBigInt> {
         match self {
             MinaNumbersGlobalSlotSinceGenesisMStableV1::SinceGenesis(v) => v.to_input(inputs),
         }
@@ -826,16 +841,16 @@ impl FailableToInputs for MinaNumbersGlobalSlotSinceGenesisMStableV1 {
 }
 
 impl FailableToInputs for MinaStateBlockchainStateValueStableV2SignedAmount {
-    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
+    fn to_input(&self, mut inputs: ROInput) -> Result<ROInput, InvalidBigInt> {
         let MinaStateBlockchainStateValueStableV2SignedAmount { magnitude, sgn } = self;
-        magnitude.to_input(inputs)?;
-        sgn.to_input(inputs)?;
-        Ok(())
+        inputs = magnitude.to_input(inputs)?;
+        inputs = sgn.to_input(inputs)?;
+        Ok(inputs)
     }
 }
 
 impl FailableToInputs for MinaNumbersGlobalSlotSinceHardForkMStableV1 {
-    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
+    fn to_input(&self, inputs: ROInput) -> Result<ROInput, InvalidBigInt> {
         match self {
             MinaNumbersGlobalSlotSinceHardForkMStableV1::SinceHardFork(v) => v.to_input(inputs),
         }
@@ -843,10 +858,57 @@ impl FailableToInputs for MinaNumbersGlobalSlotSinceHardForkMStableV1 {
 }
 
 impl FailableToInputs for MinaNumbersGlobalSlotSpanStableV1 {
-    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
+    fn to_input(&self, inputs: ROInput) -> Result<ROInput, InvalidBigInt> {
         match self {
             MinaNumbersGlobalSlotSpanStableV1::GlobalSlotSpan(v) => v.to_input(inputs),
         }
+    }
+}
+
+#[cfg(test)]
+mod hash_tests {
+    use binprot::BinProtRead;
+
+    use crate::v2::{
+        MinaBaseZkappCommandTStableV1WireStableV1, MinaStateProtocolStateValueStableV2,
+    };
+
+    #[test]
+    #[ignore = "fix expected hash/hasing"]
+    fn state_hash() {
+        const HASH: &str = "3NKpXp2SXWGC3XHnAJYjGtNcbq8tzossqj6kK4eGr6mSyJoFmpxR";
+        const JSON: &str = include_str!("../../tests/files/v2/state/617-3NKpXp2SXWGC3XHnAJYjGtNcbq8tzossqj6kK4eGr6mSyJoFmpxR.json");
+
+        let state: MinaStateProtocolStateValueStableV2 = serde_json::from_str(JSON).unwrap();
+        let hash = state.try_hash().unwrap();
+        let expected_hash = serde_json::from_value(serde_json::json!(HASH)).unwrap();
+        assert_eq!(hash, expected_hash)
+    }
+
+    #[test]
+    fn test_zkapp_with_proof_auth_hash() {
+        // expected: 5JtkEP5AugQKKQAk3YKFxxUDggWf8AiAYyCQy49t2kLHRgPqcP8o
+        // MinaBaseZkappCommandTStableV1WireStableV1
+        //
+        let expected_hash = "5JtkEP5AugQKKQAk3YKFxxUDggWf8AiAYyCQy49t2kLHRgPqcP8o".to_string();
+        let bytes = include_bytes!("../../../../tests/files/zkapps/with_proof_auth.bin");
+        let zkapp =
+            MinaBaseZkappCommandTStableV1WireStableV1::binprot_read(&mut bytes.as_slice()).unwrap();
+        let hash = zkapp.hash().unwrap().to_string();
+
+        assert_eq!(expected_hash, hash);
+    }
+
+    #[test]
+
+    fn test_zkapp_with_sig_auth_hash() {
+        let expected_hash = "5JvQ6xQeGgCTe2d4KpCsJ97yK61mNRZHixJxPbKTppY1qSGgtj6t".to_string();
+        let bytes = include_bytes!("../../../../tests/files/zkapps/with_sig_auth.bin");
+        let zkapp =
+            MinaBaseZkappCommandTStableV1WireStableV1::binprot_read(&mut bytes.as_slice()).unwrap();
+        let hash = zkapp.hash().unwrap().to_string();
+
+        assert_eq!(expected_hash, hash);
     }
 }
 

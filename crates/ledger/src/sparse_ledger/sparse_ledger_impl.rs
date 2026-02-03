@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, HashMap, VecDeque};
 use ark_ff::Zero;
 use mina_curves::pasta::Fp;
 use mina_signer::CompressedPubKey;
-use poseidon::hash::params::get_merkle_param_for_height;
+use crate::hash::params::get_merkle_param_for_height;
 
 use crate::{
     scan_state::{currency::Slot, transaction_logic::AccountState},
@@ -165,7 +165,7 @@ impl SparseLedgerImpl<AccountId, Account> {
             };
 
             let param = get_merkle_param_for_height(height);
-            current = poseidon::hash::hash_with_kimchi(param, &hashes);
+            current = crate::hash::hash_with_kimchi(param, &hashes);
 
             addr = addr.parent().unwrap();
         }

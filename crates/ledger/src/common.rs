@@ -11,10 +11,26 @@ use crate::{
 };
 use ark_ec::{AffineRepr, CurveGroup};
 use ark_ff::PrimeField;
+use mina_hasher::{Hashable, Hasher, ROInput};
 use mina_p2p_messages::v2::PicklesProofProofsVerifiedMaxStableV2;
 use mina_signer::{CompressedPubKey, PubKey, Signature};
-use poseidon::hash::hash_with_kimchi;
 use std::sync::Arc;
+
+#[derive(Clone)]
+struct GenericHashable {
+    domain: String,
+    inputs: ROInput,
+}
+
+impl Hashable for GenericHashable {
+    type D = String;
+    fn to_roinput(&self) -> ROInput {
+        self.inputs.clone()
+    }
+    fn domain_string(domain: Self::D) -> Option<String> {
+        Some(domain)
+    }
+}
 
 #[derive(Debug)]
 pub enum CheckResult {
@@ -152,7 +168,17 @@ fn verify_signature(signature: &Signature, pubkey: &PubKey, msg: &TransactionCom
     let Signature { rx, s } = signature;
 
     let signature_prefix = mina_core::NetworkConfig::global().signature_prefix;
-    let hash = hash_with_kimchi(signature_prefix, &[**msg, *x, *y, *rx]);
+    let inputs = ROInput::new()
+        .append_field(**msg)
+        .append_field(*x)
+        .append_field(*y)
+        .append_field(*rx);
+    let hash = mina_hasher::create_kimchi::<GenericHashable>(signature_prefix.to_string())
+        .update(&GenericHashable {
+            domain: signature_prefix.to_string(),
+            inputs,
+        })
+        .digest();
     let hash: Fq = Fq::from(hash.into_bigint()); // Never fail, `Fq` is larger than `Fp`
 
     let sv: CurvePoint = CurvePoint::generator().mul(*s).into_affine();
@@ -171,7 +197,6 @@ pub fn legacy_verify_signature(
     pubkey: &PubKey,
     msg: &TransactionUnionPayload,
 ) -> bool {
-    use ::poseidon::hash::legacy;
     use ark_ff::{BigInteger, Zero};
     use core::ops::{Mul, Neg};
     use mina_curves::pasta::{Fq, Pallas};
@@ -183,11 +208,16 @@ pub fn legacy_verify_signature(
     let signature_prefix = mina_core::NetworkConfig::global().legacy_signature_prefix;
 
     let mut inputs = msg.to_input_legacy();
-    inputs.append_field(*x);
-    inputs.append_field(*y);
-    inputs.append_field(*rx);
+    inputs = inputs.append_field(*x);
+    inputs = inputs.append_field(*y);
+    inputs = inputs.append_field(*rx);
 
-    let hash = legacy::hash_with_kimchi(signature_prefix, &inputs.to_fields());
+    let hash = mina_hasher::create_legacy::<GenericHashable>(signature_prefix.to_string())
+        .update(&GenericHashable {
+            domain: signature_prefix.to_string(),
+            inputs,
+        })
+        .digest();
     let hash: Fq = Fq::from(hash.into_bigint()); // Never fail, `Fq` is larger than `Fp`
 
     let sv: CurvePoint = CurvePoint::generator().mul(*s).into_affine();

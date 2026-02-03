@@ -29,7 +29,7 @@ use itertools::Itertools;
 use mina_curves::pasta::Fp;
 use mina_p2p_messages::v2::MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA;
 use mina_signer::{CompressedPubKey, Signature};
-use poseidon::hash::{
+use crate::hash::{
     hash_noinputs, hash_with_kimchi,
     params::{
         MINA_ACCOUNT_UPDATE_CONS, MINA_ACCOUNT_UPDATE_NODE, MINA_ZKAPP_EVENT, MINA_ZKAPP_EVENTS,
@@ -55,7 +55,7 @@ impl Event {
     }
 
     pub fn hash(&self) -> Fp {
-        hash_with_kimchi(&MINA_ZKAPP_EVENT, &self.0[..])
+        hash_with_kimchi(MINA_ZKAPP_EVENT, &self.0[..])
     }
 
     pub fn len(&self) -> usize {
@@ -86,15 +86,14 @@ pub fn gen_events() -> Vec<Event> {
         .collect()
 }
 
-use poseidon::hash::LazyParam;
 
 /// <https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_account.ml#L23>
 pub trait MakeEvents {
     const DERIVER_NAME: (); // Unused here for now
 
-    fn get_salt_phrase() -> &'static LazyParam;
+    fn get_salt_phrase() -> &'static str;
 
-    fn get_hash_prefix() -> &'static LazyParam;
+    fn get_hash_prefix() -> &'static str;
 
     fn events(&self) -> &[Event];
 
@@ -105,12 +104,12 @@ pub trait MakeEvents {
 impl MakeEvents for Events {
     const DERIVER_NAME: () = ();
 
-    fn get_salt_phrase() -> &'static LazyParam {
-        &NO_INPUT_MINA_ZKAPP_EVENTS_EMPTY
+    fn get_salt_phrase() -> &'static str {
+        NO_INPUT_MINA_ZKAPP_EVENTS_EMPTY
     }
 
-    fn get_hash_prefix() -> &'static poseidon::hash::LazyParam {
-        &MINA_ZKAPP_EVENTS
+    fn get_hash_prefix() -> &'static str {
+        MINA_ZKAPP_EVENTS
     }
 
     fn events(&self) -> &[Event] {
@@ -126,12 +125,12 @@ impl MakeEvents for Events {
 impl MakeEvents for Actions {
     const DERIVER_NAME: () = ();
 
-    fn get_salt_phrase() -> &'static LazyParam {
-        &NO_INPUT_MINA_ZKAPP_ACTIONS_EMPTY
+    fn get_salt_phrase() -> &'static str {
+        NO_INPUT_MINA_ZKAPP_ACTIONS_EMPTY
     }
 
-    fn get_hash_prefix() -> &'static poseidon::hash::LazyParam {
-        &MINA_ZKAPP_SEQ_EVENTS
+    fn get_hash_prefix() -> &'static str {
+        MINA_ZKAPP_SEQ_EVENTS
     }
 
     fn events(&self) -> &[Event] {

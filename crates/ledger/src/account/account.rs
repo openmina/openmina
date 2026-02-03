@@ -26,7 +26,7 @@ use mina_p2p_messages::{
 };
 use mina_signer::CompressedPubKey;
 use once_cell::sync::{Lazy, OnceCell};
-use poseidon::hash::{
+use crate::hash::{
     hash_noinputs, hash_with_kimchi,
     params::{
         get_merkle_param_for_height, MINA_ACCOUNT, MINA_DERIVE_TOKEN_ID, MINA_SIDELOADED_VK,

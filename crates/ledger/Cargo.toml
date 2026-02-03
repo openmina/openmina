@@ -47,7 +47,6 @@ num-bigint = { workspace = true }
 o1-utils = { workspace = true }
 once_cell = { workspace = true }
 poly-commitment = { workspace = true }
-poseidon = { workspace = true }
 postcard = { workspace = true }
 rand = { workspace = true, features = ["small_rng"] }
 rayon = { workspace = true }

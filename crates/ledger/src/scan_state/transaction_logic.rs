@@ -87,7 +87,7 @@ use mina_p2p_messages::{
     v2::{MinaBaseUserCommandStableV2, MinaTransactionTransactionStableV2},
 };
 use mina_signer::CompressedPubKey;
-use poseidon::hash::params::MINA_ZKAPP_MEMO;
+use crate::hash::params::MINA_ZKAPP_MEMO;
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     fmt::Display,
@@ -598,12 +598,12 @@ impl Memo {
     }
 
     pub fn hash(&self) -> Fp {
-        use poseidon::hash::{hash_with_kimchi, legacy};
+        use crate::hash::{hash_with_kimchi, Inputs};
 
         // For some reason we are mixing legacy inputs and "new" hashing
-        let mut inputs = legacy::Inputs::new();
+        let mut inputs = Inputs::new();
         inputs.append_bytes(&self.0);
-        hash_with_kimchi(&MINA_ZKAPP_MEMO, &inputs.to_fields())
+        hash_with_kimchi(MINA_ZKAPP_MEMO, &inputs.to_fields())
     }
 
     pub fn as_slice(&self) -> &[u8] {

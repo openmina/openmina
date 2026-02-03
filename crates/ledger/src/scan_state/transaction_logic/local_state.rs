@@ -27,7 +27,7 @@ use ark_ff::Zero;
 use itertools::{FoldWhile, Itertools};
 use mina_core::constants::ConstraintConstants;
 use mina_curves::pasta::Fp;
-use poseidon::hash::{hash_with_kimchi, params::MINA_ACCOUNT_UPDATE_STACK_FRAME, Inputs};
+use crate::hash::{hash_with_kimchi, params::MINA_ACCOUNT_UPDATE_STACK_FRAME, Inputs};
 use std::{cell::RefCell, collections::BTreeMap, rc::Rc};
 
 #[derive(Debug, Clone, Default)]

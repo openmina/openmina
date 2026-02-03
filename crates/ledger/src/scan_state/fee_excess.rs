@@ -33,7 +33,7 @@
 
 use ark_ff::{BigInteger, BigInteger256, Zero};
 use mina_curves::pasta::Fp;
-use poseidon::hash::Inputs;
+use crate::hash::Inputs;
 
 use crate::{
     proofs::{

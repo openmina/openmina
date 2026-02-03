@@ -25,7 +25,7 @@ use mina_core::constants::constraint_constants;
 use mina_curves::pasta::Fp;
 use mina_p2p_messages::bigint::InvalidBigInt;
 use mina_signer::CompressedPubKey;
-use poseidon::hash::{
+use crate::hash::{
     hash_noinputs, hash_with_kimchi,
     params::{
         get_coinbase_param_for_height, COINBASE_STACK, MINA_PROTO_STATE, NO_INPUT_COINBASE_STACK,
@@ -481,12 +481,12 @@ impl merkle_tree::TreeHasher<Stack> for StackHasher {
         inputs.append_field(value.state.init);
         inputs.append_field(value.state.curr);
 
-        hash_with_kimchi(&COINBASE_STACK, &inputs.to_fields())
+        hash_with_kimchi(COINBASE_STACK, &inputs.to_fields())
     }
 
     fn merge_hash(height: usize, left: Fp, right: Fp) -> Fp {
         let param = get_coinbase_param_for_height(height);
-        poseidon::hash::hash_with_kimchi(param, &[left, right])
+        hash_with_kimchi(param, &[left, right])
     }
 
     fn empty_value() -> Stack {

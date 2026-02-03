@@ -11,7 +11,7 @@ use ark_ff::{BigInteger256, PrimeField};
 use mina_curves::pasta::{Fp, Fq, Pallas};
 use poly_commitment::PolyComm;
 
-use poseidon::hash::hash_fields;
+use crate::hash::hash_fields;
 
 impl<'a> From<&'a VerifierIndex<Fq>> for PlonkVerificationKeyEvals<Fp> {
     fn from(verifier_index: &'a VerifierIndex<Fq>) -> Self {
@@ -56,7 +56,7 @@ impl MessagesForNextWrapProof {
     /// <https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/pickles/wrap_hack.ml#L50>
     pub fn hash(&self) -> [u64; 4] {
         let fields: Vec<Fq> = self.to_fields();
-        let field: Fq = hash_fields(&fields);
+        let field: Fq = crate::hash::hash_fields_fq(&fields);
 
         let bigint: BigInteger256 = field.into_bigint();
         bigint.0

@@ -5111,7 +5111,6 @@ dependencies = [
  "mina-p2p-messages",
  "multihash 0.18.1",
  "once_cell",
- "poseidon",
  "rand",
  "redux",
  "serde",
@@ -5530,7 +5529,6 @@ dependencies = [
  "mina-signer",
  "num-bigint",
  "o1-utils",
- "poseidon",
  "rsexp",
  "rsexp-derive",
  "serde",
@@ -5666,7 +5664,6 @@ dependencies = [
  "o1-utils",
  "once_cell",
  "poly-commitment",
- "poseidon",
  "postcard",
  "rand",
  "rand_pcg",
@@ -6890,18 +6887,6 @@ name = "portable-atomic"
 version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "280dc24453071f1b63954171985a0b0d30058d287960968b9b2aca264c8d4ee6"
-
-[[package]]
-name = "poseidon"
-version = "0.19.0"
-dependencies = [
- "ark-ff",
- "ark-serialize",
- "mina-curves",
- "o1-utils",
- "once_cell",
- "serde",
-]
 
 [[package]]
 name = "postcard"
@@ -9141,7 +9126,6 @@ dependencies = [
  "num-bigint",
  "object 0.37.1",
  "once_cell",
- "poseidon",
  "rand",
  "ring_buffer",
  "rsprocmaps",

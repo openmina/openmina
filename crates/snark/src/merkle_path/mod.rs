@@ -59,16 +59,9 @@ pub fn calc_merkle_root_hash(
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
-
-    use mina_p2p_messages::binprot::BinProtRead;
-
-    use mina_p2p_messages::v2::{LedgerHash, MinaBaseAccountBinableArgStableV2};
 
     #[cfg(target_family = "wasm")]
     use wasm_bindgen_test::wasm_bindgen_test as test;
-
-    use super::*;
 
     #[test]
     fn test_verify_merkle_path() {

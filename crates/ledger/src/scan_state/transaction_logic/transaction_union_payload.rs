@@ -79,13 +79,12 @@ use crate::{
     },
     sparse_ledger::LedgerIntf,
     zkapps::zkapp_logic::ZkAppCommandElt,
-    Account, AccountId, AppendToInputs, ReceiptChainHash, Timing, TokenId,
+    Account, AccountId, ReceiptChainHash, Timing, TokenId,
 };
 use ark_ff::PrimeField;
 use mina_curves::pasta::Fp;
-use mina_hasher::{Hashable, Hasher, ROInput as LegacyInput};
+use mina_hasher::{Hashable, Hasher, ROInput};
 use mina_signer::{CompressedPubKey, NetworkId, PubKey, Signature};
-use poseidon::hash::{hash_with_kimchi, params::CODA_RECEIPT_UC, Inputs};
 
 #[derive(Clone)]
 pub struct Common {
@@ -198,7 +197,7 @@ pub struct TransactionUnionPayload {
 impl Hashable for TransactionUnionPayload {
     type D = NetworkId;
 
-    fn to_roinput(&self) -> LegacyInput {
+    fn to_roinput(&self) -> ROInput {
         /*
             Payment transactions only use the default token-id value 1.
             The old transaction format encoded the token-id as an u64,
@@ -211,7 +210,7 @@ impl Hashable for TransactionUnionPayload {
         let fee_token_id = self.common.fee_token.0.into_bigint().0[0];
         let token_id = self.body.token_id.0.into_bigint().0[0];
 
-        let mut roi = LegacyInput::new()
+        let mut roi = ROInput::new()
             .append_field(self.common.fee_payer_pk.x)
             .append_field(self.body.source_pk.x)
             .append_field(self.body.receiver_pk.x)
@@ -227,14 +226,14 @@ impl Hashable for TransactionUnionPayload {
             roi = roi.append_bool(tag & bit != 0);
         }
 
-        roi.append_bool(self.body.source_pk.is_odd)
+        roi = roi.append_bool(self.body.source_pk.is_odd)
             .append_bool(self.body.receiver_pk.is_odd)
             .append_u64(token_id)
             .append_u64(self.body.amount.as_u64())
-            .append_bool(false) // Used to be `self.body.token_locked`
+            .append_bool(false); // Used to be `self.body.token_locked`
+        roi
     }
 
-    // TODO: this is unused, is it needed?
     fn domain_string(network_id: NetworkId) -> Option<String> {
         // Domain strings must have length <= 20
         match network_id {
@@ -345,6 +344,12 @@ pub struct LegacyInputs {
     bits: Vec<bool>,
 }
 
+impl Default for LegacyInputs {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl LegacyInputs {
     pub fn new() -> Self {
         Self {
@@ -358,7 +363,7 @@ impl LegacyInputs {
     }
 
     pub fn append_bool(&mut self, value: bool) {
-        self.append_bit(value);
+        self.bits.push(value);
     }
 
     pub fn append_bytes(&mut self, bytes: &[u8]) {
@@ -366,17 +371,17 @@ impl LegacyInputs {
         self.bits.reserve(bytes.len() * 8);
         for byte in bytes {
             for bit in BITS {
-                self.append_bit(byte & bit != 0);
+                self.bits.push(byte & bit != 0);
             }
         }
     }
 
     pub fn append_u64(&mut self, value: u64) {
-        self.append_bytes(&value.to_le_bytes());
+        self.append_bytes(&value.to_le_bytes())
     }
 
     pub fn append_u32(&mut self, value: u32) {
-        self.append_bytes(&value.to_le_bytes());
+        self.append_bytes(&value.to_le_bytes())
     }
 
     pub fn append_field(&mut self, field: Fp) {
@@ -534,8 +539,8 @@ impl TransactionUnion {
 struct ReceiptHashable(Vec<Fp>);
 impl Hashable for ReceiptHashable {
     type D = ();
-    fn to_roinput(&self) -> LegacyInput {
-        let mut roi = LegacyInput::new();
+    fn to_roinput(&self) -> ROInput {
+        let mut roi = ROInput::new();
         for f in &self.0 {
             roi = roi.append_field(*f);
         }
@@ -576,12 +581,11 @@ pub fn checked_cons_signed_command_payload(
     use crate::proofs::transaction::{
         legacy_input::CheckedLegacyInput, transaction_snark::checked_legacy_hash,
     };
-    use poseidon::hash::legacy;
 
     let mut inputs = payload.to_checked_legacy_input_owned(w);
     inputs.append_field(last_receipt_chain_hash.0);
 
-    let receipt_chain_hash = checked_legacy_hash(&legacy::params::CODA_RECEIPT_UC, inputs, w);
+    let receipt_chain_hash = checked_legacy_hash("CodaReceiptUC", inputs, w);
 
     ReceiptChainHash(receipt_chain_hash)
 }
@@ -596,13 +600,28 @@ pub fn cons_zkapp_command_commitment(
 ) -> ReceiptChainHash {
     let ZkAppCommandElt::ZkAppCommandCommitment(x) = e;
 
-    let mut inputs = Inputs::new();
-
+    let mut inputs = crate::hash::Inputs::new();
+    use crate::hash::AppendToInputs;
     inputs.append(&index);
     inputs.append_field(x.0);
     inputs.append(receipt_hash);
 
-    ReceiptChainHash(hash_with_kimchi(&CODA_RECEIPT_UC, &inputs.to_fields()))
+    #[derive(Clone)]
+    struct ZkappReceiptHashable(crate::hash::Inputs);
+    impl Hashable for ZkappReceiptHashable {
+        type D = ();
+        fn to_roinput(&self) -> ROInput {
+            self.0.0.clone()
+        }
+        fn domain_string(_: ()) -> Option<String> {
+            Some("CodaReceiptUC".to_string())
+        }
+    }
+
+    let hash = mina_hasher::create_kimchi::<ZkappReceiptHashable>(())
+        .update(&ZkappReceiptHashable(inputs))
+        .digest();
+    ReceiptChainHash(hash)
 }
 
 pub fn validate_nonces(txn_nonce: Nonce, account_nonce: Nonce) -> Result<(), String> {

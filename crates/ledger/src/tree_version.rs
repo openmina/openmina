@@ -1,6 +1,6 @@
 use crate::account::{get_legacy_hash_of, Account, AccountLegacy, TokenId, TokenIdLegacy};
 use mina_curves::pasta::Fp;
-use poseidon::hash::params::get_merkle_param_for_height;
+use crate::hash::params::get_merkle_param_for_height;
 use std::{fmt::Debug, hash::Hash};
 
 pub trait TreeVersion {
@@ -24,7 +24,7 @@ impl TreeVersion for V2 {
 
     fn hash_node(height: usize, left: Fp, right: Fp) -> Fp {
         let param = get_merkle_param_for_height(height);
-        poseidon::hash::hash_with_kimchi(param, &[left, right])
+        crate::hash::hash_with_kimchi(param, &[left, right])
     }
 
     fn hash_leaf(leaf: &Self::Account) -> Fp {

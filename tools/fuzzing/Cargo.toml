@@ -22,7 +22,6 @@ mina-signer = { workspace = true }
 num-bigint = { workspace = true }
 object = { workspace = true }
 once_cell = { workspace = true }
-poseidon = { workspace = true }
 rand = { workspace = true, features = ["small_rng"] }
 ring_buffer = { workspace = true }
 rsprocmaps = { workspace = true }

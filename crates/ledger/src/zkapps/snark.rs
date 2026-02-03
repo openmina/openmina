@@ -3,7 +3,7 @@ use std::{cell::Cell, marker::PhantomData};
 use ark_ff::Zero;
 use mina_curves::pasta::Fp;
 use mina_signer::CompressedPubKey;
-use poseidon::hash::{
+use crate::hash::{
     params::{
         get_merkle_param_for_height, CODA_RECEIPT_UC, MINA_ACCOUNT_UPDATE_CONS,
         MINA_ACCOUNT_UPDATE_NODE, MINA_ACCOUNT_UPDATE_STACK_FRAME_CONS, MINA_DERIVE_TOKEN_ID,

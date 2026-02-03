@@ -37,14 +37,17 @@ use crate::{
     verifier::{get_srs, get_srs_mut},
 };
 use anyhow::Context;
-use ark_ff::{BigInteger256, One, Zero};
+use ark_ff::{BigInteger256, One, PrimeField, Zero};
 use ark_poly::{
     univariate::DensePolynomial, DenseUVPolynomial, EvaluationDomain, Radix2EvaluationDomain,
 };
 use kimchi::proof::{PointEvaluations, ProverCommitments, RecursionChallenge};
-use mina_curves::pasta::{Fp, Fq, Pallas};
+use mina_curves::pasta::{Fp, Fq, Pallas, VestaParameters};
 use mina_p2p_messages::{bigint::InvalidBigInt, v2};
-use mina_poseidon::pasta::FULL_ROUNDS;
+use mina_poseidon::{
+    constants::PlonkSpongeConstantsKimchi, pasta::FULL_ROUNDS, poseidon::{ArithmeticSponge, Sponge},
+    sponge::DefaultFqSponge, FqSponge,
+};
 use poly_commitment::{commitment::b_poly_coefficients, ipa::OpeningProof};
 use std::rc::Rc;
 
@@ -1999,27 +2002,31 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> anyhow::Result<DeferredV
         .collect();
 
     let challenges_digest = {
-        let mut sponge = poseidon::Sponge::<Fp>::default();
+        let mut sponge = ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi, FULL_ROUNDS>::new(
+            mina_poseidon::pasta::fp_kimchi::static_params(),
+        );
         for old_bulletproof_challenges in &old_bulletproof_challenges {
             sponge.absorb(old_bulletproof_challenges);
         }
         sponge.squeeze()
     };
 
-    let mut sponge = poseidon::FqSponge::default();
-    sponge.absorb_fq(&[four_u64_to_field(
+    let mut sponge = DefaultFqSponge::<VestaParameters, PlonkSpongeConstantsKimchi, FULL_ROUNDS>::new(
+        mina_poseidon::pasta::fq_kimchi::static_params(),
+    );
+    sponge.absorb_fq(&to_fqs(&[four_u64_to_field(
         &proof_state.sponge_digest_before_evaluations,
-    )?]);
-    sponge.absorb_fq(&[challenges_digest]);
-    sponge.absorb_fq(&[evals.ft_eval1]);
-    sponge.absorb_fq(x1);
-    sponge.absorb_fq(x2);
+    )?]));
+    sponge.absorb_fq(&to_fqs(&[challenges_digest]));
+    sponge.absorb_fq(&to_fqs(&[evals.ft_eval1]));
+    sponge.absorb_fq(&to_fqs(x1));
+    sponge.absorb_fq(&to_fqs(x2));
     xs.iter().for_each(|PointEvaluations { zeta, zeta_omega }| {
-        sponge.absorb_fq(zeta);
-        sponge.absorb_fq(zeta_omega);
+        sponge.absorb_fq(&to_fqs(zeta));
+        sponge.absorb_fq(&to_fqs(zeta_omega));
     });
-    let xi_chal: [u64; 2] = sponge.squeeze_limbs();
-    let r_chal: [u64; 2] = sponge.squeeze_limbs();
+    let xi_chal: [u64; 2] = sponge.squeeze_limbs(2).try_into().unwrap();
+    let r_chal: [u64; 2] = sponge.squeeze_limbs(2).try_into().unwrap();
 
     let xi = ScalarChallenge::from(xi_chal).to_field(&endo);
     let r = ScalarChallenge::from(r_chal).to_field(&endo);
@@ -2699,7 +2706,19 @@ pub struct StepProof {
     pub proof_with_public: ProofWithPublic<Fp>,
 }
 
-pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
+fn to_fqs(fps: &[Fp]) -> Vec<Fq> {
+
+    fps.iter().map(|fp| Fq::from((*fp).into_bigint())).collect()
+
+}
+
+
+
+
+
+pub fn step<
+
+C: ProofConstants, const N_PREVIOUS: usize>(
     params: StepParams<N_PREVIOUS>,
     w: &mut Witness<Fp>,
 ) -> anyhow::Result<StepProof> {

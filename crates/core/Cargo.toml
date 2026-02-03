@@ -26,7 +26,6 @@ mina-macros = { workspace = true }
 mina-p2p-messages = { workspace = true }
 multihash = { workspace = true }
 once_cell = { workspace = true }
-poseidon = { workspace = true }
 rand = { workspace = true }
 redux = { workspace = true }
 serde = { workspace = true, features = ["rc"] }

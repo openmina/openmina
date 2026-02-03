@@ -25,7 +25,6 @@ mina-macros = { workspace = true }
 mina-signer = { workspace = true }
 num-bigint = { workspace = true }
 o1-utils = { workspace = true }
-poseidon = { workspace = true }
 rsexp = { workspace = true }
 rsexp-derive = { workspace = true }
 serde = { workspace = true }

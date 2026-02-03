@@ -5,7 +5,7 @@ use consensus::ConsensusState;
 use mina_core::constants::{constraint_constants, ForkConstants};
 use mina_curves::pasta::{Fp, Fq};
 use mina_p2p_messages::{bigint::InvalidBigInt, v2};
-use poseidon::hash::{
+use crate::hash::{
     params::{MINA_PROTO_STATE, MINA_PROTO_STATE_BODY},
     Inputs,
 };
@@ -610,7 +610,7 @@ mod vrf {
     use std::ops::Neg;
 
     use mina_signer::{CompressedPubKey, PubKey};
-    use poseidon::hash::params::{MINA_VRF_MESSAGE, MINA_VRF_OUTPUT};
+    use crate::hash::params::{MINA_VRF_MESSAGE, MINA_VRF_OUTPUT};
 
     use crate::{
         checked_verify_merkle_path,
@@ -816,7 +816,7 @@ mod vrf {
 pub mod consensus {
     use ark_ff::Zero;
     use mina_signer::CompressedPubKey;
-    use poseidon::hash::params::MINA_EPOCH_SEED;
+    use crate::hash::params::MINA_EPOCH_SEED;
 
     use super::{vrf::VRF_OUTPUT_NBITS, *};
     use crate::{

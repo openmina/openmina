@@ -3,7 +3,7 @@ use ark_ff::Zero;
 use mina_curves::pasta::Fp;
 use mina_hasher::{Hashable, ROInput};
 use mina_signer::NetworkId;
-use poseidon::hash::{hash_with_kimchi, params::MINA_ACCOUNT_UPDATE_CONS};
+use crate::hash::{hash_with_kimchi, params::MINA_ACCOUNT_UPDATE_CONS};
 
 #[derive(Copy, Clone, Debug, derive_more::Deref, derive_more::From)]
 pub struct TransactionCommitment(pub Fp);
@@ -17,7 +17,7 @@ impl TransactionCommitment {
     /// <https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/zkapp_command.ml#L1368>
     pub fn create_complete(&self, memo_hash: Fp, fee_payer_hash: Fp) -> Self {
         Self(hash_with_kimchi(
-            &MINA_ACCOUNT_UPDATE_CONS,
+            MINA_ACCOUNT_UPDATE_CONS,
             &[memo_hash, fee_payer_hash, self.0],
         ))
     }

@@ -712,7 +712,7 @@ impl PlonkVerificationKeyEvals<Fp> {
 }
 
 impl crate::ToInputs for PlonkVerificationKeyEvals<Fp> {
-    fn to_inputs(&self, inputs: &mut ::poseidon::hash::Inputs) {
+    fn to_inputs(&self, inputs: &mut crate::hash::Inputs) {
         let Self {
             sigma,
             coefficients,
@@ -1240,7 +1240,7 @@ impl<F: FieldWitness> std::fmt::Debug for InnerCurve<F> {
 }
 
 impl crate::ToInputs for InnerCurve<Fp> {
-    fn to_inputs(&self, inputs: &mut ::poseidon::hash::Inputs) {
+    fn to_inputs(&self, inputs: &mut crate::hash::Inputs) {
         let GroupAffine::<Fp> { x, y, .. } = self.to_affine();
         inputs.append_field(x);
         inputs.append_field(y);
@@ -1767,29 +1767,31 @@ pub mod poseidon {
         const PERM_INITIAL_ARK: bool = true;
     }
 
-    use crate::proofs::poseidon_params::SpongeParams;
+    use mina_poseidon::poseidon::ArithmeticSpongeParams;
 
     pub trait SpongeParamsForField<F: FieldWitness> {
-        fn get_params(is_legacy: bool) -> &'static SpongeParams<F>;
+        fn get_params(is_legacy: bool) -> &'static ArithmeticSpongeParams<F, FULL_ROUNDS>;
     }
 
     impl SpongeParamsForField<Fp> for Fp {
-        fn get_params(is_legacy: bool) -> &'static SpongeParams<Fp> {
-            use crate::proofs::poseidon_params::{fp, fp_legacy};
+        fn get_params(is_legacy: bool) -> &'static ArithmeticSpongeParams<Fp, FULL_ROUNDS> {
+            use mina_poseidon::pasta::{fp_kimchi, fp_legacy};
             if is_legacy {
-                fp_legacy::params()
+                unsafe { std::mem::transmute(fp_legacy::static_params()) }
             } else {
-                fp::params()
+                fp_kimchi::static_params()
             }
         }
     }
 
     impl SpongeParamsForField<Fq> for Fq {
-        fn get_params(_is_legacy: bool) -> &'static SpongeParams<Fq> {
-            use crate::proofs::poseidon_params::fq;
-            // Legacy params for Fq? poseidon params.rs didn't have fq_legacy module.
-            // Assuming Kimchi for now or check if fq_legacy existed.
-            fq::params()
+        fn get_params(is_legacy: bool) -> &'static ArithmeticSpongeParams<Fq, FULL_ROUNDS> {
+            use mina_poseidon::pasta::{fq_kimchi, fq_legacy};
+            if is_legacy {
+                unsafe { std::mem::transmute(fq_legacy::static_params()) }
+            } else {
+                fq_kimchi::static_params()
+            }
         }
     }
 
@@ -1990,7 +1992,7 @@ pub mod poseidon {
         pub fn poseidon_block_cipher(&mut self, first: bool, w: &mut Witness<F>) {
             let is_legacy = C::PERM_INITIAL_ARK;
             let params = <F as SpongeParamsForField<F>>::get_params(is_legacy);
-            let round_constants = params.round_constants();
+            let round_constants = &params.round_constants;
 
             if C::PERM_HALF_ROUNDS_FULL == 0 {
                 if C::PERM_INITIAL_ARK {
@@ -2024,7 +2026,7 @@ pub mod poseidon {
         pub fn full_round(&mut self, r: usize, first: bool, w: &mut Witness<F>) {
             let is_legacy = C::PERM_INITIAL_ARK;
             let params = <F as SpongeParamsForField<F>>::get_params(is_legacy);
-            let round_constants = params.round_constants();
+            let round_constants = &params.round_constants;
 
             for (index, state_i) in self.state.iter_mut().enumerate() {
                 let push_witness = !(first && index == 2);
@@ -2087,7 +2089,7 @@ pub mod poseidon {
     ) -> [F; 3] {
         let is_legacy = C::PERM_INITIAL_ARK;
         let params = <F as SpongeParamsForField<F>>::get_params(is_legacy);
-        let mds = params.mds();
+        let mds = &params.mds;
 
         if C::PERM_FULL_MDS {
             mds.map(|md| state.iter().zip(md).fold(F::zero(), |x, (s, m)| m * *s + x))
@@ -2414,7 +2416,7 @@ pub mod transaction_snark {
         zkapps::interfaces::{SignedAmountBranchParam, SignedAmountInterface},
         AccountId, PermissionTo, PermsConst, Timing, TimingAsRecordChecked, ToInputs,
     };
-    use ::poseidon::hash::{params::MINA_PROTO_STATE_BODY, Inputs, LazyParam};
+    use crate::hash::Inputs;
     use ark_ff::Zero;
 
     use crate::scan_state::{
@@ -2688,27 +2690,41 @@ pub mod transaction_snark {
     }
 
     pub fn checked_legacy_hash(
-        param: &LazyParam,
+        domain: &str,
         inputs: legacy_input::LegacyInputs<Fp>,
         w: &mut Witness<Fp>,
     ) -> Fp {
+        use crate::hash::{CustomDomain, GenericHashable};
         use mina_poseidon::constants::PlonkSpongeConstantsLegacy as Constants;
 
-        let initial_state: [Fp; 3] = param.state();
+        let hasher =
+            mina_hasher::create_kimchi::<GenericHashable>(CustomDomain(domain.to_string()));
+        let initial_state: [Fp; 3] = hasher.state.clone().try_into().unwrap();
+
         let mut sponge = poseidon::Sponge::<Fp, Constants>::new_with_state_params(initial_state);
         sponge.absorb(&inputs.to_fields(), w);
         sponge.squeeze(w)
     }
 
-    pub fn checked_hash(param: &LazyParam, inputs: &[Fp], w: &mut Witness<Fp>) -> Fp {
-        let initial_state: [Fp; 3] = param.state();
+    pub fn checked_hash(domain: &str, inputs: &[Fp], w: &mut Witness<Fp>) -> Fp {
+        use crate::hash::{CustomDomain, GenericHashable};
+
+        let hasher =
+            mina_hasher::create_kimchi::<GenericHashable>(CustomDomain(domain.to_string()));
+        let initial_state: [Fp; 3] = hasher.state.clone().try_into().unwrap();
+
         let mut sponge = poseidon::Sponge::<Fp>::new_with_state(initial_state);
         sponge.absorb(inputs, w);
         sponge.squeeze(w)
     }
 
-    pub fn checked_hash3(param: &LazyParam, inputs: &[Fp], w: &mut Witness<Fp>) -> Fp {
-        let initial_state: [Fp; 3] = param.state();
+    pub fn checked_hash3(domain: &str, inputs: &[Fp], w: &mut Witness<Fp>) -> Fp {
+        use crate::hash::{CustomDomain, GenericHashable};
+
+        let hasher =
+            mina_hasher::create_kimchi::<GenericHashable>(CustomDomain(domain.to_string()));
+        let initial_state: [Fp; 3] = hasher.state.clone().try_into().unwrap();
+
         let mut sponge = poseidon::Sponge::<Fp>::new_with_state(initial_state);
         sponge.absorb3(inputs, w);
         sponge.squeeze(w)
@@ -3015,7 +3031,7 @@ pub mod transaction_snark {
         fee_payer.checked_equal(&source, w);
         current_global_slot.lte(&payload.common.valid_until.to_checked(), w);
 
-        let state_body_hash = state_body.checked_hash_with_param(&MINA_PROTO_STATE_BODY, w);
+        let state_body_hash = state_body.checked_hash_with_param("MinaProtoStateBody", w);
 
         let pending_coinbase_stack_with_state =
             pending_coinbase_init.checked_push_state(state_body_hash, current_global_slot, w);
@@ -3906,7 +3922,7 @@ impl MessagesForNextStepProof<'_> {
     /// <https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/pickles/common.ml#L33>
     pub fn hash(&self) -> [u64; 4] {
         let fields: Vec<Fp> = self.to_fields();
-        let field: Fp = ::poseidon::hash::hash_fields(&fields);
+        let field: Fp = crate::hash::hash_fields(&fields);
 
         let bigint: BigInteger256 = field.into_bigint();
         bigint.0
@@ -4519,7 +4535,7 @@ pub(super) mod tests {
     use core::panic;
     use std::path::Path;
 
-    use ::poseidon::hash::params::MINA_ZKAPP_EVENT;
+    use crate::hash::params::MINA_ZKAPP_EVENT;
     use mina_p2p_messages::binprot::{
         self,
         macros::{BinProtRead, BinProtWrite},
@@ -4836,11 +4852,11 @@ pub(super) mod tests {
             "6963060754718463299978089777716994949151371320681588566338620419071140958308";
 
         let mut w = Witness::empty();
-        let hash = transaction_snark::checked_hash(&MINA_ZKAPP_EVENT, &[], &mut w);
+        let hash = transaction_snark::checked_hash("MinaZkappEvent", &[], &mut w);
         assert_eq!(hash, Fp::from_str(EXPECTED).unwrap());
 
         let mut w = Witness::empty();
-        let hash = transaction_snark::checked_hash3(&MINA_ZKAPP_EVENT, &[], &mut w);
+        let hash = transaction_snark::checked_hash3("MinaZkappEvent", &[], &mut w);
         assert_eq!(hash, Fp::from_str(EXPECTED).unwrap());
     }
 

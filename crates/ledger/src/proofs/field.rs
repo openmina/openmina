@@ -9,7 +9,6 @@ use mina_poseidon::{
     constants::PlonkSpongeConstantsKimchi, pasta::FULL_ROUNDS, sponge::DefaultFqSponge,
 };
 
-use poseidon::SpongeParamsForField;
 
 use crate::proofs;
 
@@ -39,7 +38,6 @@ where
         + FromFpFq
         + PrimeField
         + FftField
-        + SpongeParamsForField<Self>
         + std::fmt::Debug
         + 'static,
 {

@@ -14,7 +14,6 @@ pub mod group_map;
 pub mod merge;
 pub mod numbers;
 pub mod opt_sponge;
-pub mod poseidon_params;
 mod prover;
 pub mod provers;
 pub mod public_input;

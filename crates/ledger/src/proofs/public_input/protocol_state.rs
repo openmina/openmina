@@ -9,7 +9,7 @@ use crate::{
     scan_state::transaction_logic::protocol_state::{EpochData, EpochLedger},
     AppendToInputs as _, ToInputs,
 };
-use poseidon::hash::Inputs;
+use crate::hash::Inputs;
 
 impl ToInputs for crate::proofs::block::BlockchainState {
     fn to_inputs(&self, inputs: &mut Inputs) {
