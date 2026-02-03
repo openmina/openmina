@@ -38,6 +38,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Dependencies
 
+- Bump react and react-dom from 19.2.3 to 19.2.4 in /website
+  ([#2123](https://github.com/o1-labs/mina-rust/pull/2123),
+  [#2124](https://github.com/o1-labs/mina-rust/pull/2124))
 - Bump aws-config from 1.5.16 to 1.5.18
   ([#2125](https://github.com/o1-labs/mina-rust/pull/2125))
 - Bump serde from 1.0.219 to 1.0.228, update private API usage for compatibility
