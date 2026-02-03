@@ -66,7 +66,7 @@ ark-ec = { version = "0.5.0", features = ["std"] }
 ark-ff = { version = "0.5.0", features = ["parallel", "asm", "std"] }
 ark-poly = { version = "0.5.0" }
 ark-serialize = { version = "0.5.0", features = ["std"] }
-aws-config = { version = "1.1.7", features = ["behavior-version-latest"] }
+aws-config = { version = "1.5.18", features = ["behavior-version-latest"] }
 aws-sdk-s3 = "1.73.0"
 axum = "0.8"
 backtrace = "0.3"
