@@ -88,7 +88,7 @@ echo "$RUST_FILES" | while IFS= read -r rust_file; do
 
         if [ -z "$URL" ]; then
             echo "INVALID|${rust_file}|LINE:${line_num}|MALFORMED_URL" >> "$RESULTS_FILE"
-            echo "❌ INVALID: ${rust_file}:${line_num}"
+            echo "[ERROR] INVALID: ${rust_file}:${line_num}"
             echo "   Malformed OCaml reference URL"
             continue
         fi
@@ -112,7 +112,7 @@ echo "$RUST_FILES" | while IFS= read -r rust_file; do
             fi
         else
             echo "INVALID|${rust_file}|LINE:${line_num}|INVALID_URL_FORMAT" >> "$RESULTS_FILE"
-            echo "❌ INVALID: ${rust_file}:${line_num}"
+            echo "[ERROR] INVALID: ${rust_file}:${line_num}"
             echo "   URL does not match expected format: $URL"
             continue
         fi
@@ -123,7 +123,7 @@ echo "$RUST_FILES" | while IFS= read -r rust_file; do
 
         if ! curl -sf "$CURRENT_URL" -o "$CURRENT_FILE"; then
             echo "INVALID|${rust_file}|${OCAML_PATH}|FILE_NOT_FOUND" >> "$RESULTS_FILE"
-            echo "❌ INVALID: ${rust_file}:${line_num}"
+            echo "[ERROR] INVALID: ${rust_file}:${line_num}"
             echo "   OCaml file not found: ${OCAML_PATH}"
         else
             # Validate line range if specified
@@ -133,7 +133,7 @@ echo "$RUST_FILES" | while IFS= read -r rust_file; do
 
                 if [ "$END_LINE" -gt "$FILE_LINES" ]; then
                     echo "INVALID|${rust_file}|${OCAML_PATH}|LINE_RANGE_EXCEEDED|L:${LINE_RANGE}|${FILE_LINES}" >> "$RESULTS_FILE"
-                    echo "❌ INVALID: ${rust_file}:${line_num}"
+                    echo "[ERROR] INVALID: ${rust_file}:${line_num}"
                     echo "   Line range L:${LINE_RANGE} exceeds file length (${FILE_LINES} lines): ${OCAML_PATH}"
                     RANGE_VALID=false
                 fi
@@ -149,7 +149,7 @@ echo "$RUST_FILES" | while IFS= read -r rust_file; do
 
                     if ! curl -sf "$COMMIT_URL" -o "$COMMIT_FILE"; then
                         echo "INVALID|${rust_file}|${OCAML_PATH}|COMMIT_NOT_FOUND|${COMMIT}" >> "$RESULTS_FILE"
-                        echo "❌ INVALID: ${rust_file}:${line_num}"
+                        echo "[ERROR] INVALID: ${rust_file}:${line_num}"
                         echo "   Referenced commit does not exist: ${COMMIT}"
                         CODE_MATCHES=false
                     else
@@ -159,7 +159,7 @@ echo "$RUST_FILES" | while IFS= read -r rust_file; do
 
                         if [ "$CURRENT_LINES" != "$COMMIT_LINES" ]; then
                             echo "INVALID|${rust_file}|${OCAML_PATH}|CODE_MISMATCH|${COMMIT}" >> "$RESULTS_FILE"
-                            echo "❌ INVALID: ${rust_file}:${line_num}"
+                            echo "[ERROR] INVALID: ${rust_file}:${line_num}"
                             echo "   Code at L:${LINE_RANGE} differs between commit ${COMMIT} and current branch"
                             echo "   Referenced: https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/blob/${COMMIT}/${OCAML_PATH}#L${START_LINE}-L${END_LINE}"
                             echo "   Current:    https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/blob/${OCAML_BRANCH}/${OCAML_PATH}#L${START_LINE}-L${END_LINE}"
@@ -172,11 +172,11 @@ echo "$RUST_FILES" | while IFS= read -r rust_file; do
                     # Check if commit is stale
                     if [ "$COMMIT" != "$CURRENT_COMMIT" ]; then
                         echo "STALE|${rust_file}|${line_num}|${OCAML_PATH}|${COMMIT}|${LINE_RANGE}" >> "$RESULTS_FILE"
-                        echo "✓ VALID: ${rust_file}:${line_num} -> ${OCAML_PATH} L:${LINE_RANGE}"
-                        echo "  ⚠ STALE COMMIT: ${COMMIT} (current: ${CURRENT_COMMIT})"
+                        echo "[OK] VALID: ${rust_file}:${line_num} -> ${OCAML_PATH} L:${LINE_RANGE}"
+                        echo "  [WARN] STALE COMMIT: ${COMMIT} (current: ${CURRENT_COMMIT})"
                     else
                         echo "VALID|${rust_file}|${line_num}|${OCAML_PATH}|${LINE_RANGE}" >> "$RESULTS_FILE"
-                        echo "✓ VALID: ${rust_file}:${line_num} -> ${OCAML_PATH} L:${LINE_RANGE}"
+                        echo "[OK] VALID: ${rust_file}:${line_num} -> ${OCAML_PATH} L:${LINE_RANGE}"
                     fi
                 fi
             fi
@@ -228,16 +228,16 @@ fi
 # Exit with error if there are invalid references
 if [ "${INVALID_REFS}" -gt 0 ]; then
     echo ""
-    echo "❌ Validation failed: ${INVALID_REFS} invalid reference(s) found"
+    echo "[ERROR] Validation failed: ${INVALID_REFS} invalid reference(s) found"
     exit 1
 fi
 
 if [ "${STALE_COMMITS}" -gt 0 ] && [ "$UPDATE_MODE" = "false" ]; then
     echo ""
-    echo "⚠ Warning: ${STALE_COMMITS} reference(s) have stale commits"
+    echo "[WARN] Warning: ${STALE_COMMITS} reference(s) have stale commits"
     echo "Run with --update to update them automatically"
     exit 0
 fi
 
 echo ""
-echo "✓ All OCaml references are valid!"
+echo "[OK] All OCaml references are valid!"
