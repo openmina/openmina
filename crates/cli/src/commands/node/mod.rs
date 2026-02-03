@@ -283,7 +283,32 @@ pub struct Node {
 }
 
 impl Node {
+    /// Runs the Mina node with the configured options.
+    ///
+    /// Starts the node and blocks until shutdown. Builds [`BlockVerifier`] and
+    /// [`TransactionVerifier`] at startup for SNARK proof verification. The
+    /// node behavior depends on the struct fields: a basic node syncs the
+    /// chain, while optional features like block production
+    /// ([`producer_key`](Self::producer_key)), SNARK worker
+    /// ([`run_snarker`](Self::run_snarker)), or archiving
+    /// ([`archive_local_storage`](Self::archive_local_storage)) are enabled
+    /// via their respective fields.
+    ///
+    /// # Panics
+    ///
+    /// Panics if an unknown [`record`](Self::record) strategy is provided.
+    ///
+    /// # Notes
+    ///
+    /// Building SNARK verification keys at startup may take several seconds.
+    /// Optional services are initialized based on their respective CLI flags.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if initialization fails (config loading, key
+    /// decryption, node building, etc.).
     pub fn run(self) -> anyhow::Result<()> {
+        // Initialize logging and thread pool
         let work_dir = shellexpand::full(&self.work_dir).unwrap().into_owned();
 
         let _guard = if !self.disable_filesystem_logging {
@@ -307,6 +332,7 @@ impl Node {
             .build_global()
             .context("failed to initialize threadpool")?;
 
+        // Load configuration
         let (daemon_conf, genesis_conf) = match self.config {
             Some(config) => {
                 let reader = File::open(config).context("config file {config:?}")?;
@@ -344,20 +370,16 @@ impl Node {
                 }
             },
         };
+
         let mut node_builder: NodeBuilder =
             NodeBuilder::new(custom_rng_seed, daemon_conf, genesis_conf);
 
-        // let genesis_config = match self.config {
-        //     Some(config_path) => GenesisConfig::DaemonJsonFile(config_path).into(),
-        //     None => mina_node::config::DEVNET_CONFIG.clone(),
-        // };
-        // let mut node_builder: NodeBuilder = NodeBuilder::new(None, genesis_config);
-
+        // Configure P2P identity
         if let Some(sec_key) = self.p2p_secret_key {
             node_builder.p2p_sec_key(sec_key);
         }
 
-        // warning, this overrides `MINA_P2P_SEC_KEY`
+        // Load libp2p keypair from file (overrides MINA_P2P_SEC_KEY)
         if let (Some(key_file), Some(password)) = (&self.libp2p_keypair, &self.libp2p_password) {
             match SecretKey::from_encrypted_file(key_file, password) {
                 Ok(sk) => {
@@ -388,6 +410,7 @@ impl Node {
             return Err(anyhow::anyhow!(error));
         }
 
+        // Configure P2P networking
         node_builder.p2p_libp2p_port(self.libp2p_port);
 
         node_builder.external_addrs(
@@ -409,12 +432,14 @@ impl Node {
             node_builder.initial_peers_from_url(url)?;
         }
 
+        // Build SNARK verifiers
         let block_verifier_index = BlockVerifier::make();
         let work_verifier_index = TransactionVerifier::make();
         node_builder
             .block_verifier_index(block_verifier_index.clone())
             .work_verifier_index(work_verifier_index.clone());
 
+        // Initialize block producer (optional)
         if let Some(producer_key_path) = self.producer_key {
             let password = &self.producer_key_password;
             mina_core::thread::spawn(|| {
@@ -431,6 +456,7 @@ impl Node {
             }
         }
 
+        // Initialize archive service (optional)
         let archive_storage_options = ArchiveStorageOptions::from_iter(
             [
                 (
@@ -471,10 +497,12 @@ impl Node {
             node_builder.archive(archive_storage_options, work_dir.clone());
         }
 
+        // Initialize SNARK worker (optional)
         if let Some(sec_key) = self.run_snarker {
             node_builder.snarker(sec_key, self.snarker_fee, self.snarker_strategy);
         }
 
+        // Build and run the node
         mina_core::set_work_dir(work_dir.clone().into());
 
         node_builder
@@ -488,6 +516,7 @@ impl Node {
 
         let mut node = node_builder.build().context("node build failed!")?;
 
+        // Start event loop
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .thread_stack_size(64 * 1024 * 1024)
