@@ -178,6 +178,7 @@ pub trait BaseLedger {
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema), schema(value_type = u64))]
 pub struct AccountIndex(pub u64);
 
 impl AccountIndex {

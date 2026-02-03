@@ -142,6 +142,25 @@ impl<T> Clone for RequestId<T> {
 
 impl<T> Copy for RequestId<T> {}
 
+// NB: this is disgusting, the real approach is to do
+// #[cfg_attr(feature = "openapi", derive(utoipa::ToSchema), schema(as = String))]
+// on RequestId<T>, with #[schema(ignore)] on the PhantomData
+// However, ignore doesn't ignore: https://github.com/juhaku/utoipa/issues/1499
+// Additionally, the <T: RequestIdType> is necessary to name the various request ID types properly
+#[cfg(feature = "openapi")]
+impl<T> utoipa::PartialSchema for RequestId<T> {
+    fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
+        <String as utoipa::PartialSchema>::schema()
+    }
+}
+
+#[cfg(feature = "openapi")]
+impl<T: RequestIdType> utoipa::ToSchema for RequestId<T> {
+    fn name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Owned(format!("RequestId<{}>", T::request_id_type()))
+    }
+}
+
 mod measurement {
     use malloc_size_of::{MallocSizeOf, MallocSizeOfOps};
 

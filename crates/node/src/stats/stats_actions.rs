@@ -62,6 +62,8 @@ impl ActionStats {
 }
 
 #[derive(Debug, Default, Clone)]
+// TODO(openapi): custom Serialize impl outputs Map<ActionKind, ActionStatsForRanges>
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema), schema(value_type = Object))]
 pub struct ActionStatsSnapshot(Vec<ActionStatsForRanges>);
 
 impl ActionStatsSnapshot {
@@ -124,6 +126,7 @@ impl<'de> Deserialize<'de> for ActionStatsSnapshot {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct ActionStatsForBlock {
     pub id: u64,
     pub time: Timestamp,
@@ -152,6 +155,7 @@ impl ActionStatsForBlock {
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct ActionStatsForRange {
     /// Total number of times this action kind was executed.
     pub total_calls: u64,
@@ -162,6 +166,7 @@ pub struct ActionStatsForRange {
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct ActionStatsForRanges {
     pub under_1_us: ActionStatsForRange,
     pub under_10_us: ActionStatsForRange,

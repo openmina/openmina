@@ -73,9 +73,9 @@ pub struct Node {
     #[arg(long)]
     pub libp2p_external_ip: Vec<String>,
 
-    /// HTTP server port for RPC API and web interface
+    /// HTTP server port for RPC API
     ///
-    /// The node will serve its HTTP API and dashboard on this port.
+    /// The node will serve its HTTP API on this port.
     /// Default: 3000
     #[arg(long, short, env, default_value = "3000")]
     pub port: u16,

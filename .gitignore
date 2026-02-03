@@ -15,6 +15,7 @@ tests.tsv
 
 # Generated API docs should not be committed
 website/static/api-docs/
+website/static/openapi/openapi.json
 
 crates/ledger/3.0.0mainnet
 crates/ledger/berkeley-devnet

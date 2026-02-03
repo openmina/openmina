@@ -52,6 +52,7 @@ pub enum SnarkerStrategy {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct BuildEnv {
     pub time: String,
     pub version: String,
@@ -61,6 +62,7 @@ pub struct BuildEnv {
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct GitBuildEnv {
     pub commit_time: String,
     pub commit_hash: String,
@@ -68,6 +70,7 @@ pub struct GitBuildEnv {
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct CargoBuildEnv {
     pub features: String,
     pub opt_level: u8,
@@ -76,6 +79,7 @@ pub struct CargoBuildEnv {
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct RustCBuildEnv {
     pub channel: String,
     pub commit_date: String,

@@ -95,7 +95,11 @@ impl NodeServiceBuilder {
             .unwrap();
         thread::Builder::new()
             .name("mina_http_server".to_owned())
-            .spawn(move || runtime.block_on(http_server::run(port, rpc_sender)))
+            .spawn(move || {
+                if let Err(e) = runtime.block_on(http_server::run(port, rpc_sender)) {
+                    tracing::error!("http server error: {e}");
+                }
+            })
             .unwrap();
         self
     }

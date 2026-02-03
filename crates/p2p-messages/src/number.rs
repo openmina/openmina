@@ -201,6 +201,32 @@ binprot_number!(u32, i32);
 binprot_number!(u64, i64);
 binprot_number!(f64, f64);
 
+#[cfg(feature = "openapi")]
+const _: () = {
+    use utoipa::{
+        openapi::schema::{Object, SchemaType, Type},
+        PartialSchema, ToSchema,
+    };
+
+    // Number<T> serializes to string in human-readable format.
+    // TODO(openapi): specialize schema per T (signed vs unsigned, bit width)
+    impl<T: 'static> PartialSchema for Number<T> {
+        fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
+            Object::builder()
+                .schema_type(SchemaType::Type(Type::String))
+                .description(Some("Numeric value encoded as a string of digits"))
+                .pattern(Some(r"^-?\d+$"))
+                .build()
+                .into()
+        }
+    }
+    impl<T: 'static> ToSchema for Number<T> {
+        fn name() -> std::borrow::Cow<'static, str> {
+            std::borrow::Cow::Borrowed("Number")
+        }
+    }
+};
+
 #[cfg(test)]
 mod tests {
     use binprot::{BinProtRead, BinProtWrite};

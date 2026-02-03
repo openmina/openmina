@@ -509,14 +509,14 @@ docs-install: ## Install documentation dependencies
 	@cd website && npm install
 
 .PHONY: docs-build
-docs-build: docs-integrate-rust docs-install ## Build the documentation website with Rust API docs
+docs-build: docs-integrate-rust docs-openapi-gen docs-install ## Build the documentation website with all API docs
 	@echo "Building documentation website with Rust API documentation..."
 	@cd website && npm run build
 	@echo "Documentation built successfully!"
 	@echo "Built files are in website/build/"
 
 .PHONY: docs-serve
-docs-serve: docs-integrate-rust docs-install ## Serve the documentation website locally with Rust API docs
+docs-serve: docs-integrate-rust docs-openapi-gen docs-install ## Serve the documentation website locally with all API docs
 	@echo "Starting documentation server with Rust API documentation..."
 	@echo "Documentation will be available at: http://localhost:$(DOCS_PORT)"
 	@cd website && npm start -- --port $(DOCS_PORT)
@@ -559,11 +559,20 @@ docs-integrate-rust: docs-rust ## Integrate Rust API documentation into website
 	@cp -r target/doc/* website/static/api-docs/
 	@echo "Rust API documentation integrated into website/static/api-docs/"
 
+.PHONY: docs-openapi-gen
+docs-openapi-gen: ## Generate OpenAPI spec and integrate into website
+	@mkdir -p website/static/openapi
+	@if [ ! -f website/static/openapi/openapi.json ]; then \
+		echo "Generating OpenAPI specification..."; \
+		cargo +$(NIGHTLY_RUST_VERSION) x-openapi-gen website/static/openapi/openapi.json; \
+	else \
+		echo "OpenAPI spec already present, skipping generation"; \
+	fi
 
 .PHONY: docs-clean
 docs-clean: ## Clean documentation build artifacts
 	@echo "Cleaning documentation build artifacts..."
-	@rm -rf website/build website/.docusaurus website/static/api-docs target/doc
+	@rm -rf website/build website/.docusaurus website/static/api-docs website/static/openapi/openapi.json target/doc
 	@echo "Documentation artifacts cleaned!"
 
 # Release management targets

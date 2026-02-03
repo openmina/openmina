@@ -21,3 +21,7 @@ serde_json = { workspace = true, features = [
   "arbitrary_precision",
 ] }
 thiserror = { workspace = true }
+utoipa = { workspace = true, optional = true }
+
+[features]
+openapi = ["dep:utoipa"]

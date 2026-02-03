@@ -7,6 +7,25 @@ use serde::ser::SerializeTuple;
 #[derive(Clone, Debug, PartialEq, MallocSizeOf)]
 pub struct PaddedSeq<T, const N: usize>(pub [T; N]);
 
+#[cfg(feature = "openapi")]
+const _: () = {
+    impl<T: utoipa::ToSchema, const N: usize> utoipa::PartialSchema for PaddedSeq<T, N> {
+        fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
+            utoipa::openapi::schema::Array::builder()
+                .items(T::schema())
+                .min_items(Some(N))
+                .max_items(Some(N))
+                .build()
+                .into()
+        }
+    }
+    impl<T: utoipa::ToSchema, const N: usize> utoipa::ToSchema for PaddedSeq<T, N> {
+        fn name() -> std::borrow::Cow<'static, str> {
+            std::borrow::Cow::Owned(format!("PaddedSeq<{}, {}>", T::name(), N))
+        }
+    }
+};
+
 impl<T, const N: usize> Default for PaddedSeq<T, N>
 where
     T: Default,

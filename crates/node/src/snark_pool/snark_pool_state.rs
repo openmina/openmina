@@ -29,6 +29,7 @@ pub struct JobState {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct JobCommitment {
     pub commitment: SnarkJobCommitment,
     pub received_t: Timestamp,
@@ -44,6 +45,7 @@ pub struct SnarkWork {
 
 /// Whether the job is a merge proof job, or a transaction proof job, with particular number of account updates.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub enum JobSummary {
     Tx(usize),
     Merge(usize),

@@ -23,6 +23,7 @@ pub use wasm_timer::SystemTime;
 #[cfg_attr(feature = "fuzzing", derive(fuzzcheck::DefaultMutator))]
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct Timestamp(u64);
 
 impl Timestamp {

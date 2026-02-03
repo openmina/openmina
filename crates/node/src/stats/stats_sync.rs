@@ -17,6 +17,7 @@ pub struct SyncStats {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct SyncStatsSnapshot {
     pub kind: SyncKind,
     pub best_tip_received: Timestamp,
@@ -27,12 +28,14 @@ pub struct SyncStatsSnapshot {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub enum SyncKind {
     Bootstrap,
     Catchup,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub enum LedgerResyncKind {
     FetchStagedLedgerError(String),
     RootLedgerChange,
@@ -41,12 +44,14 @@ pub enum LedgerResyncKind {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct LedgerResyncEvent {
     pub kind: LedgerResyncKind,
     pub time: Timestamp,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct SyncLedgers {
     pub staking_epoch: Option<SyncLedger>,
     pub next_epoch: Option<SyncLedger>,
@@ -102,13 +107,17 @@ impl SyncLedgers {
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct SyncLedger {
     pub snarked: SyncSnarkedLedger,
     pub staged: SyncStagedLedger,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct SyncSnarkedLedger {
+    // TODO(openapi): generate ToSchema in Base58CheckOfBinProt macro
+    #[cfg_attr(feature = "openapi", schema(value_type = Option<String>))]
     pub hash: Option<LedgerHash>,
     pub fetch_hashes_start: Option<Timestamp>,
     pub fetch_hashes_end: Option<Timestamp>,
@@ -117,7 +126,10 @@ pub struct SyncSnarkedLedger {
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct SyncStagedLedger {
+    // TODO(openapi): generate ToSchema in Base58CheckOfBinProt macro
+    #[cfg_attr(feature = "openapi", schema(value_type = Option<String>))]
     pub hash: Option<LedgerHash>,
     pub fetch_parts_start: Option<Timestamp>,
     pub fetch_parts_end: Option<Timestamp>,
@@ -126,6 +138,7 @@ pub struct SyncStagedLedger {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct SyncBlock {
     pub global_slot: Option<u32>,
     pub height: u32,
@@ -139,6 +152,7 @@ pub struct SyncBlock {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub enum SyncBlockStatus {
     Missing,
     Fetching,

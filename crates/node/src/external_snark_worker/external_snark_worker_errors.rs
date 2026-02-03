@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use super::SnarkWorkSpecError;
 
 #[derive(Clone, Debug, Serialize, Deserialize, thiserror::Error)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub enum ExternalSnarkWorkerError {
     #[error("error decoding binprot: {_0}")]
     BinprotError(String),
@@ -22,6 +23,7 @@ pub enum ExternalSnarkWorkerError {
 }
 
 #[derive(Clone, Debug, derive_more::From, Serialize, Deserialize, thiserror::Error)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub enum ExternalSnarkWorkerWorkError {
     #[error("invalid snark work specification: {_0}")]
     WorkSpecError(SnarkWorkSpecError),

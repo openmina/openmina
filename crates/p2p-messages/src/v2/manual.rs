@@ -456,6 +456,32 @@ impl serde::Serialize for PicklesProofProofsVerifiedMaxStableV2 {
     }
 }
 
+macro_rules! base58check_openapi_impl {
+    ($name:ident) => {
+        #[cfg(feature = "openapi")]
+        const _: () = {
+            use utoipa::openapi::schema::{Object, SchemaType, Type};
+            impl utoipa::PartialSchema for $name {
+                fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
+                    Object::builder()
+                        .schema_type(SchemaType::Type(Type::String))
+                        .description(Some("Base58check-encoded data"))
+                        .pattern(Some("^[1-9A-HJ-NP-Za-km-z]+$"))
+                        .build()
+                        .into()
+                }
+            }
+            impl utoipa::ToSchema for $name {
+                fn name() -> std::borrow::Cow<'static, str> {
+                    std::borrow::Cow::Borrowed(stringify!($name))
+                }
+            }
+        };
+    };
+}
+
+base58check_openapi_impl!(MinaBaseSignedCommandMemoStableV1);
+
 macro_rules! base58check_of_binprot {
     ($name:ident, versioned($ty:ty, $version:expr), $version_byte:ident) => {
         impl From<Versioned<$ty, $version>> for $ty {
@@ -469,18 +495,22 @@ macro_rules! base58check_of_binprot {
             Versioned<$ty, $version>,
             { $crate::b58version::$version_byte },
         >;
+
+        base58check_openapi_impl!($name);
     };
     ($name:ident, versioned $ty:ty, $version_byte:ident) => {
         base58check_of_binprot!($name, versioned($ty, 1), $version_byte);
     };
     ($name:ident, $ty:ty, $version_byte:ident) => {
         pub type $name = Base58CheckOfBinProt<$ty, $ty, { $crate::b58version::$version_byte }>;
+        base58check_openapi_impl!($name);
     };
 }
 
 macro_rules! base58check_of_bytes {
     ($name:ident, $ty:ty, $version_byte:ident) => {
         pub type $name = Base58CheckOfBytes<$ty, { $crate::b58version::$version_byte }>;
+        base58check_openapi_impl!($name);
     };
 }
 
@@ -722,6 +752,20 @@ pub type NonZeroCurvePoint = Base58CheckOfBinProt<
     Versioned<NonZeroCurvePointWithVersions, 1>,
     { crate::b58version::NON_ZERO_CURVE_POINT_COMPRESSED },
 >;
+
+#[cfg(feature = "openapi")]
+const _: () = {
+    impl utoipa::PartialSchema for NonZeroCurvePoint {
+        fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
+            <String as utoipa::PartialSchema>::schema()
+        }
+    }
+    impl utoipa::ToSchema for NonZeroCurvePoint {
+        fn name() -> std::borrow::Cow<'static, str> {
+            std::borrow::Cow::Borrowed("NonZeroCurvePoint")
+        }
+    }
+};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub enum ArchiveTransitionFrontierDiff {

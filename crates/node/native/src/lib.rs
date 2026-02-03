@@ -5,7 +5,7 @@
 //!
 //! This crate provides:
 //! - [`NodeBuilder`] - Fluent API for constructing nodes
-//! - [`http_server`] - Warp-based RPC HTTP server
+//! - HTTP server (axum-based) with REST API and GraphQL
 //! - [`NodeService`] - Native service implementations (P2P, ledger, proofs)
 //!
 //! Used by the CLI (`cli` crate) to instantiate and run nodes with RPC servers.

@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use super::SnarkJobId;
 
 #[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct SnarkJobCommitment {
     timestamp: u64,
     pub job_id: SnarkJobId,

@@ -37,6 +37,7 @@ thiserror = { workspace = true }
 time = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
 tracing = { workspace = true }
+utoipa = { workspace = true, optional = true }
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 redux = { workspace = true, features = ["serializable_callbacks"] }
@@ -53,3 +54,4 @@ serde_json = { workspace = true }
 
 [features]
 fuzzing = ["mina-fuzzer"]
+openapi = ["dep:utoipa", "mina-p2p-messages/openapi"]

@@ -1,6 +1,6 @@
 use account::{create_account_loader, AccountLoader, GraphQLAccount};
 use block::{GraphQLBlock, GraphQLSnarkJob, GraphQLUserCommands};
-use juniper::{graphql_value, EmptySubscription, FieldError, GraphQLEnum, RootNode};
+use juniper::{graphql_value, FieldError, GraphQLEnum};
 use ledger::{Account, AccountId};
 use mina_core::{
     block::AppliedBlock, consensus::ConsensusConstants, constants::constraint_constants,
@@ -32,7 +32,6 @@ use snark::{GraphQLPendingSnarkWork, GraphQLSnarkWorker};
 use std::str::FromStr;
 use tokio::sync::OnceCell;
 use transaction::GraphQLTransactionStatus;
-use warp::{Filter, Rejection, Reply};
 use zkapp::GraphQLZkapp;
 
 pub mod account;
@@ -757,22 +756,6 @@ impl Mutation {
 
         inject_tx(command, context).await
     }
-}
-
-pub fn routes(
-    rpc_sernder: RpcSender,
-) -> impl Filter<Error = Rejection, Extract = impl Reply> + Clone {
-    let state = warp::any().map(move || Context::new(rpc_sernder.clone()));
-    let schema = RootNode::new(Query, Mutation, EmptySubscription::<Context>::new());
-    let graphql_filter = juniper_warp::make_graphql_filter(schema, state.boxed());
-    let graphiql_filter = juniper_warp::graphiql_filter("/graphql", None);
-    let playground_filter = juniper_warp::playground_filter("/graphql", None);
-
-    (warp::post().and(warp::path("graphql")).and(graphql_filter))
-        .or(warp::get()
-            .and(warp::path("playground"))
-            .and(playground_filter))
-        .or(warp::get().and(warp::path("graphiql")).and(graphiql_filter))
 }
 
 /// Helper function used by [`Query::pooled_user_commands`] and

@@ -14,6 +14,7 @@ use mina_node_account::{AccountPublicKey, AccountSecretKey};
 /// Matches the representation used by o1js where each field is a string
 /// containing a decimal representation of the field.
 #[derive(Serialize, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct SignatureJson {
     pub field: String,
     pub scalar: String,
@@ -47,6 +48,7 @@ impl TryInto<Signature> for SignatureJson {
 
 /// A signed heartbeat message from a node
 #[derive(Serialize, Debug, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct SignedNodeHeartbeat {
     pub version: u8,
     /// base64 encoded json of the payload

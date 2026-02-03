@@ -52,36 +52,36 @@ pub fn server(rt: Runtime, host: Host, port: u16, ssl_port: Option<u16>) {
     let scenarios_router = Router::new()
         .route("/", get(scenario_list))
         .route("/", put(scenario_create))
-        .route("/:id", get(scenario_get))
-        .route("/:id/nodes", put(scenario_node_add))
-        .route("/:id/steps", put(scenario_step_add));
+        .route("/{id}", get(scenario_get))
+        .route("/{id}/nodes", put(scenario_node_add))
+        .route("/{id}/steps", put(scenario_step_add));
 
     let clusters_router = Router::new()
         .route("/", get(cluster_list))
-        .route("/create/:scenario_id", put(cluster_create))
-        .route("/:cluster_id", get(cluster_get))
-        .nest("/:cluster_id/webnode", webnode::router())
-        .route("/:cluster_id/run", post(cluster_run))
-        .route("/:cluster_id/run/auto", post(cluster_run_auto))
+        .route("/create/{scenario_id}", put(cluster_create))
+        .route("/{cluster_id}", get(cluster_get))
+        .nest("/{cluster_id}/webnode", webnode::router())
+        .route("/{cluster_id}/run", post(cluster_run))
+        .route("/{cluster_id}/run/auto", post(cluster_run_auto))
         .route(
-            "/:cluster_id/scenarios/reload",
+            "/{cluster_id}/scenarios/reload",
             post(cluster_scenarios_reload),
         )
         .route(
-            "/:cluster_id/mina/webrtc/signal/:offer",
+            "/{cluster_id}/mina/webrtc/signal/{offer}",
             get(cluster_webrtc_signal),
         )
-        .route("/:cluster_id/seeds", get(cluster_seeds))
-        .route("/:cluster_id/genesis/config", get(cluster_genesis_config))
+        .route("/{cluster_id}/seeds", get(cluster_seeds))
+        .route("/{cluster_id}/genesis/config", get(cluster_genesis_config))
         .route(
-            "/:cluster_id/nodes/events/pending",
+            "/{cluster_id}/nodes/events/pending",
             get(cluster_events_pending),
         )
         .route(
-            "/:cluster_id/nodes/:node_id/events/pending",
+            "/{cluster_id}/nodes/{node_id}/events/pending",
             get(cluster_node_events_pending),
         )
-        .route("/:cluster_id/destroy", post(cluster_destroy));
+        .route("/{cluster_id}/destroy", post(cluster_destroy));
 
     let cors = CorsLayer::very_permissive();
     let coop_coep = middleware::from_fn(|req, next: middleware::Next| async {

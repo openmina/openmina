@@ -696,6 +696,7 @@ pub mod transaction_snark {
     }
 
     #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+    #[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
     pub enum OneOrTwo<T> {
         One(T),
         Two((T, T)),

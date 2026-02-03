@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 anyhow = { workspace = true }
+axum = { workspace = true }
 bs58 = { workspace = true }
 bytes = { workspace = true }
 dataloader = { workspace = true }
@@ -14,11 +15,11 @@ getrandom = { workspace = true }
 hex = { workspace = true }
 jsonpath-rust = { workspace = true }
 juniper = { workspace = true }
-juniper_warp = { workspace = true }
+juniper_axum = { workspace = true }
 ledger = { workspace = true }
 libp2p-identity = { workspace = true, features = ["peerid"] }
 mina-core = { path = "../../core" }
-mina-node = { workspace = true, features = ["replay"] }
+mina-node = { workspace = true, features = ["replay", "openapi"] }
 mina-node-common = { path = "../common" }
 mina-p2p-messages = { workspace = true }
 mina-signer = { workspace = true }
@@ -37,11 +38,24 @@ strum = { workspace = true }
 strum_macros = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["process", "macros"] }
+tower-http = { workspace = true, features = ["cors"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-warp = { workspace = true }
+utoipa = { workspace = true }
+utoipa-axum = { workspace = true }
+utoipa-scalar = { workspace = true, optional = true, features = ["axum"] }
+utoipa-swagger-ui = { workspace = true, optional = true }
 
 [features]
-default = ["p2p-libp2p"]
-p2p-webrtc = ["mina-node-common/p2p-webrtc"]
+default = ["p2p-libp2p", "openapi-uis", "graphiql"]
+
+# P2P
 p2p-libp2p = ["mina-node-common/p2p-libp2p"]
+p2p-webrtc = ["mina-node-common/p2p-webrtc"]
+
+# API documentation UIs
+openapi-uis = ["swagger-ui", "scalar", "stoplight-elements"]
+swagger-ui = ["dep:utoipa-swagger-ui"]
+scalar = ["dep:utoipa-scalar"]
+stoplight-elements = []
+graphiql = []

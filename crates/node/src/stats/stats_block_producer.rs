@@ -20,6 +20,7 @@ pub struct BlockProducerStats {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct BlockProductionAttempt {
     pub won_slot: BlockProductionAttemptWonSlot,
     pub block: Option<ProducedBlock>,
@@ -29,15 +30,18 @@ pub struct BlockProductionAttempt {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct BlockProductionAttemptWonSlot {
     pub slot_time: redux::Timestamp,
     pub global_slot: u32,
     pub epoch: u32,
+    #[cfg_attr(feature = "openapi", schema(value_type = (String, String)))]
     pub delegator: (v2::NonZeroCurvePoint, AccountIndex),
     pub value_with_threshold: Option<(f64, f64)>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct BlockProductionTimes {
     pub scheduled: redux::Timestamp,
     pub staged_ledger_diff_create_start: Option<redux::Timestamp>,
@@ -52,6 +56,7 @@ pub struct BlockProductionTimes {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 #[serde(tag = "status")]
 pub enum BlockProductionStatus {
     Scheduled,
@@ -75,6 +80,7 @@ pub enum BlockProductionStatus {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct ProducedBlock {
     pub hash: BlockHash,
     pub height: u32,
@@ -86,6 +92,7 @@ pub struct ProducedBlock {
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct ProducedBlockTransactions {
     pub payments: u16,
     pub delegations: u16,
@@ -93,6 +100,7 @@ pub struct ProducedBlockTransactions {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct VrfEvaluatorStats {
     pub total_slots: u32,
     pub evaluated_slots: u32,

@@ -141,6 +141,37 @@ impl
     }
 }
 
+// ===== OpenAPI ToSchema impls =====
+//
+// LedgerHashTransition (aka SnarkJobId) and LedgerHashTransitionPasses serialize to strings
+// in human-readable format. Manual impls to avoid cascading ToSchema requirement on LedgerHash.
+#[cfg(feature = "openapi")]
+const _: () = {
+    use utoipa::{PartialSchema, ToSchema};
+
+    impl PartialSchema for LedgerHashTransitionPasses {
+        fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
+            <String as PartialSchema>::schema()
+        }
+    }
+    impl ToSchema for LedgerHashTransitionPasses {
+        fn name() -> std::borrow::Cow<'static, str> {
+            std::borrow::Cow::Borrowed("LedgerHashTransitionPasses")
+        }
+    }
+
+    impl PartialSchema for LedgerHashTransition {
+        fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
+            <String as PartialSchema>::schema()
+        }
+    }
+    impl ToSchema for LedgerHashTransition {
+        fn name() -> std::borrow::Cow<'static, str> {
+            std::borrow::Cow::Borrowed("SnarkJobId")
+        }
+    }
+};
+
 #[cfg(test)]
 mod tests {
     use super::*;
