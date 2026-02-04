@@ -1270,9 +1270,7 @@ pub struct PermsConst {
 /// - Flexible permission policies for different operations
 /// - Zero-knowledge application state and verification
 ///
-/// OCaml reference: src/lib/mina_base/account.ml L:201-224
-/// Commit: fc6be4c58091c761f827c858229c2edf9519e941
-/// Last verified: 2025-10-13
+/// OCaml: <https://github.com/MinaProtocol/mina/blob/fc6be4c58091c761f827c858229c2edf9519e941/src/lib/mina_base/account.ml#L201-L224>
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(into = "v2::MinaBaseAccountBinableArgStableV2")]
 #[serde(try_from = "v2::MinaBaseAccountBinableArgStableV2")]

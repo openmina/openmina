@@ -11,9 +11,9 @@ const CHUNK_SIZE: usize = 5_000;
 pub type ByteString = BoundedByteString<MINA_STRING_MAX_LENGTH>;
 pub type CharString = BoundedCharString<MINA_STRING_MAX_LENGTH>;
 
-// <https://github.com/MinaProtocol/mina/blob/c0c9d702b8cba34a603a28001c293ca462b1dfec/src/lib/mina_base/zkapp_account.ml#L140>
+/// OCaml: <https://github.com/MinaProtocol/mina/blob/c0c9d702b8cba34a603a28001c293ca462b1dfec/src/lib/mina_base/zkapp_account.ml#L140>
 pub const ZKAPP_URI_MAX_LENGTH: usize = 255;
-// <https://github.com/MinaProtocol/mina/blob/c0c9d702b8cba34a603a28001c293ca462b1dfec/src/lib/mina_base/account.ml#L92>
+/// OCaml: <https://github.com/MinaProtocol/mina/blob/c0c9d702b8cba34a603a28001c293ca462b1dfec/src/lib/mina_base/account.ml#L92>
 pub const TOKEN_SYMBOL_MAX_LENGTH: usize = 6;
 
 pub type ZkAppUri = BoundedCharString<ZKAPP_URI_MAX_LENGTH>;
