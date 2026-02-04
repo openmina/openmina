@@ -223,12 +223,12 @@ fn checked_hash_protocol_state(
 
     let mut inputs = Inputs::new();
     body.to_inputs(&mut inputs);
-    let body_hash = checked_hash(&MINA_PROTO_STATE_BODY, &inputs.to_fields(), w);
+    let body_hash = checked_hash(MINA_PROTO_STATE_BODY, &inputs.to_fields(), w);
 
     let mut inputs = Inputs::new();
     inputs.append_field(*previous_state_hash);
     inputs.append_field(body_hash);
-    let hash = checked_hash(&MINA_PROTO_STATE, &inputs.to_fields(), w);
+    let hash = checked_hash(MINA_PROTO_STATE, &inputs.to_fields(), w);
 
     Ok((hash, body_hash))
 }
@@ -245,12 +245,12 @@ fn checked_hash_protocol_state2(
 
     let mut inputs = Inputs::new();
     body.to_inputs(&mut inputs);
-    let body_hash = checked_hash(&MINA_PROTO_STATE_BODY, &inputs.to_fields(), w);
+    let body_hash = checked_hash(MINA_PROTO_STATE_BODY, &inputs.to_fields(), w);
 
     let mut inputs = Inputs::new();
     inputs.append_field(*previous_state_hash);
     inputs.append_field(body_hash);
-    let hash = checked_hash(&MINA_PROTO_STATE, &inputs.to_fields(), w);
+    let hash = checked_hash(MINA_PROTO_STATE, &inputs.to_fields(), w);
 
     (hash, body_hash)
 }
@@ -654,7 +654,7 @@ mod vrf {
 
     fn hash_to_group(m: &Message, w: &mut Witness<Fp>) -> GroupAffine<Fp> {
         let inputs = m.to_inputs_owned().to_fields();
-        let hash = checked_hash(&MINA_VRF_MESSAGE, &inputs, w);
+        let hash = checked_hash(MINA_VRF_MESSAGE, &inputs, w);
         crate::proofs::group_map::to_group(hash, w)
     }
 
@@ -690,7 +690,7 @@ mod vrf {
         inputs.append_field(x);
         inputs.append_field(y);
 
-        checked_hash(&MINA_VRF_OUTPUT, &inputs.to_fields(), w)
+        checked_hash(MINA_VRF_OUTPUT, &inputs.to_fields(), w)
     }
 
     fn eval_and_check_public_key(
@@ -1398,7 +1398,7 @@ pub mod consensus {
         };
 
         fn epoch_seed_update_var(seed: Fp, vrf_result: Fp, w: &mut Witness<Fp>) -> Fp {
-            checked_hash(&MINA_EPOCH_SEED, &[seed, vrf_result], w)
+            checked_hash(MINA_EPOCH_SEED, &[seed, vrf_result], w)
         }
 
         let next_epoch_data = {

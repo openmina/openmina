@@ -2272,7 +2272,7 @@ impl<AccUpdate: Clone + AccountUpdateRef> Tree<AccUpdate> {
         };
         let account_update_digest = self.account_update_digest.get().unwrap();
         hash_with_kimchi(
-            &MINA_ACCOUNT_UPDATE_NODE,
+            MINA_ACCOUNT_UPDATE_NODE,
             &[account_update_digest, stack_hash],
         )
     }
@@ -2384,7 +2384,7 @@ impl<AccUpdate: Clone + AccountUpdateRef> CallForest<AccUpdate> {
         let hash = tree.digest();
         let h_tl = self.hash();
 
-        let stack_hash = hash_with_kimchi(&MINA_ACCOUNT_UPDATE_CONS, &[hash, h_tl]);
+        let stack_hash = hash_with_kimchi(MINA_ACCOUNT_UPDATE_CONS, &[hash, h_tl]);
         let node = WithStackHash::<AccUpdate> {
             elt: tree,
             stack_hash: MutableFp::new(stack_hash),
@@ -2591,7 +2591,7 @@ impl<AccUpdate: Clone + AccountUpdateRef> CallForest<AccUpdate> {
     pub fn accumulate_hashes(&self) {
         /// <https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_command.ml#L293>
         fn cons(hash: Fp, h_tl: Fp) -> Fp {
-            hash_with_kimchi(&MINA_ACCOUNT_UPDATE_CONS, &[hash, h_tl])
+            hash_with_kimchi(MINA_ACCOUNT_UPDATE_CONS, &[hash, h_tl])
         }
 
         /// <https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_command.ml#L561>

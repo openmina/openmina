@@ -4535,7 +4535,6 @@ pub(super) mod tests {
     use core::panic;
     use std::path::Path;
 
-    use crate::hash::params::MINA_ZKAPP_EVENT;
     use mina_p2p_messages::binprot::{
         self,
         macros::{BinProtRead, BinProtWrite},

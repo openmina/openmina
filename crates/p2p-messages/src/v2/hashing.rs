@@ -871,56 +871,106 @@ impl FailableToInputs for MinaNumbersGlobalSlotSpanStableV1 {
 mod hash_tests {
     use binprot::BinProtRead;
 
+    use super::{super::manual, *};
     use crate::v2::{
         MinaBaseZkappCommandTStableV1WireStableV1, MinaStateProtocolStateValueStableV2,
     };
+    use manual::MinaBaseSignedCommandMemoStableV1;
+
+    fn pub_key(address: &str) -> manual::NonZeroCurvePoint {
+        let key = mina_signer::PubKey::from_address(address)
+            .unwrap()
+            .into_compressed();
+        let v = generated::NonZeroCurvePointUncompressedStableV1 {
+            x: crate::bigint::BigInt::from(key.x),
+            is_odd: key.is_odd,
+        };
+        v.into()
+    }
+
+    fn tx_hash(
+        from: &str,
+        to: &str,
+        amount: u64,
+        fee: u64,
+        nonce: u32,
+        valid_until: u32,
+    ) -> String {
+        use crate::{number::Number, string::CharString};
+
+        let from = pub_key(from);
+        let to = pub_key(to);
+
+        let v = Number(fee);
+        let v = generated::UnsignedExtendedUInt64Int64ForVersionTagsStableV1(v);
+        let fee = generated::CurrencyFeeStableV1(v);
+
+        let nonce = generated::UnsignedExtendedUInt32StableV1(Number(nonce));
+
+        let valid_until = generated::UnsignedExtendedUInt32StableV1(Number(valid_until));
+
+        let memo = bs58::decode("E4Yks7aARFemZJqucP5eaARRYRthGdzaFjGfXqQRS3UeidsECRBvR")
+            .with_check(Some(0x14))
+            .into_vec()
+            .unwrap()[1..]
+            .to_vec();
+        let v = CharString::from(&memo[..]);
+        let memo = MinaBaseSignedCommandMemoStableV1(v);
+
+        let common = generated::MinaBaseSignedCommandPayloadCommonStableV2 {
+            fee,
+            fee_payer_pk: from.clone(),
+            nonce,
+            valid_until: MinaNumbersGlobalSlotSinceGenesisMStableV1::SinceGenesis(valid_until),
+            memo,
+        };
+
+        let v = Number(amount);
+        let v = generated::UnsignedExtendedUInt64Int64ForVersionTagsStableV1(v);
+        let amount = generated::CurrencyAmountStableV1(v);
+
+        let v = generated::MinaBasePaymentPayloadStableV2 {
+            receiver_pk: to.clone(),
+            amount,
+        };
+        let body = generated::MinaBaseSignedCommandPayloadBodyStableV2::Payment(v);
+
+        let payload = generated::MinaBaseSignedCommandPayloadStableV2 { common, body };
+
+        // Some random signature. hasher should ignore it and use default.
+        let signature = generated::MinaBaseSignatureStableV1(
+            BigInt::binprot_read(&mut &[122; 32][..]).unwrap(),
+            BigInt::binprot_read(&mut &[123; 32][..]).unwrap(),
+        );
+
+        let v = generated::MinaBaseSignedCommandStableV2 {
+            payload,
+            signer: from.clone(),
+            signature: signature.into(),
+        };
+        let v = generated::MinaBaseUserCommandStableV2::SignedCommand(v);
+        dbg!(v.hash().unwrap()).to_string()
+    }
 
     #[test]
     #[ignore = "fix expected hash/hasing"]
-    fn state_hash() {
-        const HASH: &str = "3NKpXp2SXWGC3XHnAJYjGtNcbq8tzossqj6kK4eGr6mSyJoFmpxR";
-        const JSON: &str = include_str!("../../tests/files/v2/state/617-3NKpXp2SXWGC3XHnAJYjGtNcbq8tzossqj6kK4eGr6mSyJoFmpxR.json");
+    fn test_payment_hash_1() {
+        let expected_hash = "5JthQdVqzEJRLBLALeuwPdbnGhFmCow2bVnkfHGH6vZ7R6fiMf2o";
+        let expected_tx_hash: TransactionHash = expected_hash.parse().unwrap();
+        dbg!(expected_tx_hash);
 
-        let state: MinaStateProtocolStateValueStableV2 = serde_json::from_str(JSON).unwrap();
-        let hash = state.try_hash().unwrap();
-        let expected_hash = serde_json::from_value(serde_json::json!(HASH)).unwrap();
-        assert_eq!(hash, expected_hash)
+        assert_eq!(
+            tx_hash(
+                "B62qp3B9VW1ir5qL1MWRwr6ecjC2NZbGr8vysGeme9vXGcFXTMNXb2t",
+                "B62qoieQNrsNKCNTZ6R4D6cib3NxVbkwZaAtRVbfS3ndrb2MkFJ1UVJ",
+                1089541195,
+                89541195,
+                26100,
+                u32::MAX,
+            ),
+            expected_hash
+        )
     }
-
-    #[test]
-    fn test_zkapp_with_proof_auth_hash() {
-        // expected: 5JtkEP5AugQKKQAk3YKFxxUDggWf8AiAYyCQy49t2kLHRgPqcP8o
-        // MinaBaseZkappCommandTStableV1WireStableV1
-        //
-        let expected_hash = "5JtkEP5AugQKKQAk3YKFxxUDggWf8AiAYyCQy49t2kLHRgPqcP8o".to_string();
-        let bytes = include_bytes!("../../../../tests/files/zkapps/with_proof_auth.bin");
-        let zkapp =
-            MinaBaseZkappCommandTStableV1WireStableV1::binprot_read(&mut bytes.as_slice()).unwrap();
-        let hash = zkapp.hash().unwrap().to_string();
-
-        assert_eq!(expected_hash, hash);
-    }
-
-    #[test]
-
-    fn test_zkapp_with_sig_auth_hash() {
-        let expected_hash = "5JvQ6xQeGgCTe2d4KpCsJ97yK61mNRZHixJxPbKTppY1qSGgtj6t".to_string();
-        let bytes = include_bytes!("../../../../tests/files/zkapps/with_sig_auth.bin");
-        let zkapp =
-            MinaBaseZkappCommandTStableV1WireStableV1::binprot_read(&mut bytes.as_slice()).unwrap();
-        let hash = zkapp.hash().unwrap().to_string();
-
-        assert_eq!(expected_hash, hash);
-    }
-}
-
-#[cfg(test)]
-mod hash_tests {
-    use binprot::BinProtRead;
-
-    use crate::v2::{
-        MinaBaseZkappCommandTStableV1WireStableV1, MinaStateProtocolStateValueStableV2,
-    };
 
     #[test]
     #[ignore = "fix expected hash/hasing"]

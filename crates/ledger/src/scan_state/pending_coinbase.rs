@@ -156,7 +156,7 @@ impl CoinbaseStack {
         inputs.append(&CoinbaseData::of_coinbase(cb));
         inputs.append_field(self.0);
 
-        let hash = hash_with_kimchi(&COINBASE_STACK, &inputs.to_fields());
+        let hash = hash_with_kimchi(COINBASE_STACK, &inputs.to_fields());
         Self(hash)
     }
 
@@ -166,7 +166,7 @@ impl CoinbaseStack {
         inputs.append(&CoinbaseData::of_coinbase(cb));
         inputs.append_field(self.0);
 
-        let hash = checked_hash(&COINBASE_STACK, &inputs.to_fields(), w);
+        let hash = checked_hash(COINBASE_STACK, &inputs.to_fields(), w);
         Self(hash)
     }
 
@@ -180,7 +180,7 @@ impl CoinbaseStack {
 
     /// <https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/pending_coinbase.ml#L188>
     pub fn empty() -> Self {
-        Self(hash_noinputs(&NO_INPUT_COINBASE_STACK))
+        Self(hash_noinputs(NO_INPUT_COINBASE_STACK))
     }
 
     /// Used for tests/debug only
@@ -227,7 +227,7 @@ impl StateStack {
         inputs.append_field(state_body_hash);
         inputs.append_field(global_slot.to_field());
 
-        let hash = hash_with_kimchi(&MINA_PROTO_STATE, &inputs.to_fields());
+        let hash = hash_with_kimchi(MINA_PROTO_STATE, &inputs.to_fields());
 
         Self {
             init: self.init,
@@ -247,7 +247,7 @@ impl StateStack {
         inputs.append_field(state_body_hash);
         inputs.append_field(global_slot.to_field());
 
-        let hash = checked_hash(&MINA_PROTO_STATE, &inputs.to_fields(), w);
+        let hash = checked_hash(MINA_PROTO_STATE, &inputs.to_fields(), w);
 
         Self {
             init: self.init,
@@ -458,7 +458,7 @@ impl Stack {
     }
 
     fn hash_var(&self, w: &mut Witness<Fp>) -> Fp {
-        checked_hash(&COINBASE_STACK, &self.to_inputs_owned().to_fields(), w)
+        checked_hash(COINBASE_STACK, &self.to_inputs_owned().to_fields(), w)
     }
 }
 

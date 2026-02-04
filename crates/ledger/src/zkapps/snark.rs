@@ -183,7 +183,7 @@ impl ZkappHandler for SnarkHandler {
         let account2 = account.clone();
         let account = WithLazyHash::new(account, move |w: &mut Witness<Fp>| {
             let zkapp = MyCow::borrow_or_default(&account2.zkapp);
-            zkapp.checked_hash_with_param(&MINA_ZKAPP_ACCOUNT, w);
+            zkapp.checked_hash_with_param(MINA_ZKAPP_ACCOUNT, w);
             account2.checked_hash(w)
         });
         account
@@ -306,8 +306,8 @@ impl CallForestInterface for SnarkCallForest {
             [x, ..] => x.stack_hash.get().unwrap(), // Never fail, it was already hashed
         });
         let tree_hash = [account_update.hash, subforest.hash]
-            .checked_hash_with_param(&MINA_ACCOUNT_UPDATE_NODE, w);
-        let _hash_cons = [tree_hash, tl_hash].checked_hash_with_param(&MINA_ACCOUNT_UPDATE_CONS, w);
+            .checked_hash_with_param(MINA_ACCOUNT_UPDATE_NODE, w);
+        let _hash_cons = [tree_hash, tl_hash].checked_hash_with_param(MINA_ACCOUNT_UPDATE_CONS, w);
         let account = Self::AccountUpdate {
             body: account_update,
             authorization: auth.clone(),
@@ -417,7 +417,7 @@ impl StackFrameInterface for StackFrameChecked {
 
 /// Call_stack_digest.Checked.cons
 fn call_stack_digest_checked_cons(h: Fp, t: Fp, w: &mut Witness<Fp>) -> Fp {
-    checked_hash(&MINA_ACCOUNT_UPDATE_STACK_FRAME_CONS, &[h, t], w)
+    checked_hash(MINA_ACCOUNT_UPDATE_STACK_FRAME_CONS, &[h, t], w)
 }
 
 impl StackInterface for WithHash<Vec<WithStackHash<WithHash<StackFrame>>>> {
@@ -881,7 +881,7 @@ impl AccountInterface for SnarkAccount {
                     .as_ref()
                     .unwrap();
                 let vk = w.exists(vk.vk());
-                vk.checked_hash_with_param(&MINA_SIDELOADED_VK, w);
+                vk.checked_hash_with_param(MINA_SIDELOADED_VK, w);
             }
             Signature | NoneGiven => {}
         }
@@ -1029,7 +1029,7 @@ impl LedgerInterface for LedgerWithHash {
         let account2 = account.0.clone();
         let account = WithLazyHash::new(account.0, move |w: &mut Witness<Fp>| {
             let zkapp = MyCow::borrow_or_default(&account2.zkapp);
-            zkapp.checked_hash_with_param(&MINA_ZKAPP_ACCOUNT, w);
+            zkapp.checked_hash_with_param(MINA_ZKAPP_ACCOUNT, w);
             account2.checked_hash(w)
         });
         let inclusion = w.exists(
@@ -1112,7 +1112,7 @@ impl AccountIdInterface for SnarkAccountId {
     type W = Witness<Fp>;
 
     fn derive_token_id(account_id: &AccountId, w: &mut Self::W) -> TokenId {
-        TokenId(account_id.checked_hash_with_param(&MINA_DERIVE_TOKEN_ID, w))
+        TokenId(account_id.checked_hash_with_param(MINA_DERIVE_TOKEN_ID, w))
     }
 }
 
@@ -1220,8 +1220,7 @@ impl TransactionCommitmentInterface for SnarkTransactionCommitment {
     ) -> Fp {
         let fee_payer_hash = account_updates.body.hash;
 
-        [memo_hash, fee_payer_hash, commitment]
-            .checked_hash_with_param(&MINA_ACCOUNT_UPDATE_CONS, w)
+        [memo_hash, fee_payer_hash, commitment].checked_hash_with_param(MINA_ACCOUNT_UPDATE_CONS, w)
     }
 }
 
@@ -1373,7 +1372,7 @@ impl ActionsInterface for SnarkActions {
 
     fn push_events(event: Fp, actions: &zkapp_command::Actions, w: &mut Self::W) -> Fp {
         let hash = zkapp_command::events_to_field(actions);
-        checked_hash(&MINA_ZKAPP_SEQ_EVENTS, &[event, hash], w)
+        checked_hash(MINA_ZKAPP_SEQ_EVENTS, &[event, hash], w)
     }
 }
 
@@ -1393,7 +1392,7 @@ impl ReceiptChainHashInterface for SnarkReceiptChainHash {
         inputs.append_field(element);
         inputs.append(&other);
 
-        ReceiptChainHash(checked_hash(&CODA_RECEIPT_UC, &inputs.to_fields(), w))
+        ReceiptChainHash(checked_hash(CODA_RECEIPT_UC, &inputs.to_fields(), w))
     }
 }
 

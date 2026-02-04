@@ -67,14 +67,20 @@ Remove the local `poseidon` crate and standardize all hashing (Pure and Witness-
 
     - [x] Delete `poseidon` directory.
 
-- [ ] **Final Verification:**
+- [x] **Final Verification:**
 
-    - [ ] `mina-p2p-messages` fixed and compiling.
+    - [x] `mina-p2p-messages` fixed and compiling.
 
-    - [ ] `mina-core` fixed and compiling.
+    - [x] `hash_input.rs` tests fixed and passing (7/7).
+
+    - [x] `mina-core` fixed and compiling.
 
     - [x] `mina-tree` fixed and compiling.
 
-    - [ ] `mina-snark` pending fixes for `MerkleTreeNode` and `DomainParameter`.
+    - [ ] `mina-snark` fixes in progress (pending `MerkleTreeNode`, `usize` domain parameter, and `Clone` bounds).
 
-    - [ ] Full workspace build and test.
+    - [ ] Full workspace build (`cargo check --workspace` passes).
+
+
+
+
