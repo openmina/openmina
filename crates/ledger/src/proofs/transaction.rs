@@ -25,7 +25,10 @@ use mina_p2p_messages::{
         UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
     },
 };
-use mina_poseidon::{constants::PlonkSpongeConstantsKimchi, pasta::FULL_ROUNDS};
+use mina_poseidon::{
+    constants::PlonkSpongeConstantsKimchi,
+    pasta::{FULL_ROUNDS, LEGACY_ROUNDS},
+};
 use mina_signer::{CompressedPubKey, PubKey};
 use poly_commitment::commitment::CommitmentCurve;
 
@@ -1770,28 +1773,25 @@ pub mod poseidon {
     use mina_poseidon::poseidon::ArithmeticSpongeParams;
 
     pub trait SpongeParamsForField<F: FieldWitness> {
-        fn get_params(is_legacy: bool) -> &'static ArithmeticSpongeParams<F, FULL_ROUNDS>;
+        fn kimchi_params() -> &'static ArithmeticSpongeParams<F, FULL_ROUNDS>;
+        fn legacy_params() -> &'static ArithmeticSpongeParams<F, LEGACY_ROUNDS>;
     }
 
     impl SpongeParamsForField<Fp> for Fp {
-        fn get_params(is_legacy: bool) -> &'static ArithmeticSpongeParams<Fp, FULL_ROUNDS> {
-            use mina_poseidon::pasta::{fp_kimchi, fp_legacy};
-            if is_legacy {
-                unsafe { std::mem::transmute(fp_legacy::static_params()) }
-            } else {
-                fp_kimchi::static_params()
-            }
+        fn kimchi_params() -> &'static ArithmeticSpongeParams<Fp, FULL_ROUNDS> {
+            mina_poseidon::pasta::fp_kimchi::static_params()
+        }
+        fn legacy_params() -> &'static ArithmeticSpongeParams<Fp, LEGACY_ROUNDS> {
+            mina_poseidon::pasta::fp_legacy::static_params()
         }
     }
 
     impl SpongeParamsForField<Fq> for Fq {
-        fn get_params(is_legacy: bool) -> &'static ArithmeticSpongeParams<Fq, FULL_ROUNDS> {
-            use mina_poseidon::pasta::{fq_kimchi, fq_legacy};
-            if is_legacy {
-                unsafe { std::mem::transmute(fq_legacy::static_params()) }
-            } else {
-                fq_kimchi::static_params()
-            }
+        fn kimchi_params() -> &'static ArithmeticSpongeParams<Fq, FULL_ROUNDS> {
+            mina_poseidon::pasta::fq_kimchi::static_params()
+        }
+        fn legacy_params() -> &'static ArithmeticSpongeParams<Fq, LEGACY_ROUNDS> {
+            mina_poseidon::pasta::fq_legacy::static_params()
         }
     }
 
@@ -1990,13 +1990,11 @@ pub mod poseidon {
         }
 
         pub fn poseidon_block_cipher(&mut self, first: bool, w: &mut Witness<F>) {
-            let is_legacy = C::PERM_INITIAL_ARK;
-            let params = <F as SpongeParamsForField<F>>::get_params(is_legacy);
-            let round_constants = &params.round_constants;
-
             if C::PERM_HALF_ROUNDS_FULL == 0 {
                 if C::PERM_INITIAL_ARK {
                     // legacy
+                    let params = F::legacy_params();
+                    let round_constants = &params.round_constants;
 
                     for (i, x) in round_constants[0].iter().enumerate() {
                         self.state[i].add_assign(x);
@@ -2012,7 +2010,6 @@ pub mod poseidon {
                     }
                 } else {
                     // non-legacy
-
                     w.exists(self.state);
                     for r in 0..C::PERM_ROUNDS_FULL {
                         self.full_round(r, first, w);
@@ -2024,25 +2021,32 @@ pub mod poseidon {
         }
 
         pub fn full_round(&mut self, r: usize, first: bool, w: &mut Witness<F>) {
-            let is_legacy = C::PERM_INITIAL_ARK;
-            let params = <F as SpongeParamsForField<F>>::get_params(is_legacy);
-            let round_constants = &params.round_constants;
-
             for (index, state_i) in self.state.iter_mut().enumerate() {
                 let push_witness = !(first && index == 2);
                 *state_i = sbox::<F, C>(*state_i, push_witness, w);
             }
             self.state = apply_mds_matrix::<F, C>(&self.state);
-            for (i, x) in round_constants[r].iter().enumerate() {
-                self.state[i].add_assign(x);
-                if C::PERM_SBOX == 5 {
-                    // legacy
-                    w.exists(self.state[i]); // Good
+
+            if C::PERM_INITIAL_ARK {
+                // legacy
+                let params = F::legacy_params();
+                let round_constants = &params.round_constants;
+                for (i, x) in round_constants[r].iter().enumerate() {
+                    self.state[i].add_assign(x);
+                    if C::PERM_SBOX == 5 {
+                        w.exists(self.state[i]); // Good
+                    }
                 }
-            }
-            if C::PERM_SBOX == 7 {
+            } else {
                 // non-legacy
-                w.exists(self.state);
+                let params = F::kimchi_params();
+                let round_constants = &params.round_constants;
+                for (i, x) in round_constants[r].iter().enumerate() {
+                    self.state[i].add_assign(x);
+                }
+                if C::PERM_SBOX == 7 {
+                    w.exists(self.state);
+                }
             }
         }
     }
@@ -2087,9 +2091,11 @@ pub mod poseidon {
     >(
         state: &[F; 3],
     ) -> [F; 3] {
-        let is_legacy = C::PERM_INITIAL_ARK;
-        let params = <F as SpongeParamsForField<F>>::get_params(is_legacy);
-        let mds = &params.mds;
+        let mds = if C::PERM_INITIAL_ARK {
+            &F::legacy_params().mds
+        } else {
+            &F::kimchi_params().mds
+        };
 
         if C::PERM_FULL_MDS {
             mds.map(|md| state.iter().zip(md).fold(F::zero(), |x, (s, m)| m * *s + x))

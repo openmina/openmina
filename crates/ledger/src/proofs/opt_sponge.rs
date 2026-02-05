@@ -276,7 +276,7 @@ fn full_round<F: FieldWitness + SpongeParamsForField<F>>(
     r: usize,
     w: &mut Witness<F>,
 ) {
-    let round_constants = &<F as SpongeParamsForField<F>>::get_params(false).round_constants;
+    let round_constants = &<F as SpongeParamsForField<F>>::kimchi_params().round_constants;
 
     for state_i in state.iter_mut() {
         *state_i = sbox(*state_i);
@@ -299,7 +299,7 @@ fn sbox<F: FieldWitness>(x: F) -> F {
 }
 
 fn apply_mds_matrix<F: FieldWitness + SpongeParamsForField<F>>(state: &[F; 3]) -> [F; 3] {
-    let mds = &<F as SpongeParamsForField<F>>::get_params(false).mds;
+    let mds = &<F as SpongeParamsForField<F>>::kimchi_params().mds;
 
     mds.map(|md| state.iter().zip(md).fold(F::zero(), |x, (s, m)| m * *s + x))
 }
