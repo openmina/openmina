@@ -41,7 +41,7 @@
 - [x] `2755060231`: "🤔 this is already in the mina-poseidon crate..." (line 1)
 
 ### crates/ledger/src/proofs/transaction.rs
-- [ ] `2755065161`: "This could be a const" (line 1774)
+- [x] `2755065161`: "This could be a const" (line 1774)
     - *Note: Refactoring to associated constants. PERM_ROUNDS_FULL for Legacy is currently 63, but LEGACY_ROUNDS is 100. Leaving at 63 for now but may need to sync later.*
 - [ ] `2766024062`: "These probably shouldn't be pub" (line 1589)
 - [ ] `2766025289`: "Comment on sizes here" (line 1602)
