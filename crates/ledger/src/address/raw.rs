@@ -499,7 +499,7 @@ impl<const NBYTES: usize> Address<NBYTES> {
         use crate::proofs::transaction::legacy_input::bits_iter;
 
         let AccountIndex(index) = self.to_index();
-        let mut bits = bits_iter::<_, NBITS>(index).take(NBITS);
+        let mut bits = bits_iter::<_, NBITS>(&index).take(NBITS);
         std::array::from_fn(|_| bits.next().unwrap())
     }
 }

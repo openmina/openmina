@@ -527,7 +527,7 @@ macro_rules! impl_number {
             pub fn to_bits(&self) -> [bool; <$inner>::BITS as usize] {
                 use crate::proofs::transaction::legacy_input::bits_iter;
 
-                let mut iter = bits_iter::<$inner, { <$inner>::BITS as usize }>(self.0);
+                let mut iter = bits_iter::<$inner, { <$inner>::BITS as usize }>(&self.0);
                 std::array::from_fn(|_| iter.next().unwrap())
             }
 

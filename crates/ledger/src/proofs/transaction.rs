@@ -1549,6 +1549,8 @@ pub mod legacy_input {
     use crate::scan_state::transaction_logic::transaction_union_payload::{
         Body, Common, TransactionUnionPayload,
     };
+    use bitvec::{order::Lsb0, vec::BitVec};
+    use bytemuck::Pod;
 
     use super::*;
 
@@ -1578,20 +1580,23 @@ pub mod legacy_input {
         }
     }
 
-    pub fn bits_iter<N: Into<u64>, const NBITS: usize>(number: N) -> impl Iterator<Item = bool> {
-        let number: u64 = number.into();
-        BitsIterator::new(number.to_ne_bytes()).take(NBITS)
+    pub fn bits_iter<N: Pod, const NBITS: usize>(number: &N) -> impl Iterator<Item = bool> + '_ {
+        let bytes = bytemuck::bytes_of(number);
+        bytes
+            .iter()
+            .flat_map(|byte| (0..8).map(move |i| (byte & (1 << i)) != 0))
+            .take(NBITS)
     }
 
-    pub fn to_bits<N: Into<u64>, const NBITS: usize>(number: N) -> [bool; NBITS] {
-        let mut iter = bits_iter::<N, NBITS>(number);
+    pub fn to_bits<N: Pod, const NBITS: usize>(number: N) -> [bool; NBITS] {
+        let mut iter = bits_iter::<N, NBITS>(&number);
         std::array::from_fn(|_| iter.next().unwrap())
     }
 
     #[derive(Clone, Debug)]
     pub struct LegacyInputs<F: Field> {
-        pub fields: Vec<F>,
-        pub bits: Vec<bool>,
+        fields: Vec<F>,
+        bits: BitVec<u8, Lsb0>,
     }
 
     impl<F: Field> Default for LegacyInputs<F> {
@@ -1603,8 +1608,10 @@ pub mod legacy_input {
     impl<F: Field> LegacyInputs<F> {
         pub fn new() -> Self {
             Self {
+                // Sufficiently large capacities to avoid frequent reallocations
+                // during legacy input accumulation.
                 fields: Vec::with_capacity(256),
-                bits: Vec::with_capacity(512),
+                bits: BitVec::with_capacity(512),
             }
         }
 
@@ -1617,19 +1624,11 @@ pub mod legacy_input {
         }
 
         pub fn append_bits(&mut self, bits: &[bool]) {
-            self.bits.extend(bits);
+            self.bits.extend(bits.iter().copied());
         }
 
         pub fn append_bytes(&mut self, bytes: &[u8]) {
-            const BITS: [u8; 8] = [1, 2, 4, 8, 16, 32, 64, 128];
-
-            self.bits.reserve(bytes.len() * 8);
-
-            for byte in bytes {
-                for bit in BITS {
-                    self.append_bit(byte & bit != 0);
-                }
-            }
+            self.bits.extend_from_raw_slice(bytes);
         }
 
         pub fn append_u64(&mut self, value: u64) {
@@ -1651,7 +1650,7 @@ pub mod legacy_input {
             const NBITS: usize = 255 - 1;
 
             self.fields.reserve(self.bits.len() / NBITS);
-            self.fields.extend(self.bits.chunks(NBITS).map(|bits| {
+            for bits in self.bits.chunks(NBITS) {
                 let mut field = [0u64; 4];
                 for (index, bit) in bits.iter().enumerate() {
                     let limb_index = index / 64;
@@ -1660,15 +1659,22 @@ pub mod legacy_input {
                         field[limb_index] |= 1 << bit_index;
                     }
                 }
-                F::from(BigInteger256::new(field)) // Never fail
-            }));
+                self.fields.push(F::from(BigInteger256::new(field)));
+            }
             self.fields
         }
     }
 
+    /// A trait for types that can be converted into legacy hash inputs within a
+    /// SNARK circuit. This is used for legacy transaction hashing where inputs
+    /// are accumulated as a combination of field elements and bits.
     pub trait CheckedLegacyInput<F: FieldWitness> {
+        /// Accumulates the legacy inputs from `self` into the provided `inputs`
+        /// buffer, using the witness `w` for any necessary circuit operations.
         fn to_checked_legacy_input(&self, inputs: &mut LegacyInputs<F>, w: &mut Witness<F>);
 
+        /// Creates a new `LegacyInputs` buffer and accumulates the inputs from
+        /// `self` into it.
         fn to_checked_legacy_input_owned(&self, w: &mut Witness<F>) -> LegacyInputs<F> {
             let mut inputs = LegacyInputs::new();
             self.to_checked_legacy_input(&mut inputs, w);
@@ -1764,7 +1770,7 @@ pub mod poseidon {
     }
 
     impl SpongeConstants for PlonkSpongeConstantsLegacy {
-        const PERM_ROUNDS_FULL: usize = 63;
+        const PERM_ROUNDS_FULL: usize = 100;
         const PERM_ROUNDS_PARTIAL: usize = 0;
         const PERM_HALF_ROUNDS_FULL: usize = 0;
         const PERM_SBOX: u32 = 5;
@@ -1820,10 +1826,6 @@ pub mod poseidon {
         F: FieldWitness + SpongeParamsForField<F>,
         C: SpongeConstants,
     {
-        pub fn new_with_state_params(state: [F; 3]) -> Self {
-            Self::new_with_state(state)
-        }
-
         pub fn new_with_state(state: [F; 3]) -> Self {
             Self {
                 state,
@@ -2053,6 +2055,10 @@ pub mod poseidon {
         }
     }
 
+    /// Applies the S-box transformation to the field element `x`.
+    /// For legacy Poseidon (exponent 5), intermediate values are manually
+    /// recorded in the provided witness `w` to satisfy circuit constraints
+    /// during proof generation.
     pub fn sbox<F: FieldWitness, C: SpongeConstants>(
         x: F,
         push_witness: bool,
@@ -2709,7 +2715,7 @@ pub mod transaction_snark {
             mina_hasher::create_kimchi::<GenericHashable>(CustomDomain(domain.to_string()));
         let initial_state: [Fp; 3] = hasher.state.clone().try_into().unwrap();
 
-        let mut sponge = poseidon::Sponge::<Fp, Constants>::new_with_state_params(initial_state);
+        let mut sponge = poseidon::Sponge::<Fp, Constants>::new_with_state(initial_state);
         sponge.absorb(&inputs.to_fields(), w);
         sponge.squeeze(w)
     }
@@ -3039,7 +3045,7 @@ pub mod transaction_snark {
         fee_payer.checked_equal(&source, w);
         current_global_slot.lte(&payload.common.valid_until.to_checked(), w);
 
-        let state_body_hash = state_body.checked_hash_with_param("MinaProtoStateBody", w);
+        let state_body_hash = state_body.checked_hash_with_param(crate::hash::MINA_PROTO_STATE_BODY, w);
 
         let pending_coinbase_stack_with_state =
             pending_coinbase_init.checked_push_state(state_body_hash, current_global_slot, w);
@@ -3864,6 +3870,10 @@ pub fn messages_for_next_wrap_proof_padding() -> Fp {
     })
 }
 
+/// Performs Poseidon hashing of the provided inputs within a SNARK circuit.
+/// This is "checked" because it records the sponge's intermediate states
+/// into the provided witness `w`, which is necessary for generating
+/// transaction proofs.
 pub fn checked_hash2<F: FieldWitness + poseidon::SpongeParamsForField<F>>(
     inputs: &[F],
     w: &mut Witness<F>,
@@ -3873,6 +3883,9 @@ pub fn checked_hash2<F: FieldWitness + poseidon::SpongeParamsForField<F>>(
     sponge.squeeze(w)
 }
 
+/// Performs Poseidon hashing of the provided inputs within a SNARK circuit
+/// using the "absorb3" variant. This is "checked" because it records the
+/// sponge's intermediate states into the provided witness `w`.
 pub fn checked_hash3<F: FieldWitness + poseidon::SpongeParamsForField<F>>(
     inputs: &[F],
     w: &mut Witness<F>,
@@ -4859,11 +4872,11 @@ pub(super) mod tests {
             "6963060754718463299978089777716994949151371320681588566338620419071140958308";
 
         let mut w = Witness::empty();
-        let hash = transaction_snark::checked_hash("MinaZkappEvent", &[], &mut w);
+        let hash = transaction_snark::checked_hash(crate::hash::params::MINA_ZKAPP_EVENT, &[], &mut w);
         assert_eq!(hash, Fp::from_str(EXPECTED).unwrap());
 
         let mut w = Witness::empty();
-        let hash = transaction_snark::checked_hash3("MinaZkappEvent", &[], &mut w);
+        let hash = transaction_snark::checked_hash3(crate::hash::params::MINA_ZKAPP_EVENT, &[], &mut w);
         assert_eq!(hash, Fp::from_str(EXPECTED).unwrap());
     }
 

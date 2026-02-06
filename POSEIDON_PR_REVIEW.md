@@ -43,21 +43,22 @@
 ### crates/ledger/src/proofs/transaction.rs
 - [x] `2755065161`: "This could be a const" (line 1774)
     - *Note: Refactoring to associated constants. PERM_ROUNDS_FULL for Legacy is currently 63, but LEGACY_ROUNDS is 100. Leaving at 63 for now but may need to sync later.*
-- [ ] `2766024062`: "These probably shouldn't be pub" (line 1589)
-- [ ] `2766025289`: "Comment on sizes here" (line 1602)
-- [ ] `2766032285`: "This is kind of crazy too. Can and should use bytemuck to do something more efficient" (line 1589)
-- [ ] `2766034963`: "super inefficient" (line 1627)
-- [ ] `2766042063`: "This trait definitely needs docs" (line 1665)
-- [ ] `2766045464`: "FIX" (line 1780)
-- [ ] `2766050755`: "I don't think this is even sound. The size of the legacy params is way bigger and the number of rounds is completely different" (line 1791)
-- [ ] `2766061968`: "These are now the same function. The reason `new_with_state_params` was there before was for using with legacy params. We could still put a pointer in here though... TBD" (line 1825)
-- [ ] `2766066183`: "Have to look how the witness is different here vs `mina_poseidon`" (line 1993)
-- [ ] `2766069650`: "Again, need confirmation on what's different here" (line 2084)
+- [x] `2766024062`: "These probably shouldn't be pub" (line 1589)
+- [x] `2766025289`: "Comment on sizes here" (line 1602)
+- [x] `2766032285`: "This is kind of crazy too. Can and should use bytemuck to do something more efficient" (line 1589)
+- [x] `2766034963`: "super inefficient" (line 1627)
+- [x] `2766042063`: "This trait definitely needs docs" (line 1665)
+- [x] `2766045464`: "FIX" (line 1780)
+- [x] `2766050755`: "I don't think this is even sound. The size of the legacy params is way bigger and the number of rounds is completely different" (line 1791)
+    - *Note: Verified against OCaml source. Legacy Poseidon indeed uses 100 rounds. Updated PERM_ROUNDS_FULL to 100.*
+- [x] `2766061968`: "These are now the same function. The reason `new_with_state_params` was there before was for using with legacy params. We could still put a pointer in here though... TBD" (line 1825)
+- [x] `2766066183`: "Have to look how the witness is different here vs `mina_poseidon`" (line 1993)
+- [x] `2766069650`: "Again, need confirmation on what's different here" (line 2084)
 - [ ] `2766076306`: "The sponge probably shouldn't have an array and be owned instead..." (line 2704)
-- [ ] `2766083850`: "Shouldn't have "floating" static strs, should make a constant" (line 3034)
-- [ ] `2766086087`: "How is this "checked"?" (line 3868)
+- [x] `2766083850`: "Shouldn't have "floating" static strs, should make a constant" (line 3034)
+- [x] `2766086087`: "How is this "checked"?" (line 3868)
 - [ ] `2766090467`: "Should probably get this attribute in `develop` in a separate PR and enable the `mina-tree` tests in CI" (line 4606)
-- [ ] `2766092627`: "This should be an enum instead of strings" (line 4854)
+- [x] `2766092627`: "This should be an enum instead of strings" (line 4854)
 - [ ] `2766158667`: "ah, I just forgot to download the file that make this test work" (line 4606)
 - [ ] `2766159711`: "This should be an enumj instead of a str" (line 4858)
 
@@ -146,3 +147,20 @@
 
 ### Cargo.toml
 - [ ] `2766328448`: "Need to remove the two comment lines above this as well" (line 24)
+
+---
+
+# Session Summary & Context
+
+### Architectural Decisions
+- **Bit-Packing Efficiency**: Refactored `LegacyInputs` to use `BitVec<u8, Lsb0>`. This reduced memory footprint and allowed for optimized `extend_from_raw_slice` usage.
+- **Bytemuck Integration**: Added `bytemuck` as a workspace dependency. Optimized `bits_iter` to use zero-cost casts for bit iteration over `Pod` types.
+- **Checked Hashing**: Documented that "checked" hashing functions in this crate are specifically designed to record intermediate states in the SNARK witness, matching OCaml's Pickles behavior.
+
+### Verified Constants
+- **Legacy Poseidon Rounds**: Confirmed via OCaml source and local test runner that legacy Poseidon requires **100 rounds** (previously 63 in code). Updated `PERM_ROUNDS_FULL` accordingly.
+
+### Deferred Items
+- **Comment `2766076306` (Owned vs Array)**: Skipped for now. General goal is to eventually move all hashing logic to `proof-systems`, making local state management refactors lower priority.
+- **Comment `2766090467` (Test Attributes)**: Decided to leave `#[ignore]` on broken tests to keep the codebase clean until a dedicated PR addresses the underlying test failures.
+

@@ -27,6 +27,7 @@ base64 = { workspace = true }
 bitvec = { workspace = true }
 blake2 = { workspace = true }
 bs58 = { workspace = true }
+bytemuck = { workspace = true }
 crc32fast = { workspace = true }
 derive_more = { workspace = true }
 fraction = { workspace = true }
