@@ -589,11 +589,7 @@ impl Memo {
         const NBITS: usize = NBYTES * 8;
         assert_eq!(std::mem::size_of::<Self>(), NBYTES);
 
-        let mut iter = BitsIterator {
-            index: 0,
-            number: self.0,
-        }
-        .take(NBITS);
+        let mut iter = BitsIterator::new(self.0).take(NBITS);
         std::array::from_fn(|_| iter.next().unwrap())
     }
 

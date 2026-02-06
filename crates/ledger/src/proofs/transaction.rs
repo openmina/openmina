@@ -1553,8 +1553,14 @@ pub mod legacy_input {
     use super::*;
 
     pub struct BitsIterator<const N: usize> {
-        pub index: usize,
-        pub number: [u8; N],
+        index: usize,
+        number: [u8; N],
+    }
+
+    impl<const N: usize> BitsIterator<N> {
+        pub fn new(number: [u8; N]) -> Self {
+            Self { index: 0, number }
+        }
     }
 
     impl<const N: usize> Iterator for BitsIterator<N> {
@@ -1574,11 +1580,7 @@ pub mod legacy_input {
 
     pub fn bits_iter<N: Into<u64>, const NBITS: usize>(number: N) -> impl Iterator<Item = bool> {
         let number: u64 = number.into();
-        BitsIterator {
-            index: 0,
-            number: number.to_ne_bytes(),
-        }
-        .take(NBITS)
+        BitsIterator::new(number.to_ne_bytes()).take(NBITS)
     }
 
     pub fn to_bits<N: Into<u64>, const NBITS: usize>(number: N) -> [bool; NBITS] {

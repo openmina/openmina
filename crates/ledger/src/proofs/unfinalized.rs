@@ -51,11 +51,7 @@ pub mod ro {
         hasher.update(s.as_bytes());
         let hash = hasher.finalize_boxed();
 
-        let mut bits = BitsIterator::<32> {
-            index: 0,
-            number: (&*hash).try_into().unwrap(),
-        }
-        .take(N);
+        let mut bits = BitsIterator::<32>::new((&*hash).try_into().unwrap()).take(N);
 
         std::array::from_fn(|_| bits.next().unwrap())
     }
