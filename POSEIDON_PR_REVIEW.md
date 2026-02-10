@@ -76,16 +76,18 @@
 - [x] `2766313950`: "Why is this being cloned" (line 238)
 
 ### poseidon/src/lib.rs
-- [ ] `2755093879`: "There shouldn't be any changes in here, this whole file/crate should be deleted" (line 1)
+- [x] `2755093879`: "There shouldn't be any changes in here, this whole file/crate should be deleted" (line 1)
+    - *Note: Already deleted on this branch.*
 
 ### POSEIDON_EXECUTION_PLAN.md
-- [ ] `2755095620`: "delete me" (line 1)
+- [x] `2755095620`: "delete me" (line 1)
+    - *Note: Already deleted on this branch.*
 
 ### POSEIDON_MIGRATION_PLAN.md
-- [ ] `2755096472`: "delete me" (line 1)
+- [x] `2755096472`: "delete me" (line 1)
 
 ### crates/ledger/src/proofs/opt_sponge.rs
-- [ ] `2764880949`: "Double check this" (line 162)
+- [ ] `2764880949`: "Double check this" (line 162) *Note: Skipped — the `SpongeParamsForField<F>` bound on F is awkward (F is associated with both kimchi and legacy params, and the underlying library can't create big-ints at compile time), but not worth fixing now. Needs compiling code and passing tests first.*
 - [ ] `2764883319`: "And here... but does it make sense that this even has to be re-implemented?" (line 263)
 - [ ] `2764889199`: "This is odd. This is just a constant based on F. It should be a different generic argument, I would think, not a trait bound on F." (line 279)
 - [ ] `2764891882`: "This should already exist in `mina_poseidon`" (line 301)
