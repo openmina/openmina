@@ -2029,8 +2029,14 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> anyhow::Result<DeferredV
         sponge.absorb_fq(&to_fqs(zeta));
         sponge.absorb_fq(&to_fqs(zeta_omega));
     });
-    let xi_chal: [u64; 2] = sponge.squeeze_limbs(2).try_into().unwrap();
-    let r_chal: [u64; 2] = sponge.squeeze_limbs(2).try_into().unwrap();
+    let xi_chal: [u64; 2] = sponge
+        .squeeze_limbs(2)
+        .try_into()
+        .expect("squeeze_limbs(2) should return exactly 2 limbs");
+    let r_chal: [u64; 2] = sponge
+        .squeeze_limbs(2)
+        .try_into()
+        .expect("squeeze_limbs(2) should return exactly 2 limbs");
 
     let xi = ScalarChallenge::from(xi_chal).to_field(&endo);
     let r = ScalarChallenge::from(r_chal).to_field(&endo);

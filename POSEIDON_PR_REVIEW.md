@@ -88,13 +88,14 @@
 
 ### crates/ledger/src/proofs/opt_sponge.rs
 - [ ] `2764880949`: "Double check this" (line 162) *Note: Skipped — the `SpongeParamsForField<F>` bound on F is awkward (F is associated with both kimchi and legacy params, and the underlying library can't create big-ints at compile time), but not worth fixing now. Needs compiling code and passing tests first.*
-- [ ] `2764883319`: "And here... but does it make sense that this even has to be re-implemented?" (line 263)
-- [ ] `2764889199`: "This is odd. This is just a constant based on F. It should be a different generic argument, I would think, not a trait bound on F." (line 279)
-- [ ] `2764891882`: "This should already exist in `mina_poseidon`" (line 301)
-- [ ] `2764894348`: "`sbox` should already exist in mina-poseidon. How is this different?" (line 282)
+- [ ] `2764883319`: "And here... but does it make sense that this even has to be re-implemented?" (line 263) *Note: Skipped — re-implementation is necessary. OCaml delegates to proof-systems via snarky functors where field ops auto-record witnesses. Rust has no snarky equivalent, so opt_sponge must re-implement sbox/full_round/block_cipher/apply_mds_matrix with manual `w.exists()` calls to record intermediate states into the SNARK witness.*
+- [ ] `2764889199`: "This is odd. This is just a constant based on F. It should be a different generic argument, I would think, not a trait bound on F." (line 279) *Note: Skipped — same root cause as above. The trait bound on F is the mechanism for selecting kimchi vs legacy params without a snarky-style framework.*
+- [ ] `2764891882`: "This should already exist in `mina_poseidon`" (line 301) *Note: Skipped — upstream `mina_poseidon::apply_mds_matrix` operates on plain `&mut [F]` with no witness recording. Local version needed to interleave `w.exists()` calls.*
+- [ ] `2764894348`: "`sbox` should already exist in mina-poseidon. How is this different?" (line 282) *Note: Skipped — upstream `mina_poseidon::sbox` uses `SpongeConstants` trait (compile-time PERM_SBOX selection). Local version is simpler (hardcoded x^7 for kimchi) and embedded in the witness-recording round function.*
 
 ### crates/ledger/src/proofs/step.rs
-- [ ] `2764897875`: "no unwraps" (line 2033)
+- [x] `2764897875`: "no unwraps" (line 2033)
+    - *Note: Replaced `.unwrap()` with `.expect("squeeze_limbs(2) should return exactly 2 limbs")` on both lines 2032-2033.*
 - [ ] `2764899182`: "...this is odd that we have to do this" (line 2715)
 
 ### crates/ledger/src/scan_state/transaction_logic/transaction_union_payload.rs
