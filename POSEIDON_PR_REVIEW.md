@@ -163,7 +163,7 @@
     - *Note: Added permalink to `signed_command_memo.ml#L132-L143` (fold_bits/to_bits).*
 - [x] `2766274207`: "Can we get a permalink to the ocaml code" (line 67)
     - *Note: Added permalink to `zkapp_account.ml#L318-L325` (URI bit extraction).*
-- [ ] `2766278972`: "All these tests are testing inputs which are intermediate values. We shouldn't be testing this, we should be testing the final hash to see if it's correct, that's it. We should be using the same test cases that exist in the ocaml codebase." (line 151)
+- [ ] `2766278972`: "All these tests are testing inputs which are intermediate values. We shouldn't be testing this, we should be testing the final hash to see if it's correct, that's it. We should be using the same test cases that exist in the ocaml codebase." (line 151) *Note: Skipped — needs correct expected hashes from OCaml test cases. Should be fixed together with the hashing.rs tests.*
 
 ### crates/vrf/src/message.rs
 - [ ] `2766316046`: "We should probably panic here for now instead of fail silently, right?" (line 48)
