@@ -878,6 +878,7 @@ mod hash_tests {
     use manual::MinaBaseSignedCommandMemoStableV1;
 
     fn pub_key(address: &str) -> manual::NonZeroCurvePoint {
+        // TODO: Remove this unwrap — propagate error.
         let key = mina_signer::PubKey::from_address(address)
             .unwrap()
             .into_compressed();

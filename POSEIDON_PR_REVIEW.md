@@ -154,7 +154,8 @@
     - *Note: Fixed by user.*
 
 ### crates/p2p-messages/src/v2/hashing.rs
-- [ ] `2766266665`: "We shouldn't have unwraps" (line 882)
+- [x] `2766266665`: "We shouldn't have unwraps" (line 882)
+    - *Note: Added TODO comment to propagate error instead of unwrapping.*
 - [ ] `2766268404`: "..." (line 956)
 
 ### crates/p2p-messages/src/hash_input.rs
