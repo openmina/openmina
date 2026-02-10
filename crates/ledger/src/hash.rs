@@ -19,7 +19,7 @@ impl DomainParameter for CustomDomain {
 }
 
 #[derive(Clone, Default, Debug)]
-pub struct Inputs(pub ROInput);
+pub struct Inputs(ROInput);
 
 impl Inputs {
     pub fn new() -> Self {
@@ -27,31 +27,35 @@ impl Inputs {
     }
 
     pub fn append_field(&mut self, field: Fp) {
-        self.0 = self.0.clone().append_field(field);
+        self.0 = std::mem::take(&mut self.0).append_field(field);
     }
 
     pub fn append_u64(&mut self, value: u64) {
-        self.0 = self.0.clone().append_u64(value);
+        self.0 = std::mem::take(&mut self.0).append_u64(value);
     }
 
     pub fn append_u32(&mut self, value: u32) {
-        self.0 = self.0.clone().append_u32(value);
+        self.0 = std::mem::take(&mut self.0).append_u32(value);
     }
 
     pub fn append_u48(&mut self, value: [u8; 6]) {
-        self.0 = self.0.clone().append_bytes(&value);
+        self.0 = std::mem::take(&mut self.0).append_bytes(&value);
     }
 
     pub fn append_bool(&mut self, value: bool) {
-        self.0 = self.0.clone().append_bool(value);
+        self.0 = std::mem::take(&mut self.0).append_bool(value);
     }
 
     pub fn append_bytes(&mut self, bytes: &[u8]) {
-        self.0 = self.0.clone().append_bytes(bytes);
+        self.0 = std::mem::take(&mut self.0).append_bytes(bytes);
     }
 
     pub fn to_fields(&self) -> Vec<Fp> {
         self.0.to_fields()
+    }
+
+    pub fn into_inner(self) -> ROInput {
+        self.0
     }
 }
 
@@ -70,18 +74,27 @@ pub fn hash_with_kimchi(domain: HashParam, fields: &[Fp]) -> Fp {
         .digest()
 }
 
-pub fn hash_fields(fields: &[Fp]) -> Fp {
-    let mut sponge = ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi, FULL_ROUNDS>::new(
-        mina_poseidon::pasta::fp_kimchi::static_params(),
-    );
-    sponge.absorb(fields);
-    sponge.squeeze()
+pub(crate) trait KimchiParams: ark_ff::Field {
+    fn static_params() -> &'static mina_poseidon::poseidon::ArithmeticSpongeParams<Self, FULL_ROUNDS>;
 }
 
-pub fn hash_fields_fq(fields: &[Fq]) -> Fq {
-    let mut sponge = ArithmeticSponge::<Fq, PlonkSpongeConstantsKimchi, FULL_ROUNDS>::new(
-        mina_poseidon::pasta::fq_kimchi::static_params(),
-    );
+impl KimchiParams for Fp {
+    fn static_params() -> &'static mina_poseidon::poseidon::ArithmeticSpongeParams<Self, FULL_ROUNDS>
+    {
+        mina_poseidon::pasta::fp_kimchi::static_params()
+    }
+}
+
+impl KimchiParams for Fq {
+    fn static_params() -> &'static mina_poseidon::poseidon::ArithmeticSpongeParams<Self, FULL_ROUNDS>
+    {
+        mina_poseidon::pasta::fq_kimchi::static_params()
+    }
+}
+
+pub(crate) fn hash_fields<F: KimchiParams>(fields: &[F]) -> F {
+    let mut sponge =
+        ArithmeticSponge::<F, PlonkSpongeConstantsKimchi, FULL_ROUNDS>::new(F::static_params());
     sponge.absorb(fields);
     sponge.squeeze()
 }
@@ -187,25 +200,5 @@ impl AppendToInputs for Inputs {
         T: ToInputs,
     {
         value.to_inputs(self);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_inputs() {
-        let mut inputs = Inputs::new();
-
-        inputs.append_bool(true);
-        inputs.append_u64(0); // initial_minimum_balance
-        inputs.append_u32(0); // cliff_time
-        inputs.append_u64(0); // cliff_amount
-        inputs.append_u32(1); // vesting_period
-        inputs.append_u64(0); // vesting_increment
-
-        elog!("INPUTS={:?}", inputs);
-        elog!("FIELDS={:?}", inputs.to_fields());
     }
 }

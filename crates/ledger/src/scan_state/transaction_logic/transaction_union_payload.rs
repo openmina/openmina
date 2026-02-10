@@ -543,7 +543,7 @@ pub fn cons_zkapp_command_commitment(
     impl Hashable for ZkappReceiptHashable {
         type D = ();
         fn to_roinput(&self) -> ROInput {
-            self.0 .0.clone()
+            self.0.clone().into_inner()
         }
         fn domain_string(_: ()) -> Option<String> {
             Some("CodaReceiptUC".to_string())

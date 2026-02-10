@@ -56,7 +56,7 @@ impl MessagesForNextWrapProof {
     /// <https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/pickles/wrap_hack.ml#L50>
     pub fn hash(&self) -> [u64; 4] {
         let fields: Vec<Fq> = self.to_fields();
-        let field: Fq = crate::hash::hash_fields_fq(&fields);
+        let field: Fq = crate::hash::hash_fields(&fields);
 
         let bigint: BigInteger256 = field.into_bigint();
         bigint.0

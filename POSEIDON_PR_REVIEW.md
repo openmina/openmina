@@ -112,26 +112,38 @@
     - *Note: Added TODO comment on the NetworkId mapping. Same upstream blocker.*
 
 ### crates/ledger/src/common.rs
-- [ ] `2766188599`: "Is this used anywhere? It's a private field and the `Hashable` trait takes an argument for its `domain_string` static function." (line 21)
-- [ ] `2766194888`: "This is a weird type. The `check` function should return a `Result` with an enum of valid results and a separate enum that covers all the `Err` cases." (line 54)
-- [ ] `2766199502`: "Need to stop putting `use` statements inside functions. We should be defaulting to putting them at the top of the module (whether the module is the file or whether it's defined in the file)" (line 58)
-- [ ] `2766203418`: "Was this file just moved?" (line 1)
-- [ ] `2766211020`: "suggestion for append_field" (line 213)
-- [ ] `2766213230`: "Again, I don't think this field is actually being used anywhere" (line 217)
-- [ ] `2766214037`: "suggestion for Fq::from" (line 221)
-- [ ] `2766214741`: "suggestion for CurvePoint::generator" (line 223)
+- [x] `2766188599`: "Is this used anywhere? It's a private field and the `Hashable` trait takes an argument for its `domain_string` static function." (line 21)
+    - *Note: File deleted — it was dead code not included in the module tree. Moved to `verifier/common.rs`.*
+- [x] `2766194888`: "This is a weird type. The `check` function should return a `Result` with an enum of valid results and a separate enum that covers all the `Err` cases." (line 54)
+    - *Note: File deleted — dead code.*
+- [x] `2766199502`: "Need to stop putting `use` statements inside functions. We should be defaulting to putting them at the top of the module (whether the module is the file or whether it's defined in the file)" (line 58)
+    - *Note: File deleted — dead code.*
+- [x] `2766203418`: "Was this file just moved?" (line 1)
+    - *Note: Yes, moved to `verifier/common.rs`. Deleted the dead original.*
+- [x] `2766211020`: "suggestion for append_field" (line 213)
+    - *Note: File deleted — dead code.*
+- [x] `2766213230`: "Again, I don't think this field is actually being used anywhere" (line 217)
+    - *Note: File deleted — dead code.*
+- [x] `2766214037`: "suggestion for Fq::from" (line 221)
+    - *Note: File deleted — dead code.*
+- [x] `2766214741`: "suggestion for CurvePoint::generator" (line 223)
+    - *Note: File deleted — dead code.*
 
 ### crates/ledger/src/hash.rs
-- [ ] `2766219803`: "`ROInput` shouldn't be pub. If we need to, we should use a constructor and an `into_inner` method, but I don't think we want to be able to mutate the wrapped `inner`." (line 22)
-- [ ] `2766223702`: "None of these need to be cloned." (line 50)
+- [x] `2766219803`: "`ROInput` shouldn't be pub. If we need to, we should use a constructor and an `into_inner` method, but I don't think we want to be able to mutate the wrapped `inner`." (line 22)
+    - *Note: Made inner field private. Added `into_inner()` method. Updated one external caller in `transaction_union_payload.rs`.*
+- [x] `2766223702`: "None of these need to be cloned." (line 50)
+    - *Note: Replaced all `.clone()` calls with `std::mem::take()` to avoid unnecessary allocations.*
 - [x] `2766228095`: "Where are all of these being used? This would probably work better as an enum, especially since we are converting an integer into the string below." (line 138)
     - *Note: Replaced entire `pub mod params` with `HashParam` enum in `mina_core`. Indexed merkle tree params use `MerkleTree(usize)` / `CbMerkleTree(usize)` variants with static lookup arrays.*
 - [x] `2766230557`: "I could be convinced that this is the best way though" (line 138)
     - *Note: Resolved by the enum approach above.*
-- [ ] `2766238074`: "This should be generic: a single function with a field type. we can create a private trait here to get the static params properly" (line 221)
+- [x] `2766238074`: "This should be generic: a single function with a field type. we can create a private trait here to get the static params properly" (line 221)
+    - *Note: Created `KimchiParams` trait with impls for `Fp` and `Fq`. Unified `hash_fields` and `hash_fields_fq` into a single generic `hash_fields<F: KimchiParams>`.*
 - [x] `2766243817`: "We should be abel to change the name of this to something like `hash_with_domain`. Here, it would also be nice if the domain was a concrete type (not sure if this is possible though)" (line 249)
     - *Note: Domain is now `HashParam` (a concrete enum type). Did not rename the function.*
-- [ ] `2766249237`: "If it's impossible to make this test fail, we should just get rid of the test." (line 330)
+- [x] `2766249237`: "If it's impossible to make this test fail, we should just get rid of the test." (line 330)
+    - *Note: Deleted the `test_inputs` test — it had no assertions and could never fail.*
 
 ### crates/ledger/Cargo.toml
 - [ ] `2766253224`: "bad" (line 114)
