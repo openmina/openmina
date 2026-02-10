@@ -73,7 +73,7 @@
 ### crates/vrf/src/lib.rs
 - [x] `2755087653`: "Now remember to delete the comment" (line 286)
 - [x] `2766313010`: "deleteme" (line 256)
-- [ ] `2766313950`: "Why is this being cloned" (line 238)
+- [x] `2766313950`: "Why is this being cloned" (line 238)
 
 ### poseidon/src/lib.rs
 - [ ] `2755093879`: "There shouldn't be any changes in here, this whole file/crate should be deleted" (line 1)

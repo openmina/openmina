@@ -235,7 +235,7 @@ mod tests {
             account_pub_key: AccountSecretKey::genesis_producer().public_key(),
         };
 
-        let evaluation_result = evaluate_vrf(vrf_input.clone()).expect("Failed to evaluate vrf");
+        let evaluation_result = evaluate_vrf(vrf_input).expect("Failed to evaluate vrf");
 
         if let VrfEvaluationOutput::SlotWon(won_slot) = evaluation_result {
             assert_eq!(
