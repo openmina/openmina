@@ -159,8 +159,10 @@
 - [ ] `2766268404`: "..." (line 956) *Note: Skipped — all three `#[ignore]` tests in this file need to be fixed together with correct expected hashes from OCaml test cases. OCaml tests use serialized transaction IDs (Base58Check/Base64) which aren't trivial to replicate.*
 
 ### crates/p2p-messages/src/hash_input.rs
-- [ ] `2766271919`: "Can we get a github permalink to the reference implementation in ocaml?" (line 55)
-- [ ] `2766274207`: "Can we get a permalink to the ocaml code" (line 67)
+- [x] `2766271919`: "Can we get a github permalink to the reference implementation in ocaml?" (line 55)
+    - *Note: Added permalink to `signed_command_memo.ml#L132-L143` (fold_bits/to_bits).*
+- [x] `2766274207`: "Can we get a permalink to the ocaml code" (line 67)
+    - *Note: Added permalink to `zkapp_account.ml#L318-L325` (URI bit extraction).*
 - [ ] `2766278972`: "All these tests are testing inputs which are intermediate values. We shouldn't be testing this, we should be testing the final hash to see if it's correct, that's it. We should be using the same test cases that exist in the ocaml codebase." (line 151)
 
 ### crates/vrf/src/message.rs

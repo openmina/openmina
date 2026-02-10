@@ -51,6 +51,7 @@ impl FailableToInputs for UInt64 {
 }
 
 impl FailableToInputs for ByteString {
+    /// OCaml: <https://github.com/MinaProtocol/mina/blob/0063f0196d046d9d2fc8af0cea76ff30f51b49b7/src/lib/mina_base/signed_command_memo.ml#L132-L143>
     fn to_input(&self, mut inputs: ROInput) -> Result<ROInput, InvalidBigInt> {
         // Must match OCaml's reversed byte/bit processing
         for byte in self.as_ref().iter().rev() {
@@ -63,6 +64,7 @@ impl FailableToInputs for ByteString {
 }
 
 impl FailableToInputs for ZkAppUri {
+    /// OCaml: <https://github.com/MinaProtocol/mina/blob/8763656cb96a8ace65210b2d76d7f572222f28d3/src/lib/mina_base/zkapp_account.ml#L318-L325>
     fn to_input(&self, mut inputs: ROInput) -> Result<ROInput, InvalidBigInt> {
         // Must match OCaml's reversed byte/bit processing
         for byte in self.as_ref().iter().rev() {
