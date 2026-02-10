@@ -17,6 +17,8 @@ use mina_p2p_messages::v2::PicklesProofProofsVerifiedMaxStableV2;
 use mina_signer::{CompressedPubKey, PubKey, Signature};
 use std::sync::Arc;
 
+// TODO: Unify `mina_signer::NetworkId` and `mina_core::network::NetworkId`
+// into a single type. `mina_signer::NetworkId` should implement `Hashable`.
 #[derive(Clone)]
 struct SignatureHashable(Vec<mina_curves::pasta::Fp>);
 
@@ -209,6 +211,8 @@ pub fn legacy_verify_signature(
     let Pallas { x, y, .. } = pubkey.point();
     let Signature { rx, s } = signature;
 
+    // TODO: Remove this mapping once `mina_signer::NetworkId` and
+    // `mina_core::network::NetworkId` are unified.
     let network_id = match mina_core::NetworkConfig::global().network_id {
         mina_core::network::NetworkId::MAINNET => mina_signer::NetworkId::MAINNET,
         mina_core::network::NetworkId::TESTNET => mina_signer::NetworkId::TESTNET,

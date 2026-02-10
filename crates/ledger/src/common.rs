@@ -18,7 +18,6 @@ use std::sync::Arc;
 
 #[derive(Clone)]
 struct GenericHashable {
-    domain: String,
     inputs: ROInput,
 }
 
@@ -174,10 +173,7 @@ fn verify_signature(signature: &Signature, pubkey: &PubKey, msg: &TransactionCom
         .append_field(*y)
         .append_field(*rx);
     let hash = mina_hasher::create_kimchi::<GenericHashable>(signature_prefix.to_string())
-        .update(&GenericHashable {
-            domain: signature_prefix.to_string(),
-            inputs,
-        })
+        .update(&GenericHashable { inputs })
         .digest();
     let hash: Fq = Fq::from(hash.into_bigint()); // Never fail, `Fq` is larger than `Fp`
 

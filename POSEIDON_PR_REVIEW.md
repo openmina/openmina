@@ -106,8 +106,10 @@
     - *Note: Same fix as above.*
 
 ### crates/ledger/src/verifier/common.rs
-- [ ] `2766180139`: "Why not use `mina_core` here? They should honestly be the same type" (line 36)
-- [ ] `2766182192`: "Same comment, I think we can cahnge this so that we only use `mina_core`" (line 213)
+- [x] `2766180139`: "Why not use `mina_core` here? They should honestly be the same type" (line 36)
+    - *Note: Added TODO comment to unify the two `NetworkId` types. Blocked by upstream — `Hashable` trait requires `mina_signer::NetworkId`.*
+- [x] `2766182192`: "Same comment, I think we can cahnge this so that we only use `mina_core`" (line 213)
+    - *Note: Added TODO comment on the NetworkId mapping. Same upstream blocker.*
 
 ### crates/ledger/src/common.rs
 - [ ] `2766188599`: "Is this used anywhere? It's a private field and the `Hashable` trait takes an argument for its `domain_string` static function." (line 21)
