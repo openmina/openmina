@@ -2768,7 +2768,7 @@ pub struct MinaBaseSokMessageStableV1 {
 /// Gid: `657`
 /// Location: [src/lib/genesis_constants/genesis_constants.ml:240:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/genesis_constants/genesis_constants.ml#L240)
 /// Args: UnsignedExtendedUInt32StableV1 , UnsignedExtendedUInt32StableV1 , BlockTimeTimeStableV1
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseProtocolConstantsCheckedValueStableV1 {
     pub k: UnsignedExtendedUInt32StableV1,
     pub slots_per_epoch: UnsignedExtendedUInt32StableV1,

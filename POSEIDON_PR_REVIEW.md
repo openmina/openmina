@@ -146,10 +146,12 @@
     - *Note: Deleted the `test_inputs` test — it had no assertions and could never fail.*
 
 ### crates/ledger/Cargo.toml
-- [ ] `2766253224`: "bad" (line 114)
+- [x] `2766253224`: "bad" (line 114)
+    - *Note: Fixed — missing newline at end of file.*
 
 ### crates/node/src/transition_frontier/genesis/transition_frontier_genesis_config.rs
-- [ ] `2766258635`: "What's the type of `PROTOCOL_CONSTANTS`? Why does this need to be cloned?" (line 268)
+- [x] `2766258635`: "What's the type of `PROTOCOL_CONSTANTS`? Why does this need to be cloned?" (line 268)
+    - *Note: Fixed by user.*
 
 ### crates/p2p-messages/src/v2/hashing.rs
 - [ ] `2766266665`: "We shouldn't have unwraps" (line 882)

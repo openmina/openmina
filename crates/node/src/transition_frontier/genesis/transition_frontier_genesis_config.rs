@@ -265,9 +265,7 @@ impl GenesisConfig {
                 let constants = config
                     .genesis
                     .as_ref()
-                    .map_or(PROTOCOL_CONSTANTS.clone(), |genesis| {
-                        genesis.protocol_constants()
-                    });
+                    .map_or(PROTOCOL_CONSTANTS, |genesis| genesis.protocol_constants());
                 let ledger = config.ledger.as_ref().ok_or(GenesisConfigError::NoLedger)?;
                 let accounts = ledger
                     .accounts_with_genesis_winner()
