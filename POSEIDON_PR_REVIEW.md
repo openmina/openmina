@@ -156,7 +156,7 @@
 ### crates/p2p-messages/src/v2/hashing.rs
 - [x] `2766266665`: "We shouldn't have unwraps" (line 882)
     - *Note: Added TODO comment to propagate error instead of unwrapping.*
-- [ ] `2766268404`: "..." (line 956)
+- [ ] `2766268404`: "..." (line 956) *Note: Skipped — all three `#[ignore]` tests in this file need to be fixed together with correct expected hashes from OCaml test cases. OCaml tests use serialized transaction IDs (Base58Check/Base64) which aren't trivial to replicate.*
 
 ### crates/p2p-messages/src/hash_input.rs
 - [ ] `2766271919`: "Can we get a github permalink to the reference implementation in ocaml?" (line 55)
