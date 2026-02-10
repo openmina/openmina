@@ -64,15 +64,15 @@
     - *Note: Created `HashParam` enum in `mina_core` crate. Replaced all `&str` domain params with type-safe enum variants. Updated `NetworkConfig` fields, all hash function signatures, `MakeEvents` trait, and ~14 files of call sites.*
 
 ### crates/snark/src/merkle_path/mod.rs
-- [ ] `2755082476`: "sus that this was deleted (the whole test that is)" (line 75)
-- [ ] `2766311490`: "Yeah, this test definitely needs to be re-enabled. The question is, was it correct to begin with." (line 82)
+- [ ] `2755082476`: "sus that this was deleted (the whole test that is)" (line 75) *Note: Skipped — need to check test data from another branch first.*
+- [ ] `2766311490`: "Yeah, this test definitely needs to be re-enabled. The question is, was it correct to begin with." (line 82) *Note: Skipped — same as above.*
 
 ### crates/snark/src/lib.rs
-- [ ] `2755085246`: "🤔" (line 65)
+- [ ] `2755085246`: "🤔" (line 65) *Note: Skipped — ambiguous comment on doc block, need reviewer clarification.*
 
 ### crates/vrf/src/lib.rs
-- [ ] `2755087653`: "Now remember to delete the comment" (line 286)
-- [ ] `2766313010`: "deleteme" (line 256)
+- [x] `2755087653`: "Now remember to delete the comment" (line 286)
+- [x] `2766313010`: "deleteme" (line 256)
 - [ ] `2766313950`: "Why is this being cloned" (line 238)
 
 ### poseidon/src/lib.rs

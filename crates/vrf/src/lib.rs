@@ -253,7 +253,6 @@ mod tests {
     }
 
     #[test]
-    // #[ignore = "Runs long, remember to re-enable me!"]
     fn test_slot_calculation_time_big_producer() {
         let start = redux::Instant::now();
         for i in 1..14403 {
@@ -283,7 +282,6 @@ mod tests {
     }
 
     #[test]
-    // #[ignore = "Runs long, remember to re-enable me!"]
     fn test_first_winning_slot() {
         for i in 0..7000 {
             let vrf_input = VrfEvaluationInput {
