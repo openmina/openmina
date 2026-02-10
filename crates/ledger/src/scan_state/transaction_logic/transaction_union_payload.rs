@@ -282,8 +282,8 @@ impl TransactionUnionPayload {
     }
 
     /// <https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/transaction_union_payload.ml#L309>
-    pub fn to_input_legacy(&self) -> LegacyInputs {
-        let mut roi = LegacyInputs::new();
+    pub fn to_input_legacy(&self) -> crate::proofs::transaction::legacy_input::LegacyInputs<Fp> {
+        let mut roi = crate::proofs::transaction::legacy_input::LegacyInputs::new();
 
         // Self.common
         {
@@ -337,75 +337,6 @@ impl TransactionUnionPayload {
         }
 
         roi
-    }
-}
-
-pub struct LegacyInputs {
-    fields: Vec<Fp>,
-    bits: Vec<bool>,
-}
-
-impl Default for LegacyInputs {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl LegacyInputs {
-    pub fn new() -> Self {
-        Self {
-            fields: Vec::with_capacity(256),
-            bits: Vec::with_capacity(512),
-        }
-    }
-
-    pub fn append_bit(&mut self, bit: bool) {
-        self.bits.push(bit);
-    }
-
-    pub fn append_bool(&mut self, value: bool) {
-        self.bits.push(value);
-    }
-
-    pub fn append_bytes(&mut self, bytes: &[u8]) {
-        const BITS: [u8; 8] = [1, 2, 4, 8, 16, 32, 64, 128];
-        self.bits.reserve(bytes.len() * 8);
-        for byte in bytes {
-            for bit in BITS {
-                self.bits.push(byte & bit != 0);
-            }
-        }
-    }
-
-    pub fn append_u64(&mut self, value: u64) {
-        self.append_bytes(&value.to_le_bytes())
-    }
-
-    pub fn append_u32(&mut self, value: u32) {
-        self.append_bytes(&value.to_le_bytes())
-    }
-
-    pub fn append_field(&mut self, field: Fp) {
-        self.fields.push(field);
-    }
-
-    pub fn to_fields(mut self) -> Vec<Fp> {
-        use ark_ff::BigInteger256;
-        const NBITS: usize = 255 - 1;
-
-        self.fields.reserve(self.bits.len() / NBITS);
-        self.fields.extend(self.bits.chunks(NBITS).map(|bits| {
-            let mut field = [0u64; 4];
-            for (index, bit) in bits.iter().enumerate() {
-                let limb_index = index / 64;
-                let bit_index = index % 64;
-                if *bit {
-                    field[limb_index] |= 1 << bit_index;
-                }
-            }
-            Fp::from(BigInteger256::new(field))
-        }));
-        self.fields
     }
 }
 

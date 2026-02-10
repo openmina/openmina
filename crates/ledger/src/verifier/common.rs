@@ -1,7 +1,8 @@
 use crate::{
     decompress_pk,
+    proofs::transaction::legacy_input::LegacyInputs,
     scan_state::transaction_logic::{
-        transaction_union_payload::{LegacyInputs, TransactionUnionPayload},
+        transaction_union_payload::TransactionUnionPayload,
         valid, verifiable,
         zkapp_command::{self, valid::of_verifiable, AccountUpdate},
         zkapp_statement::{TransactionCommitment, ZkappStatement},
@@ -213,7 +214,7 @@ pub fn legacy_verify_signature(
         mina_core::network::NetworkId::TESTNET => mina_signer::NetworkId::TESTNET,
     };
 
-    let mut inputs: LegacyInputs = msg.to_input_legacy();
+    let mut inputs: LegacyInputs<mina_curves::pasta::Fp> = msg.to_input_legacy();
     inputs.append_field(*x);
     inputs.append_field(*y);
     inputs.append_field(*rx);

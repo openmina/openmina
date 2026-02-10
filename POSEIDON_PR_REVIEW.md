@@ -96,11 +96,14 @@
 ### crates/ledger/src/proofs/step.rs
 - [x] `2764897875`: "no unwraps" (line 2033)
     - *Note: Replaced `.unwrap()` with `.expect("squeeze_limbs(2) should return exactly 2 limbs")` on both lines 2032-2033.*
-- [ ] `2764899182`: "...this is odd that we have to do this" (line 2715)
+- [x] `2764899182`: "...this is odd that we have to do this" (line 2715)
+    - *Note: No change needed. The `to_fqs` conversion (Fp → Fq) is inherent to the pasta curve cycle — the step circuit verifies a wrap proof from the other curve, requiring field conversions.*
 
 ### crates/ledger/src/scan_state/transaction_logic/transaction_union_payload.rs
-- [ ] `2766163214`: "This is duplicate code" (line 346)
-- [ ] `2766163955`: "this is all duplicate code" (line 410)
+- [x] `2766163214`: "This is duplicate code" (line 346)
+    - *Note: Deleted the duplicate `LegacyInputs` struct from `transaction_union_payload.rs`. Now uses `LegacyInputs<Fp>` from `proofs::transaction::legacy_input`.*
+- [x] `2766163955`: "this is all duplicate code" (line 410)
+    - *Note: Same fix as above.*
 
 ### crates/ledger/src/verifier/common.rs
 - [ ] `2766180139`: "Why not use `mina_core` here? They should honestly be the same type" (line 36)
