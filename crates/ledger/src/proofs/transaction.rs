@@ -2412,7 +2412,7 @@ pub mod transaction_snark {
     use crate::{
         checked_equal_compressed_key, checked_equal_compressed_key_const_and,
         checked_verify_merkle_path,
-        hash::Inputs,
+        hash::{HashParam, Inputs},
         proofs::{
             block::ProtocolStateBody,
             numbers::{
@@ -2704,15 +2704,15 @@ pub mod transaction_snark {
     }
 
     pub fn checked_legacy_hash(
-        domain: &str,
+        domain: HashParam,
         inputs: legacy_input::LegacyInputs<Fp>,
         w: &mut Witness<Fp>,
     ) -> Fp {
         use crate::hash::{CustomDomain, GenericHashable};
         use mina_poseidon::constants::PlonkSpongeConstantsLegacy as Constants;
 
-        let hasher =
-            mina_hasher::create_kimchi::<GenericHashable>(CustomDomain(domain.to_string()));
+        let s: &'static str = domain.into();
+        let hasher = mina_hasher::create_kimchi::<GenericHashable>(CustomDomain(s.to_string()));
         let initial_state: [Fp; 3] = hasher.state.clone().try_into().unwrap();
 
         let mut sponge = poseidon::Sponge::<Fp, Constants>::new_with_state(initial_state);
@@ -2720,11 +2720,11 @@ pub mod transaction_snark {
         sponge.squeeze(w)
     }
 
-    pub fn checked_hash(domain: &str, inputs: &[Fp], w: &mut Witness<Fp>) -> Fp {
+    pub fn checked_hash(domain: HashParam, inputs: &[Fp], w: &mut Witness<Fp>) -> Fp {
         use crate::hash::{CustomDomain, GenericHashable};
 
-        let hasher =
-            mina_hasher::create_kimchi::<GenericHashable>(CustomDomain(domain.to_string()));
+        let s: &'static str = domain.into();
+        let hasher = mina_hasher::create_kimchi::<GenericHashable>(CustomDomain(s.to_string()));
         let initial_state: [Fp; 3] = hasher.state.clone().try_into().unwrap();
 
         let mut sponge = poseidon::Sponge::<Fp>::new_with_state(initial_state);
@@ -2732,11 +2732,11 @@ pub mod transaction_snark {
         sponge.squeeze(w)
     }
 
-    pub fn checked_hash3(domain: &str, inputs: &[Fp], w: &mut Witness<Fp>) -> Fp {
+    pub fn checked_hash3(domain: HashParam, inputs: &[Fp], w: &mut Witness<Fp>) -> Fp {
         use crate::hash::{CustomDomain, GenericHashable};
 
-        let hasher =
-            mina_hasher::create_kimchi::<GenericHashable>(CustomDomain(domain.to_string()));
+        let s: &'static str = domain.into();
+        let hasher = mina_hasher::create_kimchi::<GenericHashable>(CustomDomain(s.to_string()));
         let initial_state: [Fp; 3] = hasher.state.clone().try_into().unwrap();
 
         let mut sponge = poseidon::Sponge::<Fp>::new_with_state(initial_state);
@@ -3045,7 +3045,7 @@ pub mod transaction_snark {
         fee_payer.checked_equal(&source, w);
         current_global_slot.lte(&payload.common.valid_until.to_checked(), w);
 
-        let state_body_hash = state_body.checked_hash_with_param(crate::hash::MINA_PROTO_STATE_BODY, w);
+        let state_body_hash = state_body.checked_hash_with_param(HashParam::ProtoStateBody, w);
 
         let pending_coinbase_stack_with_state =
             pending_coinbase_init.checked_push_state(state_body_hash, current_global_slot, w);
@@ -4872,11 +4872,12 @@ pub(super) mod tests {
             "6963060754718463299978089777716994949151371320681588566338620419071140958308";
 
         let mut w = Witness::empty();
-        let hash = transaction_snark::checked_hash(crate::hash::params::MINA_ZKAPP_EVENT, &[], &mut w);
+        let hash = transaction_snark::checked_hash(crate::hash::HashParam::ZkappEvent, &[], &mut w);
         assert_eq!(hash, Fp::from_str(EXPECTED).unwrap());
 
         let mut w = Witness::empty();
-        let hash = transaction_snark::checked_hash3(crate::hash::params::MINA_ZKAPP_EVENT, &[], &mut w);
+        let hash =
+            transaction_snark::checked_hash3(crate::hash::HashParam::ZkappEvent, &[], &mut w);
         assert_eq!(hash, Fp::from_str(EXPECTED).unwrap());
     }
 

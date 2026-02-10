@@ -5,15 +5,7 @@ use super::{
 };
 use crate::{
     dummy, gen_compressed, gen_keypair,
-    hash::{
-        hash_noinputs, hash_with_kimchi,
-        params::{
-            MINA_ACCOUNT_UPDATE_CONS, MINA_ACCOUNT_UPDATE_NODE, MINA_ZKAPP_EVENT,
-            MINA_ZKAPP_EVENTS, MINA_ZKAPP_SEQ_EVENTS, NO_INPUT_MINA_ZKAPP_ACTIONS_EMPTY,
-            NO_INPUT_MINA_ZKAPP_EVENTS_EMPTY,
-        },
-        AppendToInputs, Inputs,
-    },
+    hash::{hash_noinputs, hash_with_kimchi, AppendToInputs, HashParam, Inputs},
     proofs::{
         field::{Boolean, ToBoolean},
         to_field_elements::ToFieldElements,
@@ -55,7 +47,7 @@ impl Event {
     }
 
     pub fn hash(&self) -> Fp {
-        hash_with_kimchi(MINA_ZKAPP_EVENT, &self.0[..])
+        hash_with_kimchi(HashParam::ZkappEvent, &self.0[..])
     }
 
     pub fn len(&self) -> usize {
@@ -90,9 +82,9 @@ pub fn gen_events() -> Vec<Event> {
 pub trait MakeEvents {
     const DERIVER_NAME: (); // Unused here for now
 
-    fn get_salt_phrase() -> &'static str;
+    fn get_salt_phrase() -> HashParam;
 
-    fn get_hash_prefix() -> &'static str;
+    fn get_hash_prefix() -> HashParam;
 
     fn events(&self) -> &[Event];
 
@@ -103,12 +95,12 @@ pub trait MakeEvents {
 impl MakeEvents for Events {
     const DERIVER_NAME: () = ();
 
-    fn get_salt_phrase() -> &'static str {
-        NO_INPUT_MINA_ZKAPP_EVENTS_EMPTY
+    fn get_salt_phrase() -> HashParam {
+        HashParam::ZkappEventsEmpty
     }
 
-    fn get_hash_prefix() -> &'static str {
-        MINA_ZKAPP_EVENTS
+    fn get_hash_prefix() -> HashParam {
+        HashParam::ZkappEvents
     }
 
     fn events(&self) -> &[Event] {
@@ -124,12 +116,12 @@ impl MakeEvents for Events {
 impl MakeEvents for Actions {
     const DERIVER_NAME: () = ();
 
-    fn get_salt_phrase() -> &'static str {
-        NO_INPUT_MINA_ZKAPP_ACTIONS_EMPTY
+    fn get_salt_phrase() -> HashParam {
+        HashParam::ZkappActionsEmpty
     }
 
-    fn get_hash_prefix() -> &'static str {
-        MINA_ZKAPP_SEQ_EVENTS
+    fn get_hash_prefix() -> HashParam {
+        HashParam::ZkappSeqEvents
     }
 
     fn events(&self) -> &[Event] {
@@ -2272,7 +2264,7 @@ impl<AccUpdate: Clone + AccountUpdateRef> Tree<AccUpdate> {
         };
         let account_update_digest = self.account_update_digest.get().unwrap();
         hash_with_kimchi(
-            MINA_ACCOUNT_UPDATE_NODE,
+            HashParam::AccountUpdateNode,
             &[account_update_digest, stack_hash],
         )
     }
@@ -2384,7 +2376,7 @@ impl<AccUpdate: Clone + AccountUpdateRef> CallForest<AccUpdate> {
         let hash = tree.digest();
         let h_tl = self.hash();
 
-        let stack_hash = hash_with_kimchi(MINA_ACCOUNT_UPDATE_CONS, &[hash, h_tl]);
+        let stack_hash = hash_with_kimchi(HashParam::AccountUpdateCons, &[hash, h_tl]);
         let node = WithStackHash::<AccUpdate> {
             elt: tree,
             stack_hash: MutableFp::new(stack_hash),
@@ -2591,7 +2583,7 @@ impl<AccUpdate: Clone + AccountUpdateRef> CallForest<AccUpdate> {
     pub fn accumulate_hashes(&self) {
         /// <https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_command.ml#L293>
         fn cons(hash: Fp, h_tl: Fp) -> Fp {
-            hash_with_kimchi(MINA_ACCOUNT_UPDATE_CONS, &[hash, h_tl])
+            hash_with_kimchi(HashParam::AccountUpdateCons, &[hash, h_tl])
         }
 
         /// <https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_command.ml#L561>

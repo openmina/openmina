@@ -1,5 +1,5 @@
 use super::zkapp_command::{self, AccountUpdate, CallForest, Tree};
-use crate::hash::{hash_with_kimchi, params::MINA_ACCOUNT_UPDATE_CONS};
+use crate::hash::{hash_with_kimchi, HashParam};
 use ark_ff::Zero;
 use mina_curves::pasta::Fp;
 use mina_hasher::{Hashable, ROInput};
@@ -17,7 +17,7 @@ impl TransactionCommitment {
     /// <https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/zkapp_command.ml#L1368>
     pub fn create_complete(&self, memo_hash: Fp, fee_payer_hash: Fp) -> Self {
         Self(hash_with_kimchi(
-            MINA_ACCOUNT_UPDATE_CONS,
+            HashParam::AccountUpdateCons,
             &[memo_hash, fee_payer_hash, self.0],
         ))
     }
@@ -37,12 +37,12 @@ impl Hashable for TransactionCommitment {
     }
 
     fn domain_string(network_id: NetworkId) -> Option<String> {
-        match network_id {
-            NetworkId::MAINNET => mina_core::network::mainnet::SIGNATURE_PREFIX,
-            NetworkId::TESTNET => mina_core::network::devnet::SIGNATURE_PREFIX,
-        }
-        .to_string()
-        .into()
+        let param = match network_id {
+            NetworkId::MAINNET => mina_core::HashParam::SignatureMainnet,
+            NetworkId::TESTNET => mina_core::HashParam::CodaSignature,
+        };
+        let s: &str = param.into();
+        Some(s.to_string())
     }
 }
 

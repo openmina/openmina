@@ -237,12 +237,12 @@ impl Hashable for TransactionUnionPayload {
 
     fn domain_string(network_id: NetworkId) -> Option<String> {
         // Domain strings must have length <= 20
-        match network_id {
-            NetworkId::MAINNET => mina_core::network::mainnet::SIGNATURE_PREFIX,
-            NetworkId::TESTNET => mina_core::network::devnet::SIGNATURE_PREFIX,
-        }
-        .to_string()
-        .into()
+        let param = match network_id {
+            NetworkId::MAINNET => mina_core::HashParam::SignatureMainnet,
+            NetworkId::TESTNET => mina_core::HashParam::CodaSignature,
+        };
+        let s: &str = param.into();
+        Some(s.to_string())
     }
 }
 
@@ -586,7 +586,7 @@ pub fn checked_cons_signed_command_payload(
     let mut inputs = payload.to_checked_legacy_input_owned(w);
     inputs.append_field(last_receipt_chain_hash.0);
 
-    let receipt_chain_hash = checked_legacy_hash("CodaReceiptUC", inputs, w);
+    let receipt_chain_hash = checked_legacy_hash(crate::hash::HashParam::CodaReceiptUc, inputs, w);
 
     ReceiptChainHash(receipt_chain_hash)
 }

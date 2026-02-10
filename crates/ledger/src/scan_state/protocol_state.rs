@@ -1,11 +1,7 @@
 use mina_curves::pasta::Fp;
 
 use crate::{
-    hash::{
-        hash_with_kimchi,
-        params::{MINA_PROTO_STATE, MINA_PROTO_STATE_BODY},
-        Inputs,
-    },
+    hash::{hash_with_kimchi, HashParam, Inputs},
     proofs::block::ProtocolState,
     ToInputs,
 };
@@ -16,7 +12,7 @@ pub trait MinaHash {
 
 impl MinaHash for crate::proofs::block::ProtocolStateBody {
     fn hash(&self) -> Fp {
-        self.hash_with_param(MINA_PROTO_STATE_BODY)
+        self.hash_with_param(HashParam::ProtoStateBody)
     }
 }
 
@@ -26,7 +22,7 @@ pub fn hashes_abstract(previous_state_hash: Fp, body_hash: Fp) -> Fp {
     inputs.append_field(previous_state_hash);
     inputs.append_field(body_hash);
 
-    hash_with_kimchi(MINA_PROTO_STATE, &inputs.to_fields())
+    hash_with_kimchi(HashParam::ProtoState, &inputs.to_fields())
 }
 
 impl ProtocolState {

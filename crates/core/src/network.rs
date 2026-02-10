@@ -1,6 +1,7 @@
 use once_cell::sync::OnceCell;
 
 use crate::constants::ConstraintConstants;
+use crate::HashParam;
 
 // From mina-signer, to avoid dependency
 #[derive(Debug, Clone)]
@@ -16,9 +17,9 @@ pub enum NetworkId {
 pub struct NetworkConfig {
     pub name: &'static str,
     pub network_id: NetworkId,
-    pub signature_prefix: &'static str,
-    pub legacy_signature_prefix: &'static str,
-    pub account_update_hash_param: &'static str,
+    pub signature_prefix: HashParam,
+    pub legacy_signature_prefix: HashParam,
+    pub account_update_hash_param: HashParam,
     pub constraint_system_digests: &'static [[u8; 16]; 3],
     pub default_peers: Vec<&'static str>,
     pub circuits_config: &'static CircuitsConfig,
@@ -77,9 +78,9 @@ impl NetworkConfig {
         Self {
             name: mainnet::NAME,
             network_id: mainnet::NETWORK_ID,
-            signature_prefix: mainnet::SIGNATURE_PREFIX,
-            legacy_signature_prefix: mainnet::SIGNATURE_PREFIX,
-            account_update_hash_param: mainnet::ACCOUNT_UPDATE_HASH_PARAM,
+            signature_prefix: HashParam::SignatureMainnet,
+            legacy_signature_prefix: HashParam::SignatureMainnet,
+            account_update_hash_param: HashParam::MainnetZkappBody,
             constraint_system_digests: &mainnet::CONSTRAINT_SYSTEM_DIGESTS,
             default_peers: mainnet::default_peers(),
             circuits_config: &mainnet::CIRCUITS_CONFIG,
@@ -91,9 +92,9 @@ impl NetworkConfig {
         Self {
             name: devnet::NAME,
             network_id: devnet::NETWORK_ID,
-            signature_prefix: devnet::SIGNATURE_PREFIX,
-            legacy_signature_prefix: devnet::SIGNATURE_PREFIX,
-            account_update_hash_param: devnet::ACCOUNT_UPDATE_HASH_PARAM,
+            signature_prefix: HashParam::CodaSignature,
+            legacy_signature_prefix: HashParam::CodaSignature,
+            account_update_hash_param: HashParam::TestnetZkappBody,
             constraint_system_digests: &devnet::CONSTRAINT_SYSTEM_DIGESTS,
             default_peers: devnet::default_peers(),
             circuits_config: &devnet::CIRCUITS_CONFIG,
@@ -110,8 +111,6 @@ pub mod devnet {
 
     pub const NETWORK_ID: NetworkId = NetworkId::TESTNET;
     pub const NAME: &str = "devnet";
-    pub const SIGNATURE_PREFIX: &str = "CodaSignature";
-    pub const ACCOUNT_UPDATE_HASH_PARAM: &str = "TestnetZkappBody";
 
     pub const CONSTRAINT_SYSTEM_DIGESTS: [[u8; 16]; 3] = [
         // transaction-merge
@@ -188,8 +187,6 @@ pub mod mainnet {
 
     pub const NETWORK_ID: NetworkId = NetworkId::MAINNET;
     pub const NAME: &str = "mainnet";
-    pub const SIGNATURE_PREFIX: &str = "MinaSignatureMainnet";
-    pub const ACCOUNT_UPDATE_HASH_PARAM: &str = "MainnetZkappBody";
 
     pub const CONSTRAINT_SYSTEM_DIGESTS: [[u8; 16]; 3] = [
         // transaction-merge

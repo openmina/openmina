@@ -20,13 +20,7 @@
 /// Stack operations are done for transaction snarks and tree operations are done for the blockchain snark*)
 use std::{collections::HashMap, fmt::Write, marker::PhantomData};
 
-use crate::hash::{
-    hash_noinputs, hash_with_kimchi,
-    params::{
-        get_coinbase_param_for_height, COINBASE_STACK, MINA_PROTO_STATE, NO_INPUT_COINBASE_STACK,
-    },
-    Inputs,
-};
+use crate::hash::{hash_noinputs, hash_with_kimchi, HashParam, Inputs};
 use ark_ff::Zero;
 use mina_core::constants::constraint_constants;
 use mina_curves::pasta::Fp;
@@ -156,7 +150,7 @@ impl CoinbaseStack {
         inputs.append(&CoinbaseData::of_coinbase(cb));
         inputs.append_field(self.0);
 
-        let hash = hash_with_kimchi(COINBASE_STACK, &inputs.to_fields());
+        let hash = hash_with_kimchi(HashParam::CoinbaseStack, &inputs.to_fields());
         Self(hash)
     }
 
@@ -166,7 +160,7 @@ impl CoinbaseStack {
         inputs.append(&CoinbaseData::of_coinbase(cb));
         inputs.append_field(self.0);
 
-        let hash = checked_hash(COINBASE_STACK, &inputs.to_fields(), w);
+        let hash = checked_hash(HashParam::CoinbaseStack, &inputs.to_fields(), w);
         Self(hash)
     }
 
@@ -180,7 +174,7 @@ impl CoinbaseStack {
 
     /// <https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/pending_coinbase.ml#L188>
     pub fn empty() -> Self {
-        Self(hash_noinputs(NO_INPUT_COINBASE_STACK))
+        Self(hash_noinputs(HashParam::NoInputCoinbaseStack))
     }
 
     /// Used for tests/debug only
@@ -227,7 +221,7 @@ impl StateStack {
         inputs.append_field(state_body_hash);
         inputs.append_field(global_slot.to_field());
 
-        let hash = hash_with_kimchi(MINA_PROTO_STATE, &inputs.to_fields());
+        let hash = hash_with_kimchi(HashParam::ProtoState, &inputs.to_fields());
 
         Self {
             init: self.init,
@@ -247,7 +241,7 @@ impl StateStack {
         inputs.append_field(state_body_hash);
         inputs.append_field(global_slot.to_field());
 
-        let hash = checked_hash(MINA_PROTO_STATE, &inputs.to_fields(), w);
+        let hash = checked_hash(HashParam::ProtoState, &inputs.to_fields(), w);
 
         Self {
             init: self.init,
@@ -458,7 +452,11 @@ impl Stack {
     }
 
     fn hash_var(&self, w: &mut Witness<Fp>) -> Fp {
-        checked_hash(COINBASE_STACK, &self.to_inputs_owned().to_fields(), w)
+        checked_hash(
+            HashParam::CoinbaseStack,
+            &self.to_inputs_owned().to_fields(),
+            w,
+        )
     }
 }
 
@@ -481,11 +479,11 @@ impl merkle_tree::TreeHasher<Stack> for StackHasher {
         inputs.append_field(value.state.init);
         inputs.append_field(value.state.curr);
 
-        hash_with_kimchi(COINBASE_STACK, &inputs.to_fields())
+        hash_with_kimchi(HashParam::CoinbaseStack, &inputs.to_fields())
     }
 
     fn merge_hash(height: usize, left: Fp, right: Fp) -> Fp {
-        let param = get_coinbase_param_for_height(height);
+        let param = HashParam::CbMerkleTree(height);
         hash_with_kimchi(param, &[left, right])
     }
 
@@ -892,7 +890,7 @@ pub fn checked_verify_merkle_path(
             };
             w.exists(hashes);
 
-            let param = get_coinbase_param_for_height(height);
+            let param = HashParam::CbMerkleTree(height);
             checked_hash(param, &hashes, w)
         });
 

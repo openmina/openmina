@@ -27,6 +27,9 @@ mod substate;
 
 pub use substate::{Substate, SubstateAccess, SubstateResult};
 
+pub mod hash_param;
+pub use hash_param::HashParam;
+
 pub mod network;
 pub use network::NetworkConfig;
 

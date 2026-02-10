@@ -70,7 +70,7 @@ use super::{
     scan_state::transaction_snark::OneOrTwo,
 };
 use crate::{
-    hash::params::MINA_ZKAPP_MEMO,
+    hash::HashParam,
     scan_state::transaction_logic::{
         transaction_applied::{CommandApplied, Varying},
         zkapp_command::MaybeWithStatus,
@@ -599,7 +599,7 @@ impl Memo {
         // For some reason we are mixing legacy inputs and "new" hashing
         let mut inputs = Inputs::new();
         inputs.append_bytes(&self.0);
-        hash_with_kimchi(MINA_ZKAPP_MEMO, &inputs.to_fields())
+        hash_with_kimchi(HashParam::ZkappMemo, &inputs.to_fields())
     }
 
     pub fn as_slice(&self) -> &[u8] {

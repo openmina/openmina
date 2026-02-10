@@ -1,9 +1,6 @@
 use std::{rc::Rc, sync::Arc};
 
-use crate::hash::{
-    params::{MINA_PROTO_STATE, MINA_PROTO_STATE_BODY},
-    Inputs,
-};
+use crate::hash::{HashParam, Inputs};
 use anyhow::Context;
 use consensus::ConsensusState;
 use mina_core::constants::{constraint_constants, ForkConstants};
@@ -223,12 +220,12 @@ fn checked_hash_protocol_state(
 
     let mut inputs = Inputs::new();
     body.to_inputs(&mut inputs);
-    let body_hash = checked_hash(MINA_PROTO_STATE_BODY, &inputs.to_fields(), w);
+    let body_hash = checked_hash(HashParam::ProtoStateBody, &inputs.to_fields(), w);
 
     let mut inputs = Inputs::new();
     inputs.append_field(*previous_state_hash);
     inputs.append_field(body_hash);
-    let hash = checked_hash(MINA_PROTO_STATE, &inputs.to_fields(), w);
+    let hash = checked_hash(HashParam::ProtoState, &inputs.to_fields(), w);
 
     Ok((hash, body_hash))
 }
@@ -245,12 +242,12 @@ fn checked_hash_protocol_state2(
 
     let mut inputs = Inputs::new();
     body.to_inputs(&mut inputs);
-    let body_hash = checked_hash(MINA_PROTO_STATE_BODY, &inputs.to_fields(), w);
+    let body_hash = checked_hash(HashParam::ProtoStateBody, &inputs.to_fields(), w);
 
     let mut inputs = Inputs::new();
     inputs.append_field(*previous_state_hash);
     inputs.append_field(body_hash);
-    let hash = checked_hash(MINA_PROTO_STATE, &inputs.to_fields(), w);
+    let hash = checked_hash(HashParam::ProtoState, &inputs.to_fields(), w);
 
     (hash, body_hash)
 }
@@ -609,7 +606,7 @@ mod snarky_taylor {
 mod vrf {
     use std::ops::Neg;
 
-    use crate::hash::params::{MINA_VRF_MESSAGE, MINA_VRF_OUTPUT};
+    use crate::hash::HashParam;
     use mina_signer::{CompressedPubKey, PubKey};
 
     use crate::{
@@ -654,7 +651,7 @@ mod vrf {
 
     fn hash_to_group(m: &Message, w: &mut Witness<Fp>) -> GroupAffine<Fp> {
         let inputs = m.to_inputs_owned().to_fields();
-        let hash = checked_hash(MINA_VRF_MESSAGE, &inputs, w);
+        let hash = checked_hash(HashParam::VrfMessage, &inputs, w);
         crate::proofs::group_map::to_group(hash, w)
     }
 
@@ -690,7 +687,7 @@ mod vrf {
         inputs.append_field(x);
         inputs.append_field(y);
 
-        checked_hash(MINA_VRF_OUTPUT, &inputs.to_fields(), w)
+        checked_hash(HashParam::VrfOutput, &inputs.to_fields(), w)
     }
 
     fn eval_and_check_public_key(
@@ -814,7 +811,7 @@ mod vrf {
 }
 
 pub mod consensus {
-    use crate::hash::params::MINA_EPOCH_SEED;
+    use crate::hash::HashParam;
     use ark_ff::Zero;
     use mina_signer::CompressedPubKey;
 
@@ -1398,7 +1395,7 @@ pub mod consensus {
         };
 
         fn epoch_seed_update_var(seed: Fp, vrf_result: Fp, w: &mut Witness<Fp>) -> Fp {
-            checked_hash(MINA_EPOCH_SEED, &[seed, vrf_result], w)
+            checked_hash(HashParam::EpochSeed, &[seed, vrf_result], w)
         }
 
         let next_epoch_data = {

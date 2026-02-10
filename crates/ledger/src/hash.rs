@@ -55,145 +55,11 @@ impl Inputs {
     }
 }
 
-pub mod params {
-    pub const MINA_ACCOUNT: &str = "MinaAccount";
-    pub const MINA_PROTO_STATE: &str = "MinaProtoState";
-    pub const MINA_PROTO_STATE_BODY: &str = "MinaProtoStateBody";
-    pub const MINA_DERIVE_TOKEN_ID: &str = "MinaDeriveTokenId";
-    pub const MINA_EPOCH_SEED: &str = "MinaEpochSeed";
-    pub const MINA_SIDELOADED_VK: &str = "MinaSideLoadedVk";
-    pub const MINA_VRF_MESSAGE: &str = "MinaVrfMessage";
-    pub const MINA_VRF_OUTPUT: &str = "MinaVrfOutput";
+pub use mina_core::HashParam;
 
-    pub const CODA_RECEIPT_UC: &str = "CodaReceiptUC";
-    pub const COINBASE_STACK: &str = "CoinbaseStack";
-
-    pub const MINA_ACCOUNT_UPDATE_CONS: &str = "MinaAcctUpdateCons";
-    pub const MINA_ACCOUNT_UPDATE_NODE: &str = "MinaAcctUpdateNode";
-    pub const MINA_ACCOUNT_UPDATE_STACK_FRAME: &str = "MinaAcctUpdStckFrm";
-    pub const MINA_ACCOUNT_UPDATE_STACK_FRAME_CONS: &str = "MinaActUpStckFrmCons";
-
-    pub const MINA_ZKAPP_ACCOUNT: &str = "MinaZkappAccount";
-    pub const MINA_ZKAPP_MEMO: &str = "MinaZkappMemo";
-    pub const MINA_ZKAPP_URI: &str = "MinaZkappUri";
-    pub const MINA_ZKAPP_EVENT: &str = "MinaZkappEvent";
-    pub const MINA_ZKAPP_EVENTS: &str = "MinaZkappEvents";
-    pub const MINA_ZKAPP_SEQ_EVENTS: &str = "MinaZkappSeqEvents";
-
-    // devnet
-    pub const CODA_SIGNATURE: &str = "CodaSignature";
-    pub const TESTNET_ZKAPP_BODY: &str = "TestnetZkappBody";
-    // mainnet
-    pub const MINA_SIGNATURE_MAINNET: &str = "MinaSignatureMainnet";
-    pub const MAINNET_ZKAPP_BODY: &str = "MainnetZkappBody";
-
-    // Merkle Tree params
-    pub const MINA_MERKLE_TREE_0: &str = "MinaMklTree000";
-    pub const MINA_MERKLE_TREE_1: &str = "MinaMklTree001";
-    pub const MINA_MERKLE_TREE_2: &str = "MinaMklTree002";
-    pub const MINA_MERKLE_TREE_3: &str = "MinaMklTree003";
-    pub const MINA_MERKLE_TREE_4: &str = "MinaMklTree004";
-    pub const MINA_MERKLE_TREE_5: &str = "MinaMklTree005";
-    pub const MINA_MERKLE_TREE_6: &str = "MinaMklTree006";
-    pub const MINA_MERKLE_TREE_7: &str = "MinaMklTree007";
-    pub const MINA_MERKLE_TREE_8: &str = "MinaMklTree008";
-    pub const MINA_MERKLE_TREE_9: &str = "MinaMklTree009";
-    pub const MINA_MERKLE_TREE_10: &str = "MinaMklTree010";
-    pub const MINA_MERKLE_TREE_11: &str = "MinaMklTree011";
-    pub const MINA_MERKLE_TREE_12: &str = "MinaMklTree012";
-    pub const MINA_MERKLE_TREE_13: &str = "MinaMklTree013";
-    pub const MINA_MERKLE_TREE_14: &str = "MinaMklTree014";
-    pub const MINA_MERKLE_TREE_15: &str = "MinaMklTree015";
-    pub const MINA_MERKLE_TREE_16: &str = "MinaMklTree016";
-    pub const MINA_MERKLE_TREE_17: &str = "MinaMklTree017";
-    pub const MINA_MERKLE_TREE_18: &str = "MinaMklTree018";
-    pub const MINA_MERKLE_TREE_19: &str = "MinaMklTree019";
-    pub const MINA_MERKLE_TREE_20: &str = "MinaMklTree020";
-    pub const MINA_MERKLE_TREE_21: &str = "MinaMklTree021";
-    pub const MINA_MERKLE_TREE_22: &str = "MinaMklTree022";
-    pub const MINA_MERKLE_TREE_23: &str = "MinaMklTree023";
-    pub const MINA_MERKLE_TREE_24: &str = "MinaMklTree024";
-    pub const MINA_MERKLE_TREE_25: &str = "MinaMklTree025";
-    pub const MINA_MERKLE_TREE_26: &str = "MinaMklTree026";
-    pub const MINA_MERKLE_TREE_27: &str = "MinaMklTree027";
-    pub const MINA_MERKLE_TREE_28: &str = "MinaMklTree028";
-    pub const MINA_MERKLE_TREE_29: &str = "MinaMklTree029";
-    pub const MINA_MERKLE_TREE_30: &str = "MinaMklTree030";
-    pub const MINA_MERKLE_TREE_31: &str = "MinaMklTree031";
-    pub const MINA_MERKLE_TREE_32: &str = "MinaMklTree032";
-    pub const MINA_MERKLE_TREE_33: &str = "MinaMklTree033";
-    pub const MINA_MERKLE_TREE_34: &str = "MinaMklTree034";
-    pub const MINA_MERKLE_TREE_35: &str = "MinaMklTree035";
-
-    pub const MINA_CB_MERKLE_TREE_0: &str = "MinaCbMklTree000";
-    pub const MINA_CB_MERKLE_TREE_1: &str = "MinaCbMklTree001";
-    pub const MINA_CB_MERKLE_TREE_2: &str = "MinaCbMklTree002";
-    pub const MINA_CB_MERKLE_TREE_3: &str = "MinaCbMklTree003";
-    pub const MINA_CB_MERKLE_TREE_4: &str = "MinaCbMklTree004";
-    pub const MINA_CB_MERKLE_TREE_5: &str = "MinaCbMklTree005";
-
-    pub const NO_INPUT_ZKAPP_ACTION_STATE_EMPTY_ELT: &str = "MinaZkappActionStateEmptyElt";
-    pub const NO_INPUT_COINBASE_STACK: &str = "CoinbaseStack";
-    pub const NO_INPUT_MINA_ZKAPP_EVENTS_EMPTY: &str = "MinaZkappEventsEmpty";
-    pub const NO_INPUT_MINA_ZKAPP_ACTIONS_EMPTY: &str = "MinaZkappActionsEmpty";
-
-    pub fn get_coinbase_param_for_height(height: usize) -> &'static str {
-        match height {
-            0 => MINA_CB_MERKLE_TREE_0,
-            1 => MINA_CB_MERKLE_TREE_1,
-            2 => MINA_CB_MERKLE_TREE_2,
-            3 => MINA_CB_MERKLE_TREE_3,
-            4 => MINA_CB_MERKLE_TREE_4,
-            5 => MINA_CB_MERKLE_TREE_5,
-            _ => panic!("Invalid height"),
-        }
-    }
-
-    pub fn get_merkle_param_for_height(height: usize) -> &'static str {
-        match height {
-            0 => MINA_MERKLE_TREE_0,
-            1 => MINA_MERKLE_TREE_1,
-            2 => MINA_MERKLE_TREE_2,
-            3 => MINA_MERKLE_TREE_3,
-            4 => MINA_MERKLE_TREE_4,
-            5 => MINA_MERKLE_TREE_5,
-            6 => MINA_MERKLE_TREE_6,
-            7 => MINA_MERKLE_TREE_7,
-            8 => MINA_MERKLE_TREE_8,
-            9 => MINA_MERKLE_TREE_9,
-            10 => MINA_MERKLE_TREE_10,
-            11 => MINA_MERKLE_TREE_11,
-            12 => MINA_MERKLE_TREE_12,
-            13 => MINA_MERKLE_TREE_13,
-            14 => MINA_MERKLE_TREE_14,
-            15 => MINA_MERKLE_TREE_15,
-            16 => MINA_MERKLE_TREE_16,
-            17 => MINA_MERKLE_TREE_17,
-            18 => MINA_MERKLE_TREE_18,
-            19 => MINA_MERKLE_TREE_19,
-            20 => MINA_MERKLE_TREE_20,
-            21 => MINA_MERKLE_TREE_21,
-            22 => MINA_MERKLE_TREE_22,
-            23 => MINA_MERKLE_TREE_23,
-            24 => MINA_MERKLE_TREE_24,
-            25 => MINA_MERKLE_TREE_25,
-            26 => MINA_MERKLE_TREE_26,
-            27 => MINA_MERKLE_TREE_27,
-            28 => MINA_MERKLE_TREE_28,
-            29 => MINA_MERKLE_TREE_29,
-            30 => MINA_MERKLE_TREE_30,
-            31 => MINA_MERKLE_TREE_31,
-            32 => MINA_MERKLE_TREE_32,
-            33 => MINA_MERKLE_TREE_33,
-            34 => MINA_MERKLE_TREE_34,
-            35 => MINA_MERKLE_TREE_35,
-            _ => panic!("Invalid height"),
-        }
-    }
-}
-
-pub fn hash_with_kimchi(domain: &str, fields: &[Fp]) -> Fp {
-    mina_hasher::create_kimchi::<GenericHashable>(CustomDomain(domain.to_string()))
+pub fn hash_with_kimchi(domain: HashParam, fields: &[Fp]) -> Fp {
+    let s: &'static str = domain.into();
+    mina_hasher::create_kimchi::<GenericHashable>(CustomDomain(s.to_string()))
         .update(&GenericHashable({
             let mut inputs = ROInput::new();
             for field in fields {
@@ -220,8 +86,9 @@ pub fn hash_fields_fq(fields: &[Fq]) -> Fq {
     sponge.squeeze()
 }
 
-pub fn hash_noinputs(domain: &str) -> Fp {
-    mina_hasher::create_kimchi::<GenericHashable>(CustomDomain(domain.to_string())).digest()
+pub fn hash_noinputs(domain: HashParam) -> Fp {
+    let s: &'static str = domain.into();
+    mina_hasher::create_kimchi::<GenericHashable>(CustomDomain(s.to_string())).digest()
 }
 
 #[derive(Clone)]
@@ -246,14 +113,15 @@ pub trait ToInputs {
         inputs
     }
 
-    fn hash_with_param(&self, domain: &str) -> Fp {
+    fn hash_with_param(&self, domain: HashParam) -> Fp {
         let inputs = self.to_inputs_owned();
-        mina_hasher::create_kimchi::<GenericHashable>(CustomDomain(domain.to_string()))
+        let s: &'static str = domain.into();
+        mina_hasher::create_kimchi::<GenericHashable>(CustomDomain(s.to_string()))
             .update(&GenericHashable(inputs.0))
             .digest()
     }
 
-    fn checked_hash_with_param(&self, domain: &str, w: &mut Witness<Fp>) -> Fp {
+    fn checked_hash_with_param(&self, domain: HashParam, w: &mut Witness<Fp>) -> Fp {
         use crate::proofs::transaction::transaction_snark::checked_hash;
 
         let inputs = self.to_inputs_owned();

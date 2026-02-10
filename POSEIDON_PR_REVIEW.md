@@ -54,13 +54,14 @@
 - [x] `2766061968`: "These are now the same function. The reason `new_with_state_params` was there before was for using with legacy params. We could still put a pointer in here though... TBD" (line 1825)
 - [x] `2766066183`: "Have to look how the witness is different here vs `mina_poseidon`" (line 1993)
 - [x] `2766069650`: "Again, need confirmation on what's different here" (line 2084)
-- [ ] `2766076306`: "The sponge probably shouldn't have an array and be owned instead..." (line 2704)
+- [ ] `2766076306`: "The sponge probably shouldn't have an array and be owned instead..." (line 2704) *Note: Skipped for now.*
 - [x] `2766083850`: "Shouldn't have "floating" static strs, should make a constant" (line 3034)
 - [x] `2766086087`: "How is this "checked"?" (line 3868)
 - [ ] `2766090467`: "Should probably get this attribute in `develop` in a separate PR and enable the `mina-tree` tests in CI" (line 4606)
 - [x] `2766092627`: "This should be an enum instead of strings" (line 4854)
 - [ ] `2766158667`: "ah, I just forgot to download the file that make this test work" (line 4606)
-- [ ] `2766159711`: "This should be an enumj instead of a str" (line 4858)
+- [x] `2766159711`: "This should be an enumj instead of a str" (line 4858)
+    - *Note: Created `HashParam` enum in `mina_core` crate. Replaced all `&str` domain params with type-safe enum variants. Updated `NetworkConfig` fields, all hash function signatures, `MakeEvents` trait, and ~14 files of call sites.*
 
 ### crates/snark/src/merkle_path/mod.rs
 - [ ] `2755082476`: "sus that this was deleted (the whole test that is)" (line 75)
@@ -115,10 +116,13 @@
 ### crates/ledger/src/hash.rs
 - [ ] `2766219803`: "`ROInput` shouldn't be pub. If we need to, we should use a constructor and an `into_inner` method, but I don't think we want to be able to mutate the wrapped `inner`." (line 22)
 - [ ] `2766223702`: "None of these need to be cloned." (line 50)
-- [ ] `2766228095`: "Where are all of these being used? This would probably work better as an enum, especially since we are converting an integer into the string below." (line 138)
-- [ ] `2766230557`: "I could be convinced that this is the best way though" (line 138)
+- [x] `2766228095`: "Where are all of these being used? This would probably work better as an enum, especially since we are converting an integer into the string below." (line 138)
+    - *Note: Replaced entire `pub mod params` with `HashParam` enum in `mina_core`. Indexed merkle tree params use `MerkleTree(usize)` / `CbMerkleTree(usize)` variants with static lookup arrays.*
+- [x] `2766230557`: "I could be convinced that this is the best way though" (line 138)
+    - *Note: Resolved by the enum approach above.*
 - [ ] `2766238074`: "This should be generic: a single function with a field type. we can create a private trait here to get the static params properly" (line 221)
-- [ ] `2766243817`: "We should be abel to change the name of this to something like `hash_with_domain`. Here, it would also be nice if the domain was a concrete type (not sure if this is possible though)" (line 249)
+- [x] `2766243817`: "We should be abel to change the name of this to something like `hash_with_domain`. Here, it would also be nice if the domain was a concrete type (not sure if this is possible though)" (line 249)
+    - *Note: Domain is now `HashParam` (a concrete enum type). Did not rename the function.*
 - [ ] `2766249237`: "If it's impossible to make this test fail, we should just get rid of the test." (line 330)
 
 ### crates/ledger/Cargo.toml

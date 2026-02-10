@@ -6,7 +6,7 @@ use super::{
     TransactionFailure, TransactionStatus, WithStatus,
 };
 use crate::{
-    hash::{hash_with_kimchi, params::MINA_ACCOUNT_UPDATE_STACK_FRAME, Inputs},
+    hash::{hash_with_kimchi, HashParam, Inputs},
     proofs::{
         field::{field, Boolean, ToBoolean},
         numbers::nat::CheckedNat,
@@ -208,7 +208,7 @@ impl StackFrame {
         };
         inputs.append_field(field);
 
-        hash_with_kimchi(MINA_ACCOUNT_UPDATE_STACK_FRAME, &inputs.to_fields())
+        hash_with_kimchi(HashParam::AccountUpdateStackFrame, &inputs.to_fields())
     }
 
     pub fn digest(&self) -> Fp {
@@ -253,10 +253,10 @@ impl StackFrameCheckedFrame {
 
         if self.is_default {
             use crate::proofs::transaction::transaction_snark::checked_hash3;
-            checked_hash3(MINA_ACCOUNT_UPDATE_STACK_FRAME, &fields, w)
+            checked_hash3(HashParam::AccountUpdateStackFrame, &fields, w)
         } else {
             use crate::proofs::transaction::transaction_snark::checked_hash;
-            checked_hash(MINA_ACCOUNT_UPDATE_STACK_FRAME, &fields, w)
+            checked_hash(HashParam::AccountUpdateStackFrame, &fields, w)
         }
     }
 }

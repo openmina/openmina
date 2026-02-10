@@ -1,13 +1,6 @@
 use crate::{
     gen_compressed,
-    hash::{
-        hash_noinputs, hash_with_kimchi,
-        params::{
-            get_merkle_param_for_height, MINA_ACCOUNT, MINA_DERIVE_TOKEN_ID, MINA_SIDELOADED_VK,
-            MINA_ZKAPP_ACCOUNT, MINA_ZKAPP_URI, NO_INPUT_ZKAPP_ACTION_STATE_EMPTY_ELT,
-        },
-        Inputs,
-    },
+    hash::{hash_noinputs, hash_with_kimchi, HashParam, Inputs},
     proofs::{
         field::{Boolean, FieldWitness, ToBoolean},
         numbers::{
@@ -545,7 +538,7 @@ impl VerificationKey {
     }
 
     pub fn hash(&self) -> Fp {
-        self.hash_with_param(MINA_SIDELOADED_VK)
+        self.hash_with_param(HashParam::SideloadedVk)
     }
 
     pub fn gen() -> Self {
@@ -596,7 +589,7 @@ fn default_zkapp_uri_hash() -> Fp {
         let mut inputs = Inputs::new();
         inputs.append(&Fp::zero());
         inputs.append(&Fp::zero());
-        hash_with_kimchi(MINA_ZKAPP_URI, &inputs.to_fields())
+        hash_with_kimchi(HashParam::ZkappUri, &inputs.to_fields())
     });
     *HASH
 }
@@ -627,7 +620,7 @@ impl ZkAppUri {
             }
         }
         inputs.append_bool(true);
-        hash_with_kimchi(MINA_ZKAPP_URI, &inputs.to_fields())
+        hash_with_kimchi(HashParam::ZkappUri, &inputs.to_fields())
     }
 }
 
@@ -890,12 +883,12 @@ impl Default for ZkAppAccount {
 
 impl ZkAppAccount {
     pub fn hash(&self) -> Fp {
-        self.hash_with_param(MINA_ZKAPP_ACCOUNT)
+        self.hash_with_param(HashParam::ZkappAccount)
     }
 
     /// empty_state_element
     pub fn empty_action_state() -> Fp {
-        hash_noinputs(NO_INPUT_ZKAPP_ACTION_STATE_EMPTY_ELT)
+        hash_noinputs(HashParam::ZkappActionStateEmptyElt)
     }
 
     pub fn is_default(&self) -> bool {
@@ -1055,7 +1048,7 @@ impl AccountId {
         };
 
         TokenId(hash_with_kimchi(
-            MINA_DERIVE_TOKEN_ID,
+            HashParam::DeriveTokenId,
             &[self.public_key.x, self.token_id.0, is_odd_field],
         ))
     }
@@ -1621,7 +1614,7 @@ impl Account {
     }
 
     pub fn hash(&self) -> Fp {
-        self.hash_with_param(MINA_ACCOUNT)
+        self.hash_with_param(HashParam::Account)
     }
 
     pub fn checked_hash(&self, w: &mut Witness<Fp>) -> Fp {
@@ -1629,7 +1622,7 @@ impl Account {
 
         let inputs = self.to_inputs_owned();
 
-        checked_hash(MINA_ACCOUNT, &inputs.to_fields(), w)
+        checked_hash(HashParam::Account, &inputs.to_fields(), w)
     }
 
     pub fn rand() -> Self {
@@ -1821,7 +1814,7 @@ fn verify_merkle_path(account: &Account, merkle_path: &[MerklePath]) -> Fp {
                 MerklePath::Left(right) => [accum, *right],
                 MerklePath::Right(left) => [*left, accum],
             };
-            let param = get_merkle_param_for_height(height);
+            let param = HashParam::MerkleTree(height);
             hash_with_kimchi(param, &hashes)
         })
 }
@@ -1846,7 +1839,7 @@ pub fn checked_verify_merkle_path(
             };
             w.exists(hashes);
 
-            let param = get_merkle_param_for_height(height);
+            let param = HashParam::MerkleTree(height);
             checked_hash(param, &hashes, w)
         })
 }

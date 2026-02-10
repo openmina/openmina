@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, HashMap, VecDeque};
 
-use crate::hash::params::get_merkle_param_for_height;
+use crate::hash::HashParam;
 use ark_ff::Zero;
 use mina_curves::pasta::Fp;
 use mina_signer::CompressedPubKey;
@@ -164,8 +164,7 @@ impl SparseLedgerImpl<AccountId, Account> {
                 MerklePath::Right(left) => [*left, current],
             };
 
-            let param = get_merkle_param_for_height(height);
-            current = crate::hash::hash_with_kimchi(param, &hashes);
+            current = crate::hash::hash_with_kimchi(HashParam::MerkleTree(height), &hashes);
 
             addr = addr.parent().unwrap();
         }

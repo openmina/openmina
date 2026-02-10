@@ -154,12 +154,12 @@ impl mina_hasher::Hashable for NodeHeartbeatPayloadDigest {
     }
 
     fn domain_string(network_id: Self::D) -> Option<String> {
-        match network_id {
-            Self::D::MAINNET => mina_core::network::mainnet::SIGNATURE_PREFIX,
-            Self::D::TESTNET => mina_core::network::devnet::SIGNATURE_PREFIX,
-        }
-        .to_string()
-        .into()
+        let param = match network_id {
+            Self::D::MAINNET => mina_core::HashParam::SignatureMainnet,
+            Self::D::TESTNET => mina_core::HashParam::CodaSignature,
+        };
+        let s: &str = param.into();
+        Some(s.to_string())
     }
 }
 
