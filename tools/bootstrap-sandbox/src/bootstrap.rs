@@ -95,18 +95,18 @@ impl Storage {
 
         let states = states
             .into_iter()
-            .map(|state| (state.try_hash().unwrap().to_field::<Fp>().unwrap(), state))
+            .map(|state| (state.try_hash().unwrap().to_field::<Fp>(), state))
             .collect::<BTreeMap<_, _>>();
 
         let mut staged_ledger = StagedLedger::of_scan_state_pending_coinbases_and_snarked_ledger(
             (),
             constraint_constants(),
             Verifier,
-            (&scan_state).try_into().unwrap(),
+            (&scan_state).into(),
             snarked_ledger.clone(),
             LocalState::empty(),
-            expected_ledger_hash.clone().try_into().unwrap(),
-            (&pending_coinbase).try_into().unwrap(),
+            expected_ledger_hash.into(),
+            (&pending_coinbase).into(),
             |key| states.get(&key).cloned().unwrap(),
         )
         .unwrap();
@@ -137,7 +137,7 @@ impl Storage {
             .as_u32();
         let previous_state_hash = block.header.protocol_state.previous_state_hash.clone();
         let _previous_state_hash = v2::StateHash::from(v2::DataHashLibStateHashStableV1(
-            prev_protocol_state.try_hash().unwrap().inner().0.clone(),
+            prev_protocol_state.try_hash().unwrap().inner().0,
         ));
         assert_eq!(previous_state_hash, _previous_state_hash);
         log::info!("will apply: {length} prev: {previous_state_hash}");
@@ -170,8 +170,7 @@ impl Storage {
 
         let protocol_state = &block.header.protocol_state;
         let consensus_state = &protocol_state.body.consensus_state;
-        let coinbase_receiver: CompressedPubKey =
-            (&consensus_state.coinbase_receiver).try_into().unwrap();
+        let coinbase_receiver: CompressedPubKey = (&consensus_state.coinbase_receiver).into();
         let _supercharge_coinbase = consensus_state.supercharge_coinbase;
 
         dbg!(&coinbase_receiver, _supercharge_coinbase);
@@ -179,10 +178,9 @@ impl Storage {
         // FIXME: Using `supercharge_coinbase` (from block) above does not work
         let supercharge_coinbase = false;
 
-        let diff: Diff = (&block.body.staged_ledger_diff).try_into().unwrap();
+        let diff: Diff = (&block.body.staged_ledger_diff).into();
 
-        let prev_protocol_state: ledger::proofs::block::ProtocolState =
-            prev_protocol_state.try_into().unwrap();
+        let prev_protocol_state: ledger::proofs::block::ProtocolState = prev_protocol_state.into();
 
         let result = self
             .staged_ledger

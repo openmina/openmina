@@ -286,9 +286,9 @@ impl TryFrom<&v2::PicklesProofProofsVerified2ReprStableV2StatementProofState>
                 .each_ref()
                 .map(|v| v.as_u64()),
             messages_for_next_wrap_proof: MessagesForNextWrapProof {
-                challenge_polynomial_commitment: InnerCurve::from((
-                    c0.to_field::<Fq>()?,
-                    c1.to_field()?,
+                challenge_polynomial_commitment: InnerCurve::of_affine(make_group(
+                    c0.to_field::<Fq>(),
+                    c1.to_field::<Fq>(),
                 )),
                 old_bulletproof_challenges: old_bulletproof_challenges
                     .iter()
@@ -1817,7 +1817,7 @@ fn verify_one(params: VerifyOneParams, w: &mut Witness<Fp>) -> anyhow::Result<(V
 
         let sponge = {
             let mut sponge = crate::proofs::transaction::poseidon::Sponge::<Fp>::new();
-            sponge.absorb2(&[four_u64_to_field(&sponge_digest)?], w);
+            sponge.absorb2(&[four_u64_to_field(&sponge_digest)], w);
             sponge
         };
 
@@ -2020,7 +2020,7 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> anyhow::Result<DeferredV
         );
     sponge.absorb_fq(&to_fqs(&[four_u64_to_field(
         &proof_state.sponge_digest_before_evaluations,
-    )?]));
+    )]));
     sponge.absorb_fq(&to_fqs(&[challenges_digest]));
     sponge.absorb_fq(&to_fqs(&[evals.ft_eval1]));
     sponge.absorb_fq(&to_fqs(x1));
@@ -2154,7 +2154,7 @@ fn expand_proof(params: ExpandProofParams) -> anyhow::Result<ExpandedProof> {
 
         // dbg!(alpha, zeta, zetaw, dlog_vk.domain.log_size_of_group, domain);
 
-        let es = prev_evals_from_p2p(&t.prev_evals.evals.evals)?;
+        let es = prev_evals_from_p2p(&t.prev_evals.evals.evals);
         let combined_evals = evals_of_split_evals(zeta, zetaw, &es, BACKEND_TICK_ROUNDS_N);
 
         let plonk_minimal = PlonkMinimal::<Fp, 4> {
@@ -2202,7 +2202,7 @@ fn expand_proof(params: ExpandProofParams) -> anyhow::Result<ExpandedProof> {
         .collect();
 
     let deferred_values_computed = {
-        let evals: AllEvals<Fp> = (&t.prev_evals).try_into()?;
+        let evals: AllEvals<Fp> = (&t.prev_evals).into();
         let proof_state: StatementProofState = (&statement.proof_state).try_into()?;
 
         expand_deferred(ExpandDeferredParams {
@@ -2225,13 +2225,8 @@ fn expand_proof(params: ExpandProofParams) -> anyhow::Result<ExpandedProof> {
             .messages_for_next_step_proof
             .challenge_polynomial_commitments
             .iter()
-            .map(|(x, y)| {
-                Ok(InnerCurve::of_affine(make_group(
-                    x.to_field::<Fp>()?,
-                    y.to_field()?,
-                )))
-            })
-            .collect::<Result<_, InvalidBigInt>>()?,
+            .map(|(x, y)| InnerCurve::of_affine(make_group(x.to_field::<Fp>(), y.to_field::<Fp>())))
+            .collect(),
         old_bulletproof_challenges: old_bulletproof_challenges.clone(),
     }
     .hash();
@@ -2282,7 +2277,7 @@ fn expand_proof(params: ExpandProofParams) -> anyhow::Result<ExpandedProof> {
                         .proof_state
                         .messages_for_next_wrap_proof
                         .challenge_polynomial_commitment;
-                    InnerCurve::from((x.to_field::<Fq>()?, y.to_field()?))
+                    InnerCurve::of_affine(make_group(x.to_field::<Fq>(), y.to_field::<Fq>()))
                 },
             }
             .hash(),
@@ -2369,15 +2364,15 @@ fn expand_proof(params: ExpandProofParams) -> anyhow::Result<ExpandedProof> {
     let witness = PerProofWitness {
         app_state: None,
         proof_state: prev_statement_with_hashes.proof_state.clone(),
-        prev_proof_evals: (&t.prev_evals).try_into()?,
+        prev_proof_evals: (&t.prev_evals).into(),
         prev_challenge_polynomial_commitments: {
             let mut challenge_polynomial_commitments = t
                 .statement
                 .messages_for_next_step_proof
                 .challenge_polynomial_commitments
                 .iter()
-                .map(|(x, y)| Ok(make_group::<Fp>(x.to_field()?, y.to_field()?)))
-                .collect::<Result<Vec<_>, InvalidBigInt>>()?;
+                .map(|(x, y)| make_group::<Fp>(x.to_field::<Fp>(), y.to_field::<Fp>()))
+                .collect::<Vec<_>>();
 
             while challenge_polynomial_commitments.len() < 2 {
                 challenge_polynomial_commitments.insert(0, dummy_ipa_wrap_sg());
@@ -2628,7 +2623,7 @@ impl Check<Fp> for PerProofWitness {
         perm.check(w);
         combined_inner_product.check(w);
         b.check(w);
-        two_u64_to_field::<Fp, _>(xi).check(w);
+        two_u64_to_field::<Fp>(xi).check(w);
         bulletproof_challenges.check(w);
 
         {
@@ -2653,15 +2648,14 @@ pub fn extract_recursion_challenges<const N: usize>(
 ) -> anyhow::Result<Vec<RecursionChallenge<GroupAffine<Fq>>>> {
     use poly_commitment::PolyComm;
 
-    let comms: [(Fq, Fq); N] =
-        crate::try_array_into_with(proofs, |proof| -> Result<_, InvalidBigInt> {
-            let (a, b) = &proof
-                .statement
-                .proof_state
-                .messages_for_next_wrap_proof
-                .challenge_polynomial_commitment;
-            Ok((a.to_field::<Fq>()?, b.to_field::<Fq>()?))
-        })?;
+    let comms: [(Fq, Fq); N] = crate::array_into_with(proofs, |proof| {
+        let (a, b) = &proof
+            .statement
+            .proof_state
+            .messages_for_next_wrap_proof
+            .challenge_polynomial_commitment;
+        (a.to_field::<Fq>(), b.to_field::<Fq>())
+    });
 
     let challs = proofs
         .iter()
@@ -2773,13 +2767,13 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
         w.exists(expanded_proofs.each_ref().map(|p| &p.unfinalized));
 
     let messages_for_next_wrap_proof: [Fp; N_PREVIOUS] = {
-        let f = four_u64_to_field::<Fp, _>;
+        let f = four_u64_to_field::<Fp>;
 
-        crate::try_array_into_with(&expanded_proofs, |p| {
+        crate::array_into_with(&expanded_proofs, |p| {
             f(&p.prev_statement_with_hashes
                 .proof_state
                 .messages_for_next_wrap_proof)
-        })?
+        })
     };
 
     let messages_for_next_wrap_proof_padded: [Fp; 2] = w.exists({
@@ -2915,7 +2909,7 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
         .zip(&*expanded_proofs)
         .map(|(p, expanded)| {
             let evals = evals_from_p2p(&p.proof.evaluations)?;
-            let ft_eval1 = p.proof.ft_eval1.to_field()?;
+            let ft_eval1: Fq = p.proof.ft_eval1.to_field();
             let PointEvaluations { zeta, zeta_omega } = expanded.x_hat;
 
             Ok(AllEvals {

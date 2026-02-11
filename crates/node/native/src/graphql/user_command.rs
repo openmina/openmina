@@ -70,12 +70,8 @@ impl TryFrom<UserCommandSignature> for mina_signer::Signature {
             Ok(Self { rx, s })
         } else if let (Some(field), Some(scalar)) = (field, scalar) {
             let sig = Self {
-                rx: BigInt::from_decimal(&field)?
-                    .try_into()
-                    .map_err(|_| super::ConversionError::InvalidBigInt)?,
-                s: BigInt::from_decimal(&scalar)?
-                    .try_into()
-                    .map_err(|_| super::ConversionError::InvalidBigInt)?,
+                rx: BigInt::from_decimal(&field)?.into(),
+                s: BigInt::from_decimal(&scalar)?.into(),
             };
 
             Ok(sig)
@@ -255,9 +251,7 @@ impl InputGraphQLPayment {
             Memo::empty()
         };
 
-        let from: CompressedPubKey = AccountPublicKey::from_str(&self.from)?
-            .try_into()
-            .map_err(|_| super::ConversionError::InvalidBigInt)?;
+        let from: CompressedPubKey = AccountPublicKey::from_str(&self.from)?.into();
 
         let signature = signature.try_into()?;
 
@@ -273,9 +267,7 @@ impl InputGraphQLPayment {
                 valid_until,
                 memo,
                 signed_command::Body::Payment(signed_command::PaymentPayload {
-                    receiver_pk: AccountPublicKey::from_str(&self.to)?
-                        .try_into()
-                        .map_err(|_| super::ConversionError::InvalidBigInt)?,
+                    receiver_pk: AccountPublicKey::from_str(&self.to)?.into(),
                     amount: Amount::from_u64(
                         self.amount
                             .parse::<u64>()
@@ -334,9 +326,7 @@ impl InputGraphQLDelegation {
             Memo::empty()
         };
 
-        let from: CompressedPubKey = AccountPublicKey::from_str(&self.from)?
-            .try_into()
-            .map_err(|_| super::ConversionError::InvalidBigInt)?;
+        let from: CompressedPubKey = AccountPublicKey::from_str(&self.from)?.into();
 
         let signature = signature.try_into()?;
 
@@ -353,9 +343,7 @@ impl InputGraphQLDelegation {
                 memo,
                 signed_command::Body::StakeDelegation(
                     signed_command::StakeDelegationPayload::SetDelegate {
-                        new_delegate: AccountPublicKey::from_str(&self.to)?
-                            .try_into()
-                            .map_err(|_| super::ConversionError::InvalidBigInt)?,
+                        new_delegate: AccountPublicKey::from_str(&self.to)?.into(),
                     },
                 ),
             ),

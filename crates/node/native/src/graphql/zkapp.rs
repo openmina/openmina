@@ -1242,10 +1242,7 @@ impl TryFrom<MinaBaseVerificationKeyWireStableV1> for GraphQLVerificationKey {
     fn try_from(value: MinaBaseVerificationKeyWireStableV1) -> Result<Self, Self::Error> {
         Ok(Self {
             data: value.to_base64()?,
-            hash: VerificationKey::try_from(&value)
-                .map_err(|_| ConversionError::InvalidBigInt)?
-                .hash()
-                .to_decimal(),
+            hash: VerificationKey::from(&value).hash().to_decimal(),
         })
     }
 }

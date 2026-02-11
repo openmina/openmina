@@ -216,8 +216,7 @@ pub fn calc_epoch_seed(
     prev_epoch_seed: &v2::EpochSeed,
     vrf_hash: mina_curves::pasta::Fp,
 ) -> v2::EpochSeed {
-    // TODO(adonagy): fix this unwrap
-    let old_seed = prev_epoch_seed.to_field().unwrap();
+    let old_seed: mina_curves::pasta::Fp = prev_epoch_seed.to_field();
 
     let inputs = ROInput::new().append_field(old_seed).append_field(vrf_hash);
 

@@ -526,10 +526,7 @@ impl<'de> serde::Deserialize<'de> for PlonkVerificationKeyEvals<Fp> {
     where
         D: serde::Deserializer<'de>,
     {
-        match v2::MinaBaseVerificationKeyWireStableV1WrapIndex::deserialize(deserializer) {
-            Ok(value) => value.try_into().map_err(serde::de::Error::custom),
-            Err(e) => Err(e),
-        }
+        v2::MinaBaseVerificationKeyWireStableV1WrapIndex::deserialize(deserializer).map(Into::into)
     }
 }
 
@@ -3782,7 +3779,7 @@ pub mod transaction_snark {
         w: &mut Witness<Fp>,
     ) -> anyhow::Result<()> {
         let tx: crate::scan_state::transaction_logic::Transaction =
-            (&tx_witness.transaction).try_into()?;
+            (&tx_witness.transaction).into();
         let tx = transaction_union_payload::TransactionUnion::of_transaction(&tx);
 
         dummy_constraints(w);
@@ -3790,11 +3787,11 @@ pub mod transaction_snark {
 
         let tx = w.exists(&tx);
         let pending_coinbase_init: pending_coinbase::Stack =
-            w.exists((&tx_witness.init_stack).try_into()?);
-        let state_body: ProtocolStateBody = w.exists((&tx_witness.protocol_state_body).try_into()?);
+            w.exists((&tx_witness.init_stack).into());
+        let state_body: ProtocolStateBody = w.exists((&tx_witness.protocol_state_body).into());
         let global_slot: currency::Slot = w.exists((&tx_witness.block_global_slot).into());
 
-        let sparse_ledger: SparseLedger = (&tx_witness.first_pass_ledger).try_into()?;
+        let sparse_ledger: SparseLedger = (&tx_witness.first_pass_ledger).into();
 
         let (_fee_payment_root_after, fee_excess, _supply_increase) = apply_tagged_transaction(
             &shifted,
@@ -4453,7 +4450,7 @@ pub(super) fn generate_tx_proof(
         ocaml_wrap_witness,
     } = params;
 
-    let statement: Statement<()> = statement.try_into()?;
+    let statement: Statement<()> = statement.into();
     let sok_digest = message.digest();
     let statement_with_sok = statement.with_digest(sok_digest);
 
@@ -4673,8 +4670,11 @@ pub(super) mod tests {
                 instances,
                 fee: (&fee).into(),
             };
-            let job =
-                SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse(Some((job, (&prover).into())));
+            let job = SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse(Some((job, {
+                let v1: mina_p2p_messages::v2::NonZeroCurvePointUncompressedStableV1 =
+                    prover.clone().into();
+                v1.into()
+            })));
             let job = ExternalSnarkWorkerRequest::PerformJob(job);
 
             let path = Path::new("/tmp")
@@ -4715,7 +4715,7 @@ pub(super) mod tests {
             panic!()
         };
 
-        let prover: CompressedPubKey = (&prover).try_into().unwrap();
+        let prover: CompressedPubKey = (&prover).into();
         let fee = crate::scan_state::currency::Fee::from_u64(a.fee.as_u64());
 
         let message = SokMessage { fee, prover };
@@ -4750,7 +4750,7 @@ pub(super) mod tests {
 
         let (statement, p1, p2) = *merge;
 
-        let prover: CompressedPubKey = (&prover).try_into().unwrap();
+        let prover: CompressedPubKey = (&prover).into();
         let fee = crate::scan_state::currency::Fee::from_u64(a.fee.as_u64());
 
         let message = SokMessage { fee, prover };
@@ -4968,7 +4968,7 @@ pub(super) mod tests {
 
         let WrapProof { proof, .. } = generate_merge_proof(
             MergeParams {
-                statement: (&*statement).try_into().unwrap(),
+                statement: (&*statement).into(),
                 proofs: &proofs,
                 message: &message,
                 step_prover: &merge_step_prover,
@@ -5304,7 +5304,7 @@ pub(super) mod tests {
 
             let WrapProof { proof, .. } = generate_merge_proof(
                 MergeParams {
-                    statement: (&*statement).try_into().unwrap(),
+                    statement: (&*statement).into(),
                     proofs: &proofs,
                     message: &message,
                     step_prover: &merge_step_prover,

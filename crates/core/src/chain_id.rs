@@ -535,7 +535,7 @@ mod test {
             .parse()
             .unwrap();
 
-        let mut protocol_constants = PROTOCOL_CONSTANTS.clone();
+        let mut protocol_constants = PROTOCOL_CONSTANTS;
         protocol_constants.genesis_state_timestamp =
             OffsetDateTime::parse("2024-04-09T21:00:00Z", &Rfc3339)
                 .unwrap()
@@ -560,7 +560,7 @@ mod test {
             .parse()
             .unwrap();
 
-        let mut protocol_constants = PROTOCOL_CONSTANTS.clone();
+        let mut protocol_constants = PROTOCOL_CONSTANTS;
         protocol_constants.genesis_state_timestamp =
             OffsetDateTime::parse("2024-06-05T00:00:00Z", &Rfc3339)
                 .unwrap()

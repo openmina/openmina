@@ -593,7 +593,7 @@ impl Query {
 
         let account = context
             .load_account(AccountId {
-                public_key: CompressedPubKey::try_from(&config.public_key)?,
+                public_key: CompressedPubKey::from(&config.public_key),
                 token_id: TokenIdKeyHash::default().into(),
             })
             .await;

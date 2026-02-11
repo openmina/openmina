@@ -30,7 +30,7 @@ pub fn trivial_verification_key() -> VerificationKey {
     let mut cursor = std::io::Cursor::new(include_bytes!("./dummy/trivial_vk.bin"));
     let vk = MinaBaseVerificationKeyWireStableV1::binprot_read(&mut cursor).unwrap();
 
-    let vk: VerificationKey = (&vk).try_into().unwrap();
+    let vk: VerificationKey = (&vk).into();
     vk
 }
 

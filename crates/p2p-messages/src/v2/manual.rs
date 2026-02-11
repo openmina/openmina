@@ -633,12 +633,6 @@ impl From<mina_curves::pasta::Fp> for LedgerHash {
     }
 }
 
-impl From<&mina_curves::pasta::Fp> for LedgerHash {
-    fn from(value: &mina_curves::pasta::Fp) -> Self {
-        MinaBaseLedgerHash0StableV1(value.into()).into()
-    }
-}
-
 impl MinaBaseStagedLedgerHashStableV1 {
     pub fn zero(
         genesis_ledger_hash: LedgerHash,

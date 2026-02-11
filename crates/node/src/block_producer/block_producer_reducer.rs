@@ -630,7 +630,7 @@ impl BlockProducerEnabled {
                         .genesis_state_hash
                         .clone()
                 },
-                constants: pred_block.header().protocol_state.body.constants.clone(),
+                constants: pred_block.header().protocol_state.body.constants,
                 blockchain_state: v2::MinaStateBlockchainStateValueStableV2 {
                     staged_ledger_hash: staged_ledger_hash.clone(),
                     genesis_ledger_hash: genesis_ledger_hash.clone(),
@@ -789,12 +789,8 @@ fn can_apply_supercharged_coinbase(
 ) -> bool {
     use ledger::staged_ledger::staged_ledger::StagedLedger;
 
-    let winner = (block_stake_winner)
-        .try_into()
-        .expect("Public key being used cannot be invalid here");
-    let epoch_ledger = (stake_proof_sparse_ledger)
-        .try_into()
-        .expect("Sparse ledger being used cannot be invalid here");
+    let winner = (block_stake_winner).into();
+    let epoch_ledger = (stake_proof_sparse_ledger).into();
     let global_slot = (global_slot_since_genesis).into();
 
     StagedLedger::can_apply_supercharged_coinbase_exn(winner, &epoch_ledger, global_slot)

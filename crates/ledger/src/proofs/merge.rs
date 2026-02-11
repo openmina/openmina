@@ -41,8 +41,8 @@ fn merge_main(
     let (s1, s2) = w.exists({
         let [p1, p2] = proofs;
         let (s1, s2) = (&p1.0.statement, &p2.0.statement);
-        let s1: Statement<SokDigest> = s1.try_into()?;
-        let s2: Statement<SokDigest> = s2.try_into()?;
+        let s1: Statement<SokDigest> = s1.into();
+        let s2: Statement<SokDigest> = s2.into();
         (s1, s2)
     });
 

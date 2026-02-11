@@ -118,9 +118,9 @@ impl PreparedStatement {
 
         // Digest
         {
-            fields.push(four_u64_to_field(sponge_digest_before_evaluations)?);
-            fields.push(four_u64_to_field(messages_for_next_wrap_proof)?);
-            fields.push(four_u64_to_field(messages_for_next_step_proof)?);
+            fields.push(four_u64_to_field(sponge_digest_before_evaluations));
+            fields.push(four_u64_to_field(messages_for_next_wrap_proof));
+            fields.push(four_u64_to_field(messages_for_next_step_proof));
         }
 
         fields.extend(bulletproof_challenges.iter().copied().map(to_fq));
@@ -258,10 +258,10 @@ impl PreparedStatement {
         {
             fields.push(bits(
                 255,
-                four_u64_to_field(sponge_digest_before_evaluations)?,
+                four_u64_to_field(sponge_digest_before_evaluations),
             ));
-            fields.push(bits(255, four_u64_to_field(messages_for_next_wrap_proof)?));
-            fields.push(bits(255, four_u64_to_field(messages_for_next_step_proof)?));
+            fields.push(bits(255, four_u64_to_field(messages_for_next_wrap_proof)));
+            fields.push(bits(255, four_u64_to_field(messages_for_next_step_proof)));
         }
 
         fields.extend(

@@ -62,7 +62,7 @@ impl TransitionFrontierGenesisState {
 
                 let Ok((negative_one, genesis, genesis_hash)) =
                     genesis_and_negative_one_protocol_states(
-                        data.constants.clone(),
+                        data.constants,
                         data.genesis_ledger_hash.clone(),
                         data.genesis_total_currency.clone(),
                         data.staking_epoch_ledger_hash.clone(),

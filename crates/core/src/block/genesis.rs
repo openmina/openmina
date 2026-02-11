@@ -30,7 +30,7 @@ pub fn genesis_and_negative_one_protocol_states(
     InvalidBigInt,
 > {
     let negative_one = protocol_state(
-        constants.clone(),
+        constants,
         genesis_ledger_hash.clone(),
         genesis_total_currency.clone(),
         staking_epoch_ledger_hash.clone(),

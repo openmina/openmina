@@ -85,12 +85,10 @@ fn with_merged_statement(
             right:
                 TransactionSnarkScanStateLedgerProofWithSokMessageStableV2(ledger_proof2, _message2),
         } => {
-            let (Ok(ledger_stmt1), Ok(ledger_stmt2)) = (
-                Statement::<()>::try_from(&ledger_proof1.statement),
-                Statement::<()>::try_from(&ledger_proof2.statement),
-            ) else {
-                return Err(SnarkWorkSpecError::InvalidBigInt);
-            };
+            let (ledger_stmt1, ledger_stmt2) = (
+                Statement::<()>::from(&ledger_proof1.statement),
+                Statement::<()>::from(&ledger_proof2.statement),
+            );
             let merged_stmt = ledger_stmt1
                 .merge(&ledger_stmt2)
                 .map_err(SnarkWorkSpecError::MergeStatementError)?;

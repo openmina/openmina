@@ -621,15 +621,7 @@ impl ExternalSnarkWorkerService for NodeTestingService {
         _: TransactionVerifier,
     ) -> Result<(), mina_node::external_snark_worker::ExternalSnarkWorkerError> {
         let pub_key = AccountPublicKey::from(public_key);
-        let sok_message = SokMessage::create(
-            (&fee).into(),
-            pub_key.try_into().map_err(|e| {
-                mina_node::external_snark_worker::ExternalSnarkWorkerError::Error(format!(
-                    "{:?}",
-                    e
-                ))
-            })?,
-        );
+        let sok_message = SokMessage::create((&fee).into(), pub_key.into());
         self.set_snarker_sok_digest((&sok_message.digest()).into());
         let _ = self
             .real

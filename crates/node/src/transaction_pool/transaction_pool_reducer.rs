@@ -62,15 +62,11 @@ impl TransactionPoolState {
                 commands,
                 from_source,
             } => {
-                let Ok(commands) = commands
+                let commands = commands
                     .iter()
                     .map(TransactionWithHash::body)
-                    .map(UserCommand::try_from)
-                    .collect::<Result<Vec<_>, _>>()
-                else {
-                    // ignore all commands if one is invalid
-                    return;
-                };
+                    .map(UserCommand::from)
+                    .collect::<Vec<_>>();
 
                 let account_ids = commands
                     .iter()
@@ -102,14 +98,11 @@ impl TransactionPoolState {
                 };
 
                 // TODO: Convert those commands only once
-                let Ok(commands) = commands
+                let commands = commands
                     .iter()
                     .map(TransactionWithHash::body)
-                    .map(UserCommand::try_from)
-                    .collect::<Result<Vec<_>, _>>()
-                else {
-                    return;
-                };
+                    .map(UserCommand::from)
+                    .collect::<Vec<_>>();
                 let diff = diff::Diff { list: commands };
 
                 match substate

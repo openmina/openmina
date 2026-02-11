@@ -10,10 +10,7 @@
 //! It uses the Poseidon hash function, as specified in the Mina protocol.
 
 use mina_hasher::{Hashable, Hasher, ROInput};
-use mina_p2p_messages::{
-    bigint::{BigInt, InvalidBigInt},
-    v2::MerkleTreeNode,
-};
+use mina_p2p_messages::{bigint::BigInt, v2::MerkleTreeNode};
 
 // Wrapper for array of fields with domain height
 #[derive(Clone)]
@@ -39,14 +36,14 @@ impl Hashable for FieldsHashable {
 pub fn calc_merkle_root_hash(
     account: &mina_p2p_messages::v2::MinaBaseAccountBinableArgStableV2,
     merkle_path: &[MerkleTreeNode],
-) -> Result<BigInt, InvalidBigInt> {
-    let account: ledger::Account = account.try_into()?;
+) -> BigInt {
+    let account: ledger::Account = account.into();
     let mut child_hash = account.hash();
 
     for (height, path) in merkle_path.iter().enumerate() {
         let hashes = match path {
-            MerkleTreeNode::Left(right) => [child_hash, right.to_field()?],
-            MerkleTreeNode::Right(left) => [left.to_field()?, child_hash],
+            MerkleTreeNode::Left(right) => [child_hash, right.to_field()],
+            MerkleTreeNode::Right(left) => [left.to_field(), child_hash],
         };
 
         let mut hasher = mina_hasher::create_kimchi::<FieldsHashable>(height as u32);
@@ -54,7 +51,7 @@ pub fn calc_merkle_root_hash(
         child_hash = hasher.digest();
     }
 
-    Ok(child_hash.into())
+    child_hash.into()
 }
 
 #[cfg(test)]

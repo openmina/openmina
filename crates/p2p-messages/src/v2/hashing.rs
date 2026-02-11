@@ -444,8 +444,8 @@ impl StateHash {
         body_hash: &MinaBaseStateBodyHashStableV1,
     ) -> Result<Self, InvalidBigInt> {
         Ok(Self::from_fp(fp_state_hash_from_fp_hashes(
-            pred_state_hash.to_field().map_err(|_| InvalidBigInt)?,
-            body_hash.to_field()?,
+            pred_state_hash.to_field(),
+            body_hash.to_field(),
         )))
     }
 }
@@ -507,9 +507,7 @@ impl MinaHash for MinaStateProtocolStateBodyValueStableV2 {
 impl MinaHash for MinaStateProtocolStateValueStableV2 {
     fn try_hash(&self) -> Result<mina_curves::pasta::Fp, InvalidBigInt> {
         Ok(fp_state_hash_from_fp_hashes(
-            self.previous_state_hash
-                .to_field()
-                .map_err(|_| InvalidBigInt)?,
+            self.previous_state_hash.to_field(),
             MinaHash::try_hash(&self.body)?,
         ))
     }

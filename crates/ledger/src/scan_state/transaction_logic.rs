@@ -83,7 +83,6 @@ use mina_core::constants::ConstraintConstants;
 use mina_curves::pasta::Fp;
 use mina_macros::SerdeYojsonEnum;
 use mina_p2p_messages::{
-    bigint::InvalidBigInt,
     binprot,
     v2::{MinaBaseUserCommandStableV2, MinaTransactionTransactionStableV2},
 };
@@ -682,17 +681,15 @@ impl From<&UserCommand> for MinaBaseUserCommandStableV2 {
     }
 }
 
-impl TryFrom<&MinaBaseUserCommandStableV2> for UserCommand {
-    type Error = InvalidBigInt;
-
-    fn try_from(user_command: &MinaBaseUserCommandStableV2) -> Result<Self, Self::Error> {
+impl From<&MinaBaseUserCommandStableV2> for UserCommand {
+    fn from(user_command: &MinaBaseUserCommandStableV2) -> Self {
         match user_command {
-            MinaBaseUserCommandStableV2::SignedCommand(signed_command) => Ok(
-                UserCommand::SignedCommand(Box::new(signed_command.try_into()?)),
-            ),
-            MinaBaseUserCommandStableV2::ZkappCommand(zkapp_command) => Ok(
-                UserCommand::ZkAppCommand(Box::new(zkapp_command.try_into()?)),
-            ),
+            MinaBaseUserCommandStableV2::SignedCommand(signed_command) => {
+                UserCommand::SignedCommand(Box::new(signed_command.into()))
+            }
+            MinaBaseUserCommandStableV2::ZkappCommand(zkapp_command) => {
+                UserCommand::ZkAppCommand(Box::new(zkapp_command.into()))
+            }
         }
     }
 }
@@ -707,10 +704,7 @@ impl binprot::BinProtWrite for UserCommand {
 impl binprot::BinProtRead for UserCommand {
     fn binprot_read<R: std::io::Read + ?Sized>(r: &mut R) -> Result<Self, binprot::Error> {
         let p2p = MinaBaseUserCommandStableV2::binprot_read(r)?;
-        match UserCommand::try_from(&p2p) {
-            Ok(cmd) => Ok(cmd),
-            Err(e) => Err(binprot::Error::CustomError(Box::new(e))),
-        }
+        Ok(UserCommand::from(&p2p))
     }
 }
 

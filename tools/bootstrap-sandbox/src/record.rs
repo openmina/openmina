@@ -189,7 +189,7 @@ pub async fn run(swarm: Swarm<Behaviour>, path_main: &Path, bootstrap: bool) {
         v2::StateHash::from(v2::DataHashLibStateHashStableV1(snarked_block_hash.into()));
     log::info!("downloading staged_ledger_aux and pending_coinbases at {snarked_block_hash}");
     let info = client
-        .rpc::<GetStagedLedgerAuxAndPendingCoinbasesAtHashV2>(snarked_block_hash.0.clone())
+        .rpc::<GetStagedLedgerAuxAndPendingCoinbasesAtHashV2>(snarked_block_hash.0)
         .await
         .unwrap();
     let mut file = File::create(path.join("staged_ledger_aux")).unwrap();
@@ -267,7 +267,7 @@ async fn download_blocks(
         } else {
             log::info!("downloading block {i}");
             let new: Vec<_> = engine
-                .rpc::<GetTransitionChainV2>(List::one(this_hash.0.clone()))
+                .rpc::<GetTransitionChainV2>(List::one(this_hash.0))
                 .await
                 .unwrap()
                 .unwrap()
@@ -276,7 +276,7 @@ async fn download_blocks(
             let mut file = File::create(dir.join(this_hash.to_string())).unwrap();
             new[0].binprot_write(&mut file).unwrap();
             if let Ok(new_proof) = engine
-                .rpc::<GetTransitionChainProofV1ForV2>(this_hash.0.clone())
+                .rpc::<GetTransitionChainProofV1ForV2>(this_hash.0)
                 .await
             {
                 let mut file = File::create(dir.join(format!("proof_{this_hash}"))).unwrap();

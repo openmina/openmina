@@ -25,7 +25,9 @@ impl From<InvalidBigInt> for String {
 impl std::error::Error for InvalidBigInt {}
 // ---
 
-#[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, derive_more::From, derive_more::Into)]
+#[derive(
+    Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord, derive_more::From, derive_more::Into,
+)]
 pub struct BigInt(BigInteger256);
 
 impl std::fmt::Debug for BigInt {
@@ -55,12 +57,12 @@ impl BigInt {
         mina_curves::pasta::Fp::from(1u64).into()
     }
 
-    pub fn to_field<F>(&self) -> Result<F, InvalidBigInt>
+    pub fn to_field<F>(&self) -> F
     where
         F: ark_ff::Field + From<BigInteger256>,
     {
         let Self(biginteger) = self;
-        Ok(F::from(*biginteger))
+        F::from(*biginteger)
     }
 
     pub fn to_bytes(&self) -> [u8; 32] {
@@ -110,46 +112,26 @@ impl From<mina_curves::pasta::Fq> for BigInt {
     }
 }
 
-impl From<&mina_curves::pasta::Fp> for BigInt {
-    fn from(field: &mina_curves::pasta::Fp) -> Self {
-        Self(field.into_bigint())
-    }
-}
-
-impl From<&mina_curves::pasta::Fq> for BigInt {
-    fn from(field: &mina_curves::pasta::Fq) -> Self {
-        Self(field.into_bigint())
-    }
-}
-
-impl TryFrom<BigInt> for mina_curves::pasta::Fp {
-    type Error = InvalidBigInt;
-
-    fn try_from(bigint: BigInt) -> Result<Self, Self::Error> {
+impl From<BigInt> for mina_curves::pasta::Fp {
+    fn from(bigint: BigInt) -> Self {
         bigint.to_field()
     }
 }
 
-impl TryFrom<BigInt> for mina_curves::pasta::Fq {
-    type Error = InvalidBigInt;
-
-    fn try_from(bigint: BigInt) -> Result<Self, Self::Error> {
+impl From<BigInt> for mina_curves::pasta::Fq {
+    fn from(bigint: BigInt) -> Self {
         bigint.to_field()
     }
 }
 
-impl TryFrom<&BigInt> for mina_curves::pasta::Fp {
-    type Error = InvalidBigInt;
-
-    fn try_from(bigint: &BigInt) -> Result<Self, Self::Error> {
+impl From<&BigInt> for mina_curves::pasta::Fp {
+    fn from(bigint: &BigInt) -> Self {
         bigint.to_field()
     }
 }
 
-impl TryFrom<&BigInt> for mina_curves::pasta::Fq {
-    type Error = InvalidBigInt;
-
-    fn try_from(bigint: &BigInt) -> Result<Self, Self::Error> {
+impl From<&BigInt> for mina_curves::pasta::Fq {
+    fn from(bigint: &BigInt) -> Self {
         bigint.to_field()
     }
 }
@@ -322,8 +304,7 @@ impl mina_hasher::Hashable for BigInt {
     type D = ();
 
     fn to_roinput(&self) -> mina_hasher::ROInput {
-        mina_hasher::ROInput::new()
-            .append_field(self.to_field().expect("Failed to convert Hash into Fp"))
+        mina_hasher::ROInput::new().append_field(self.to_field())
     }
 
     fn domain_string(_: Self::D) -> Option<String> {
@@ -475,9 +456,9 @@ mod tests {
         println!("rx: {:?}", deser_rx);
         println!("s: {:?}", deser_s);
 
-        let _ = deser_rx.to_field::<mina_curves::pasta::Fp>().unwrap();
+        let _ = deser_rx.to_field::<mina_curves::pasta::Fp>();
         println!("rx OK");
-        let _ = deser_s.to_field::<mina_curves::pasta::Fp>().unwrap();
+        let _ = deser_s.to_field::<mina_curves::pasta::Fp>();
         println!("s OK");
     }
 

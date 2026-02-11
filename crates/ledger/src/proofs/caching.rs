@@ -20,7 +20,7 @@ use kimchi::{
     verifier_index::LookupVerifierIndex,
 };
 use mina_curves::pasta::Fq;
-use mina_p2p_messages::bigint::{BigInt, InvalidBigInt};
+use mina_p2p_messages::bigint::BigInt;
 use once_cell::sync::OnceCell;
 use poly_commitment::{
     commitment::CommitmentCurve, hash_map_cache::HashMapCache, ipa::SRS, PolyComm,
@@ -36,11 +36,11 @@ where
     slice.iter().map(T::from).collect()
 }
 
-fn try_into<'a, U, T>(slice: &'a [U]) -> Result<Vec<T>, InvalidBigInt>
+fn try_into<'a, U, T>(slice: &'a [U]) -> Vec<T>
 where
-    T: TryFrom<&'a U, Error = InvalidBigInt>,
+    T: From<&'a U>,
 {
-    slice.iter().map(T::try_from).collect()
+    slice.iter().map(T::from).collect()
 }
 
 // Make it works with other containers, and non-From types
@@ -71,13 +71,13 @@ impl From<&Radix2EvaluationDomainCached> for Radix2EvaluationDomain<Fq> {
         Self {
             size: domain.size,
             log_size_of_group: domain.log_size_of_group,
-            size_as_field_element: domain.size_as_field_element.to_field().unwrap(), // We trust cached data
-            size_inv: domain.size_inv.to_field().unwrap(), // We trust cached data
-            group_gen: domain.group_gen.to_field().unwrap(), // We trust cached data
-            group_gen_inv: domain.group_gen_inv.to_field().unwrap(), // We trust cached data
-            offset: domain.offset.to_field().unwrap(),
-            offset_inv: domain.offset_inv.to_field().unwrap(),
-            offset_pow_size: domain.offset_pow_size.to_field().unwrap(),
+            size_as_field_element: domain.size_as_field_element.to_field(),
+            size_inv: domain.size_inv.to_field(),
+            group_gen: domain.group_gen.to_field(),
+            group_gen_inv: domain.group_gen_inv.to_field(),
+            offset: domain.offset.to_field(),
+            offset_inv: domain.offset_inv.to_field(),
+            offset_pow_size: domain.offset_pow_size.to_field(),
         }
     }
 }
@@ -106,15 +106,15 @@ pub struct GroupAffineCached {
     infinity: bool,
 }
 
-impl<'a, T> From<&'a Affine<T>> for GroupAffineCached
+impl<T> From<&Affine<T>> for GroupAffineCached
 where
     T: ark_ec::short_weierstrass::SWCurveConfig,
-    BigInt: From<&'a <T as CurveConfig>::BaseField>,
+    BigInt: From<<T as CurveConfig>::BaseField>,
 {
-    fn from(pallas: &'a Affine<T>) -> Self {
+    fn from(pallas: &Affine<T>) -> Self {
         Self {
-            x: (&pallas.x).into(),
-            y: (&pallas.y).into(),
+            x: pallas.x.into(),
+            y: pallas.y.into(),
             infinity: pallas.infinity,
         }
     }
@@ -128,8 +128,8 @@ where
     // This is copy of old `GroupAffine::new` function
     fn from(pallas: &GroupAffineCached) -> Self {
         let point = Self {
-            x: pallas.x.to_field().unwrap(), // We trust cached data
-            y: pallas.y.to_field().unwrap(), // We trust cached data
+            x: pallas.x.to_field(),
+            y: pallas.y.to_field(),
             infinity: pallas.infinity,
         };
         assert!(point.is_on_curve());
@@ -175,15 +175,15 @@ struct SRSCached {
     h: GroupAffineCached,
     lagrange_bases: HashMap<usize, Vec<PolyCommCached>>,
 }
-impl<'a, G> From<&'a SRS<G>> for SRSCached
+impl<G> From<&SRS<G>> for SRSCached
 where
     G: CommitmentCurve,
     GroupAffineCached: for<'b> From<&'b G>,
     PolyCommCached: for<'x> From<&'x PolyComm<G>>,
-    BigInt: From<&'a <G as AffineRepr>::ScalarField>,
-    BigInt: From<&'a <G as AffineRepr>::BaseField>,
+    BigInt: From<<G as AffineRepr>::ScalarField>,
+    BigInt: From<<G as AffineRepr>::BaseField>,
 {
-    fn from(srs: &'a SRS<G>) -> Self {
+    fn from(srs: &SRS<G>) -> Self {
         Self {
             g: into(&srs.g),
             h: (&srs.h).into(),
@@ -235,7 +235,7 @@ struct DensePolynomialCached {
 impl From<&DensePolynomialCached> for DensePolynomial<Fq> {
     fn from(value: &DensePolynomialCached) -> Self {
         Self {
-            coeffs: try_into(&value.coeffs).unwrap(), // We trust cached data
+            coeffs: try_into(&value.coeffs),
         }
     }
 }
@@ -243,7 +243,7 @@ impl From<&DensePolynomialCached> for DensePolynomial<Fq> {
 impl From<&DensePolynomial<Fq>> for DensePolynomialCached {
     fn from(value: &DensePolynomial<Fq>) -> Self {
         Self {
-            coeffs: into(&value.coeffs),
+            coeffs: value.coeffs.iter().map(|v| BigInt::from(*v)).collect(),
         }
     }
 }
@@ -395,15 +395,15 @@ impl From<&VerifierIndex<Fq>> for VerifierIndexCached {
             foreign_field_mul_comm: foreign_field_mul_comm.clone(),
             xor_comm: xor_comm.clone(),
             rot_comm: rot_comm.clone(),
-            shift: shift.each_ref().map(|s| s.into()),
+            shift: shift.each_ref().map(|s| (*s).into()),
             permutation_vanishing_polynomial_m: permutation_vanishing_polynomial_m
                 .get()
                 .unwrap()
                 .into(),
             w: (*w.get().unwrap()).into(),
-            endo: endo.into(),
+            endo: (*endo).into(),
             lookup_index: lookup_index.clone(),
-            linearization: conv_linearization(linearization, |v| v.into()),
+            linearization: conv_linearization(linearization, |v| (*v).into()),
             zk_rows: *zk_rows,
         }
     }
@@ -459,14 +459,14 @@ impl From<&VerifierIndexCached> for VerifierIndex<Fq> {
             endomul_scalar_comm: endomul_scalar_comm.clone(),
             foreign_field_add_comm: foreign_field_add_comm.clone(),
             xor_comm: xor_comm.clone(),
-            shift: shift.each_ref().map(|s: &BigInt| s.to_field().unwrap()), // We trust cached data
+            shift: shift.each_ref().map(|s: &BigInt| s.to_field()),
             permutation_vanishing_polynomial_m: OnceCell::with_value(
                 permutation_vanishing_polynomial_m.into(),
             ),
-            w: OnceCell::with_value(w.to_field().unwrap()), // We trust cached data
-            endo: endo.to_field().unwrap(),                 // We trust cached data
+            w: OnceCell::with_value(w.to_field()),
+            endo: endo.to_field(),
             lookup_index: lookup_index.clone(),
-            linearization: conv_linearization(linearization, |v: &BigInt| v.to_field().unwrap()),
+            linearization: conv_linearization(linearization, |v: &BigInt| v.to_field()),
             powers_of_alpha: {
                 // `Alphas` contains private data, so we can't de/serialize it.
                 // Initializing an `Alphas` is cheap anyway (for block verification).
@@ -512,12 +512,12 @@ pub fn verifier_index_from_bytes(
     Ok((&verifier).into())
 }
 
-pub fn srs_to_bytes<'a, G>(srs: &'a SRS<G>) -> Vec<u8>
+pub fn srs_to_bytes<G>(srs: &SRS<G>) -> Vec<u8>
 where
     G: CommitmentCurve,
     GroupAffineCached: for<'y> From<&'y G>,
-    BigInt: From<&'a <G as AffineRepr>::ScalarField>,
-    BigInt: From<&'a <G as AffineRepr>::BaseField>,
+    BigInt: From<<G as AffineRepr>::ScalarField>,
+    BigInt: From<<G as AffineRepr>::BaseField>,
 {
     let srs: SRSCached = srs.into();
 

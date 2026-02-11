@@ -24,7 +24,7 @@ fn get_challenge_polynomial_commitments_padding() -> (BigInt, BigInt) {
         (first.into(), second.into())
     });
 
-    PADDING.clone()
+    *PADDING
 }
 
 pub fn make_padded_proof_from_p2p(
@@ -34,63 +34,50 @@ pub fn make_padded_proof_from_p2p(
         proof,
     }: &PicklesProofProofsVerified2ReprStableV2,
 ) -> anyhow::Result<ProverProof<Fq>> {
-    let of_coord = |(a, b): &(BigInt, BigInt)| -> anyhow::Result<_> {
-        Ok(Pallas::of_coordinates(a.to_field()?, b.to_field()?))
-    };
+    let of_coord =
+        |(a, b): &(BigInt, BigInt)| Pallas::of_coordinates(a.to_field::<Fp>(), b.to_field::<Fp>());
 
-    let make_poly = |poly: &(BigInt, BigInt)| -> anyhow::Result<_> {
-        Ok(PolyComm {
-            chunks: vec![of_coord(poly)?],
-        })
+    let make_poly = |poly: &(BigInt, BigInt)| PolyComm {
+        chunks: vec![of_coord(poly)],
     };
 
     let w_comm: [PolyComm<Pallas>; 15] =
-        crate::try_array_into_with(&proof.commitments.w_comm, make_poly)?;
-    let z_comm: PolyComm<Pallas> = make_poly(&proof.commitments.z_comm)?;
+        crate::array_into_with(&proof.commitments.w_comm, make_poly);
+    let z_comm: PolyComm<Pallas> = make_poly(&proof.commitments.z_comm);
     let t_comm: PolyComm<Pallas> = {
-        let chunks = proof
-            .commitments
-            .t_comm
-            .iter()
-            .map(of_coord)
-            .collect::<Result<_, _>>()?;
+        let chunks = proof.commitments.t_comm.iter().map(of_coord).collect();
         PolyComm { chunks }
     };
 
     let bulletproof = &proof.bulletproof;
 
     let lr = &bulletproof.lr;
-    let lr: Vec<(Pallas, Pallas)> = lr
-        .iter()
-        .map(|(a, b)| Ok((of_coord(a)?, of_coord(b)?)))
-        .collect::<anyhow::Result<_>>()?;
+    let lr: Vec<(Pallas, Pallas)> = lr.iter().map(|(a, b)| (of_coord(a), of_coord(b))).collect();
 
-    let delta: Pallas = of_coord(&bulletproof.delta)?;
-    let z1: Fq = bulletproof.z_1.to_field()?;
-    let z2: Fq = bulletproof.z_2.to_field()?;
+    let delta: Pallas = of_coord(&bulletproof.delta);
+    let z1: Fq = bulletproof.z_1.to_field();
+    let z2: Fq = bulletproof.z_2.to_field();
 
-    let sg: Pallas = of_coord(&bulletproof.challenge_polynomial_commitment)?;
+    let sg: Pallas = of_coord(&bulletproof.challenge_polynomial_commitment);
 
     let evals = &proof.evaluations;
 
-    let to_pt_eval = |(first, second): &(BigInt, BigInt)| -> anyhow::Result<_> {
-        Ok(PointEvaluations {
-            zeta: vec![first.to_field::<Fq>()?],
-            zeta_omega: vec![second.to_field::<Fq>()?],
-        })
+    let to_pt_eval = |(first, second): &(BigInt, BigInt)| PointEvaluations {
+        zeta: vec![first.to_field::<Fq>()],
+        zeta_omega: vec![second.to_field::<Fq>()],
     };
 
     let evals: ProofEvaluations<PointEvaluations<Vec<Fq>>> = ProofEvaluations {
-        w: crate::try_array_into_with(&evals.w, to_pt_eval)?,
-        z: to_pt_eval(&evals.z)?,
-        s: crate::try_array_into_with(&evals.s, to_pt_eval)?,
-        generic_selector: to_pt_eval(&evals.generic_selector)?,
-        poseidon_selector: to_pt_eval(&evals.poseidon_selector)?,
-        coefficients: crate::try_array_into_with(&evals.coefficients, to_pt_eval)?,
-        complete_add_selector: to_pt_eval(&evals.complete_add_selector)?,
-        mul_selector: to_pt_eval(&evals.mul_selector)?,
-        emul_selector: to_pt_eval(&evals.emul_selector)?,
-        endomul_scalar_selector: to_pt_eval(&evals.endomul_scalar_selector)?,
+        w: crate::array_into_with(&evals.w, to_pt_eval),
+        z: to_pt_eval(&evals.z),
+        s: crate::array_into_with(&evals.s, to_pt_eval),
+        generic_selector: to_pt_eval(&evals.generic_selector),
+        poseidon_selector: to_pt_eval(&evals.poseidon_selector),
+        coefficients: crate::array_into_with(&evals.coefficients, to_pt_eval),
+        complete_add_selector: to_pt_eval(&evals.complete_add_selector),
+        mul_selector: to_pt_eval(&evals.mul_selector),
+        emul_selector: to_pt_eval(&evals.emul_selector),
+        endomul_scalar_selector: to_pt_eval(&evals.endomul_scalar_selector),
         range_check0_selector: None,
         range_check1_selector: None,
         foreign_field_add_selector: None,
@@ -109,7 +96,7 @@ pub fn make_padded_proof_from_p2p(
         public: None,
     };
 
-    let ft_eval1: Fq = proof.ft_eval1.to_field()?;
+    let ft_eval1: Fq = proof.ft_eval1.to_field();
 
     let old_bulletproof_challenges = &statement
         .proof_state
@@ -120,11 +107,8 @@ pub fn make_padded_proof_from_p2p(
         old_bulletproof_challenges.0[1].0.clone(),
     ]);
 
-    let make_poly = |poly: &(BigInt, BigInt)| -> anyhow::Result<_> {
-        let point = of_coord(poly)?;
-        Ok(PolyComm {
-            chunks: vec![point],
-        })
+    let make_poly = |poly: &(BigInt, BigInt)| PolyComm {
+        chunks: vec![of_coord(poly)],
     };
 
     let mut challenge_polynomial_commitments = Cow::Borrowed(
@@ -145,7 +129,7 @@ pub fn make_padded_proof_from_p2p(
     let challenge_polynomial_commitments: Vec<PolyComm<Pallas>> = challenge_polynomial_commitments
         .iter()
         .map(make_poly)
-        .collect::<Result<_, _>>()?;
+        .collect();
 
     // Or pad with `Wrap_hack.pad_accumulator`
     assert_eq!(old_bulletproof_challenges.len(), 2);

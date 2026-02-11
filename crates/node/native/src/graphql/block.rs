@@ -175,12 +175,8 @@ impl TryFrom<AppliedBlock> for GraphQLBlock {
             .collect();
 
         Ok(Self {
-            creator_account_key: AccountPublicKey::from(block.producer().clone())
-                .try_into()
-                .map_err(|_| ConversionError::Custom("Invalid public key".to_string()))?,
-            winner_account_key: AccountPublicKey::from(block.block_stake_winner().clone())
-                .try_into()
-                .map_err(|_| ConversionError::Custom("Invalid public key".to_string()))?,
+            creator_account_key: AccountPublicKey::from(block.producer().clone()).into(),
+            winner_account_key: AccountPublicKey::from(block.block_stake_winner().clone()).into(),
             protocol_state,
             state_hash: block.hash.to_string(),
             state_hash_field: block.hash.to_decimal(),

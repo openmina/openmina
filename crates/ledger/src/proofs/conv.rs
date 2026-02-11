@@ -1,5 +1,5 @@
 use mina_curves::pasta::Fp;
-use mina_p2p_messages::{bigint::InvalidBigInt, v2};
+use mina_p2p_messages::v2;
 
 use crate::scan_state::{
     currency::{self, Length, Slot},
@@ -16,6 +16,30 @@ use super::{
         nat::{CheckedLength, CheckedNat, CheckedSlot},
     },
 };
+
+fn pubkey_to_nzcurvepoint(pk: &mina_signer::CompressedPubKey) -> v2::NonZeroCurvePoint {
+    let v1: v2::NonZeroCurvePointUncompressedStableV1 = pk.clone().into();
+    v1.into()
+}
+
+fn epoch_data_from_p2p(
+    ledger: &v2::MinaBaseEpochLedgerValueStableV1,
+    seed: &v2::EpochSeed,
+    start_checkpoint: &v2::StateHash,
+    lock_checkpoint: &v2::StateHash,
+    epoch_length: &v2::UnsignedExtendedUInt32StableV1,
+) -> EpochData<Fp> {
+    EpochData {
+        ledger: EpochLedger {
+            hash: ledger.hash.to_field::<Fp>(),
+            total_currency: currency::Amount::from_u64(ledger.total_currency.as_u64()),
+        },
+        seed: seed.to_field::<Fp>(),
+        start_checkpoint: start_checkpoint.to_field::<Fp>(),
+        lock_checkpoint: lock_checkpoint.to_field::<Fp>(),
+        epoch_length: Length::from_u32(epoch_length.as_u32()),
+    }
+}
 
 fn state_hash(value: Fp) -> v2::StateHash {
     v2::DataHashLibStateHashStableV1(value.into()).into()
@@ -99,19 +123,17 @@ impl From<&ProtocolState> for v2::MinaStateProtocolStateValueStableV2 {
     }
 }
 
-impl TryFrom<&v2::MinaStateProtocolStateValueStableV2> for ProtocolState {
-    type Error = InvalidBigInt;
-
-    fn try_from(value: &v2::MinaStateProtocolStateValueStableV2) -> Result<Self, Self::Error> {
+impl From<&v2::MinaStateProtocolStateValueStableV2> for ProtocolState {
+    fn from(value: &v2::MinaStateProtocolStateValueStableV2) -> Self {
         let v2::MinaStateProtocolStateValueStableV2 {
             previous_state_hash,
             body,
         } = value;
 
-        Ok(Self {
-            previous_state_hash: previous_state_hash.to_field()?,
-            body: body.try_into()?,
-        })
+        Self {
+            previous_state_hash: previous_state_hash.to_field::<Fp>(),
+            body: body.into(),
+        }
     }
 }
 
@@ -127,7 +149,7 @@ impl From<&super::block::BlockchainState> for v2::MinaStateBlockchainStateValueS
 
         Self {
             staged_ledger_hash: staged_ledger_hash.into(),
-            genesis_ledger_hash: genesis_ledger_hash.into(),
+            genesis_ledger_hash: (*genesis_ledger_hash).into(),
             ledger_proof_statement: ledger_proof_statement.into(),
             timestamp: timestamp.into(),
             body_reference: body_reference.clone(),
@@ -141,15 +163,13 @@ impl From<&ProtocolStateBody<ConsensusState>> for v2::MinaStateProtocolStateBody
             genesis_state_hash: state_hash(value.genesis_state_hash),
             blockchain_state: (&value.blockchain_state).into(),
             consensus_state: (&value.consensus_state).into(),
-            constants: value.constants.clone(),
+            constants: value.constants,
         }
     }
 }
 
-impl TryFrom<&v2::MinaStateProtocolStateBodyValueStableV2> for ProtocolStateBody<ConsensusState> {
-    type Error = InvalidBigInt;
-
-    fn try_from(value: &v2::MinaStateProtocolStateBodyValueStableV2) -> Result<Self, Self::Error> {
+impl From<&v2::MinaStateProtocolStateBodyValueStableV2> for ProtocolStateBody<ConsensusState> {
+    fn from(value: &v2::MinaStateProtocolStateBodyValueStableV2) -> Self {
         let v2::MinaStateProtocolStateBodyValueStableV2 {
             genesis_state_hash,
             blockchain_state,
@@ -157,21 +177,17 @@ impl TryFrom<&v2::MinaStateProtocolStateBodyValueStableV2> for ProtocolStateBody
             constants,
         } = value;
 
-        Ok(Self {
-            genesis_state_hash: genesis_state_hash.to_field()?,
-            blockchain_state: blockchain_state.try_into()?,
-            consensus_state: consensus_state.try_into()?,
-            constants: constants.clone(),
-        })
+        Self {
+            genesis_state_hash: genesis_state_hash.to_field::<Fp>(),
+            blockchain_state: blockchain_state.into(),
+            consensus_state: consensus_state.into(),
+            constants: *constants,
+        }
     }
 }
 
-impl TryFrom<&v2::ConsensusProofOfStakeDataConsensusStateValueStableV2> for ConsensusState {
-    type Error = InvalidBigInt;
-
-    fn try_from(
-        value: &v2::ConsensusProofOfStakeDataConsensusStateValueStableV2,
-    ) -> Result<Self, Self::Error> {
+impl From<&v2::ConsensusProofOfStakeDataConsensusStateValueStableV2> for ConsensusState {
+    fn from(value: &v2::ConsensusProofOfStakeDataConsensusStateValueStableV2) -> Self {
         let v2::ConsensusProofOfStakeDataConsensusStateValueStableV2 {
             blockchain_length,
             epoch_count,
@@ -190,7 +206,7 @@ impl TryFrom<&v2::ConsensusProofOfStakeDataConsensusStateValueStableV2> for Cons
             supercharge_coinbase,
         } = value;
 
-        Ok(Self {
+        Self {
             blockchain_length: Length::from_u32(blockchain_length.as_u32()),
             epoch_count: Length::from_u32(epoch_count.as_u32()),
             min_window_density: Length::from_u32(min_window_density.as_u32()),
@@ -208,19 +224,31 @@ impl TryFrom<&v2::ConsensusProofOfStakeDataConsensusStateValueStableV2> for Cons
                 // Ignore last 3 bits
                 let last_byte = last_vrf_output[31];
                 output.extend([1, 2, 4, 8, 16].iter().map(|bit| *bit & last_byte != 0));
-                output.try_into().map_err(|_| InvalidBigInt)? // TODO: Return correct error
+                output.try_into().unwrap() // Vec of exactly 253 elements
             },
             curr_global_slot_since_hard_fork: curr_global_slot_since_hard_fork.into(),
             global_slot_since_genesis: Slot::from_u32(global_slot_since_genesis.as_u32()),
             total_currency: currency::Amount::from_u64(total_currency.as_u64()),
-            staking_epoch_data: staking_epoch_data.try_into()?,
-            next_epoch_data: next_epoch_data.try_into()?,
+            staking_epoch_data: epoch_data_from_p2p(
+                &staking_epoch_data.ledger,
+                &staking_epoch_data.seed,
+                &staking_epoch_data.start_checkpoint,
+                &staking_epoch_data.lock_checkpoint,
+                &staking_epoch_data.epoch_length,
+            ),
+            next_epoch_data: epoch_data_from_p2p(
+                &next_epoch_data.ledger,
+                &next_epoch_data.seed,
+                &next_epoch_data.start_checkpoint,
+                &next_epoch_data.lock_checkpoint,
+                &next_epoch_data.epoch_length,
+            ),
             has_ancestor_in_same_checkpoint_window: *has_ancestor_in_same_checkpoint_window,
-            block_stake_winner: block_stake_winner.try_into()?,
-            block_creator: block_creator.try_into()?,
-            coinbase_receiver: coinbase_receiver.try_into()?,
+            block_stake_winner: block_stake_winner.into(),
+            block_creator: block_creator.into(),
+            coinbase_receiver: coinbase_receiver.into(),
             supercharge_coinbase: *supercharge_coinbase,
-        })
+        }
     }
 }
 
@@ -257,9 +285,9 @@ impl From<&CheckedConsensusState> for v2::ConsensusProofOfStakeDataConsensusStat
             has_ancestor_in_same_checkpoint_window: value
                 .has_ancestor_in_same_checkpoint_window
                 .as_bool(),
-            block_stake_winner: (&value.block_stake_winner).into(),
-            block_creator: (&value.block_creator).into(),
-            coinbase_receiver: (&value.coinbase_receiver).into(),
+            block_stake_winner: pubkey_to_nzcurvepoint(&value.block_stake_winner),
+            block_creator: pubkey_to_nzcurvepoint(&value.block_creator),
+            coinbase_receiver: pubkey_to_nzcurvepoint(&value.coinbase_receiver),
             supercharge_coinbase: value.supercharge_coinbase.as_bool(),
         }
     }
@@ -294,9 +322,9 @@ impl From<&ConsensusState> for v2::ConsensusProofOfStakeDataConsensusStateValueS
             staking_epoch_data: (&value.staking_epoch_data).into(),
             next_epoch_data: (&value.next_epoch_data).into(),
             has_ancestor_in_same_checkpoint_window: value.has_ancestor_in_same_checkpoint_window,
-            block_stake_winner: (&value.block_stake_winner).into(),
-            block_creator: (&value.block_creator).into(),
-            coinbase_receiver: (&value.coinbase_receiver).into(),
+            block_stake_winner: pubkey_to_nzcurvepoint(&value.block_stake_winner),
+            block_creator: pubkey_to_nzcurvepoint(&value.block_creator),
+            coinbase_receiver: pubkey_to_nzcurvepoint(&value.coinbase_receiver),
             supercharge_coinbase: value.supercharge_coinbase,
         }
     }

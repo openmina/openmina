@@ -242,21 +242,14 @@ impl Account {
 
     pub fn to_account(&self) -> Result<ledger::Account, AccountConfigError> {
         let mut account = ledger::Account::empty();
-        account.public_key = self
-            .public_key()?
-            .try_into()
-            .map_err(|_| AccountConfigError::InvalidBigInt)?;
+        account.public_key = self.public_key()?.into();
         account.token_id = self.token_id()?;
         account.token_symbol = self.token_symbol();
         account.balance = self.balance();
         account.nonce = self.nonce();
         account.receipt_chain_hash = self.receipt_chain_hash()?;
         account.delegate = match self.delegate()? {
-            Some(delegate) => Some(
-                delegate
-                    .try_into()
-                    .map_err(|_| AccountConfigError::InvalidBigInt)?,
-            ),
+            Some(delegate) => Some(delegate.into()),
             None => None,
         };
         account.voting_for = self.voting_for()?;

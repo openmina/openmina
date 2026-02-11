@@ -35,12 +35,10 @@ impl TryInto<Signature> for SignatureJson {
     fn try_into(self) -> Result<Signature, Self::Error> {
         let rx = BigInt::from_decimal(&self.field)
             .map_err(|_| "Failed to parse decimals as BigInt")?
-            .try_into()
-            .map_err(|_| "Failed to convert rx BigInt to field element")?;
+            .into();
         let s = BigInt::from_decimal(&self.scalar)
             .map_err(|_| "Failed to parse decimals as BigInt")?
-            .try_into()
-            .map_err(|_| "Failed to convert rx BigInt to field element")?;
+            .into();
 
         Ok(Signature::new(rx, s))
     }
@@ -68,10 +66,7 @@ impl SignedNodeHeartbeat {
             Err(_) => return false,
         };
 
-        let pk: CompressedPubKey = match self.submitter.clone().try_into() {
-            Ok(pk) => pk,
-            Err(_) => return false,
-        };
+        let pk = CompressedPubKey::from(self.submitter.clone());
 
         let pk = match PubKey::from_address(&pk.into_address()) {
             Ok(pk) => pk,

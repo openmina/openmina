@@ -22,7 +22,7 @@ pub struct SimulationSmall;
 impl SimulationSmall {
     pub async fn run(self, mut runner: ClusterRunner<'_>) {
         let initial_time = redux::Timestamp::global_now();
-        let mut constants = PROTOCOL_CONSTANTS.clone();
+        let mut constants = PROTOCOL_CONSTANTS;
         constants.genesis_state_timestamp =
             BlockTimeTimeStableV1((u64::from(initial_time) / 1_000_000).into());
         let genesis_cfg = GenesisConfig::Counts {

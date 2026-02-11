@@ -10,7 +10,6 @@ use mina_node::{
     event_source::ExternalSnarkWorkerEvent,
     external_snark_worker::{
         ExternalSnarkWorkerError, ExternalSnarkWorkerWorkError, SnarkWorkResult, SnarkWorkSpec,
-        SnarkWorkSpecError,
     },
     snark::TransactionVerifier,
 };
@@ -157,10 +156,6 @@ fn prove_spec(
     .map(Into::into)
 }
 
-fn invalid_bigint_err() -> ExternalSnarkWorkerWorkError {
-    ExternalSnarkWorkerWorkError::WorkSpecError(SnarkWorkSpecError::InvalidBigInt)
-}
-
 fn prove_single(
     tx_prover: &TransactionProver,
     zkapp_prover: &ZkappProver,
@@ -194,9 +189,7 @@ fn prove_single(
         v2::SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single::Merge(data) => {
             let (snarked_ledger_state, proof_1, proof_2) = *data;
             let res = ledger::proofs::generate_merge_proof(MergeParams {
-                statement: (&snarked_ledger_state.0)
-                    .try_into()
-                    .map_err(|_| invalid_bigint_err())?,
+                statement: (&snarked_ledger_state.0).into(),
                 proofs: &[proof_1, proof_2],
                 message: sok_message,
                 step_prover: &tx_prover.merge_step_prover,

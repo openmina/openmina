@@ -61,7 +61,7 @@ impl SnarkedLedger {
     pub async fn sync_new(&mut self, client: &mut Client, root: &v2::LedgerHash) {
         let q = v2::MinaLedgerSyncLedgerQueryStableV1::NumAccounts;
         let r = match client
-            .rpc::<AnswerSyncLedgerQueryV2>((root.0.clone(), q))
+            .rpc::<AnswerSyncLedgerQueryV2>((root.0, q))
             .await
             .unwrap()
             .0
@@ -120,7 +120,7 @@ impl SnarkedLedger {
             );
             log::info!("{}", serde_json::to_string(&q).unwrap());
             let r = client
-                .rpc::<AnswerSyncLedgerQueryV2>((root.0.clone(), q))
+                .rpc::<AnswerSyncLedgerQueryV2>((root.0, q))
                 .await
                 .unwrap()
                 .0;
@@ -130,7 +130,7 @@ impl SnarkedLedger {
                 }
                 Ok(v2::MinaLedgerSyncLedgerAnswerStableV2::ContentsAre(accounts)) => {
                     for (o, account) in accounts.into_iter().enumerate() {
-                        let account = Account::try_from(&account).unwrap();
+                        let account = Account::from(&account);
                         self.inner
                             .set_at_index(
                                 AccountIndex((pos * 8 * (1 << Q)) as u64 + o as u64),
@@ -154,7 +154,7 @@ impl SnarkedLedger {
             );
             log::info!("{}", serde_json::to_string(&q).unwrap());
             let r = client
-                .rpc::<AnswerSyncLedgerQueryV2>((root.0.clone(), q))
+                .rpc::<AnswerSyncLedgerQueryV2>((root.0, q))
                 .await
                 .unwrap()
                 .0

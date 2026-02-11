@@ -52,7 +52,7 @@ impl VrfOutput {
         // seed, x, y, packed(slot, index).
 
         let mut inputs = ROInput::new();
-        let epoch_seed = self.message.epoch_seed.to_field().unwrap();
+        let epoch_seed: super::BaseField = self.message.epoch_seed.to_field();
         inputs = inputs.append_field(epoch_seed);
         inputs = inputs.append_field(x);
         inputs = inputs.append_field(y);

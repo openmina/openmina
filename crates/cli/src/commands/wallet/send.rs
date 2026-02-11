@@ -89,20 +89,13 @@ impl Send {
         // Determine the fee payer (use fee_payer if provided, otherwise use sender)
         let fee_payer_pk: CompressedPubKey = if let Some(ref fee_payer) = self.fee_payer {
             println!("Fee payer: {}", fee_payer);
-            fee_payer
-                .clone()
-                .try_into()
-                .map_err(|_| anyhow::anyhow!("Invalid fee payer public key"))?
+            fee_payer.clone().into()
         } else {
             sender_pk.clone()
         };
 
         // Convert receiver public key to CompressedPubKey
-        let receiver_pk: CompressedPubKey = self
-            .to
-            .clone()
-            .try_into()
-            .map_err(|_| anyhow::anyhow!("Invalid receiver public key"))?;
+        let receiver_pk: CompressedPubKey = self.to.clone().into();
 
         // Fetch nonce from node if not provided
         // Note: GraphQL API expects nonce to be account_nonce, but we need to sign

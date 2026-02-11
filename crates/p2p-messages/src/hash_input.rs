@@ -21,7 +21,7 @@ impl FailableToInputs for bool {
 
 impl FailableToInputs for BigInt {
     fn to_input(&self, inputs: ROInput) -> Result<ROInput, InvalidBigInt> {
-        let field = self.to_field()?;
+        let field = self.to_field();
         Ok(inputs.append_field(field))
     }
 }

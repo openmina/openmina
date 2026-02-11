@@ -262,7 +262,7 @@ mod libp2p {
                     needed_blocks,
                 } = staged_ledger_info.as_ref().clone();
 
-                let hash = staged_ledger_hash.inner().0.clone();
+                let hash = staged_ledger_hash.inner().0;
 
                 let r = RpcResult(Ok(NeedsLength(Some((
                     scan_state,
@@ -338,7 +338,7 @@ mod libp2p {
                 type Payload = QueryPayload<<Method as RpcMethod>::Query>;
 
                 let mut v = vec![];
-                <Payload as BinProtWrite>::binprot_write(&NeedsLength((hash.0.clone(), q)), &mut v)
+                <Payload as BinProtWrite>::binprot_write(&NeedsLength((hash.0, q)), &mut v)
                     .unwrap_or_default();
                 Some((
                     QueryHeader {
@@ -354,7 +354,7 @@ mod libp2p {
                 type Payload = QueryPayload<<Method as RpcMethod>::Query>;
 
                 let mut v = vec![];
-                <Payload as BinProtWrite>::binprot_write(&NeedsLength(hash.0.clone()), &mut v)
+                <Payload as BinProtWrite>::binprot_write(&NeedsLength(hash.0), &mut v)
                     .unwrap_or_default();
                 Some((
                     QueryHeader {
@@ -370,11 +370,8 @@ mod libp2p {
                 type Payload = QueryPayload<<Method as RpcMethod>::Query>;
 
                 let mut v = vec![];
-                <Payload as BinProtWrite>::binprot_write(
-                    &NeedsLength(List::one(hash.0.clone())),
-                    &mut v,
-                )
-                .unwrap_or_default();
+                <Payload as BinProtWrite>::binprot_write(&NeedsLength(List::one(hash.0)), &mut v)
+                    .unwrap_or_default();
                 Some((
                     QueryHeader {
                         tag: Method::NAME.into(),

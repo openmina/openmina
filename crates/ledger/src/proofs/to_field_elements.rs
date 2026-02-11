@@ -937,10 +937,10 @@ impl ToFieldElements<Fp> for PerProofWitness {
             messages_for_next_wrap_proof: _,
         } = proof_state;
 
-        two_u64_to_field::<Fp, _>(alpha).to_field_elements(fields);
-        two_u64_to_field::<Fp, _>(beta).to_field_elements(fields);
-        two_u64_to_field::<Fp, _>(gamma).to_field_elements(fields);
-        two_u64_to_field::<Fp, _>(zeta).to_field_elements(fields);
+        two_u64_to_field::<Fp>(alpha).to_field_elements(fields);
+        two_u64_to_field::<Fp>(beta).to_field_elements(fields);
+        two_u64_to_field::<Fp>(gamma).to_field_elements(fields);
+        two_u64_to_field::<Fp>(zeta).to_field_elements(fields);
 
         zeta_to_srs_length.to_field_elements(fields);
         zeta_to_domain_size.to_field_elements(fields);
@@ -966,7 +966,7 @@ impl ToFieldElements<Fp> for PerProofWitness {
 
         combined_inner_product.to_field_elements(fields);
         b.to_field_elements(fields);
-        two_u64_to_field::<Fp, _>(xi).to_field_elements(fields);
+        two_u64_to_field::<Fp>(xi).to_field_elements(fields);
         bulletproof_challenges.to_field_elements(fields);
 
         // Index
@@ -987,9 +987,7 @@ impl ToFieldElements<Fp> for PerProofWitness {
             Fp::from(domain_log2).to_field_elements(fields);
         }
 
-        four_u64_to_field::<Fp, _>(sponge_digest_before_evaluations)
-            .unwrap() // Never fail, `sponge_digest_before_evaluations` was previously a `Fp`
-            .to_field_elements(fields);
+        four_u64_to_field::<Fp>(sponge_digest_before_evaluations).to_field_elements(fields);
 
         let AllEvals {
             ft_eval1,

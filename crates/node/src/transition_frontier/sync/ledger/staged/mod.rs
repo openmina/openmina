@@ -1,6 +1,5 @@
 mod transition_frontier_sync_ledger_staged_state;
 use mina_curves::pasta::Fp;
-use mina_p2p_messages::bigint::InvalidBigInt;
 pub use transition_frontier_sync_ledger_staged_state::*;
 
 mod transition_frontier_sync_ledger_staged_actions;
@@ -38,13 +37,11 @@ pub enum StagedLedgerAuxAndPendingCoinbasesValidated {
     Invalid(Arc<StagedLedgerAuxAndPendingCoinbases>),
 }
 
-fn conv(
-    parts: &StagedLedgerAuxAndPendingCoinbases,
-) -> Result<(ScanState, PendingCoinbase, Fp), InvalidBigInt> {
-    let scan_state: ScanState = (&parts.scan_state).try_into()?;
-    let pending_coinbase: PendingCoinbase = (&parts.pending_coinbase).try_into()?;
-    let staged_ledger_hash: Fp = parts.staged_ledger_hash.to_field()?;
-    Ok((scan_state, pending_coinbase, staged_ledger_hash))
+fn conv(parts: &StagedLedgerAuxAndPendingCoinbases) -> (ScanState, PendingCoinbase, Fp) {
+    let scan_state: ScanState = (&parts.scan_state).into();
+    let pending_coinbase: PendingCoinbase = (&parts.pending_coinbase).into();
+    let staged_ledger_hash: Fp = parts.staged_ledger_hash.to_field();
+    (scan_state, pending_coinbase, staged_ledger_hash)
 }
 
 impl StagedLedgerAuxAndPendingCoinbasesValidated {
@@ -53,9 +50,7 @@ impl StagedLedgerAuxAndPendingCoinbasesValidated {
         expected_hash: &MinaBaseStagedLedgerHashStableV1,
     ) -> Self {
         // TODO(binier): PERF extra conversions and not caching hashes.
-        let Ok((scan_state, mut pending_coinbase, staged_ledger_hash)) = conv(parts) else {
-            return Self::Invalid(parts.clone());
-        };
+        let (scan_state, mut pending_coinbase, staged_ledger_hash) = conv(parts);
 
         let calculated_hash = StagedLedgerHash::of_aux_ledger_and_coinbase_hash(
             scan_state.hash(),

@@ -34,14 +34,12 @@ impl From<CompressedPubKey> for AccountPublicKey {
     }
 }
 
-impl TryFrom<AccountPublicKey> for CompressedPubKey {
-    type Error = ();
-
-    fn try_from(value: AccountPublicKey) -> Result<Self, Self::Error> {
-        Ok(Self {
+impl From<AccountPublicKey> for CompressedPubKey {
+    fn from(value: AccountPublicKey) -> Self {
+        Self {
             is_odd: value.0.is_odd,
-            x: value.0.into_inner().x.try_into().map_err(|_| ())?,
-        })
+            x: value.0.into_inner().x.into(),
+        }
     }
 }
 

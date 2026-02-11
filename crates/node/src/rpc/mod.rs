@@ -138,23 +138,23 @@ impl TryFrom<RpcInjectPayment> for MinaBaseUserCommandStableV2 {
 
     fn try_from(value: RpcInjectPayment) -> Result<Self, Self::Error> {
         let signature = mina_signer::Signature {
-            rx: value.signature_field.try_into()?,
-            s: value.signature_scalar.try_into()?,
+            rx: value.signature_field.into(),
+            s: value.signature_scalar.into(),
         };
         println!("Signature: {signature}");
         let sc = signed_command::SignedCommand {
             payload: SignedCommandPayload::create(
                 Fee::from_u64(value.fee),
-                value.from.clone().try_into().map_err(|_| InvalidBigInt)?,
+                value.from.clone().into(),
                 Nonce::from_u32(value.nonce),
                 Some(Slot::from_u32(value.valid_until)),
                 Memo::from_str(&value.memo).unwrap(),
                 signed_command::Body::Payment(signed_command::PaymentPayload {
-                    receiver_pk: value.to.try_into().map_err(|_| InvalidBigInt)?,
+                    receiver_pk: value.to.into(),
                     amount: Amount::from_u64(value.amount),
                 }),
             ),
-            signer: value.from.try_into().map_err(|_| InvalidBigInt)?,
+            signer: value.from.into(),
             signature,
         };
 

@@ -1,3 +1,4 @@
+use mina_curves::pasta::Fp;
 use redux::ActionMeta;
 
 use crate::{ledger::hash_node_at_depth, Store};
@@ -53,21 +54,11 @@ impl TransitionFrontierSyncLedgerSnarkedAction {
                     return;
                 };
 
-                let (Ok(left_hash_fp), Ok(right_hash_fp), Ok(parent_hash_fp)) = (
-                    left_hash.to_field(),
-                    right_hash.to_field(),
-                    parent_hash.to_field(),
-                ) else {
-                    // Reject in case of invalid fields
-                    store.dispatch(
-                        TransitionFrontierSyncLedgerSnarkedAction::ChildHashesRejected {
-                            address: address.clone(),
-                            hashes: (left_hash.clone(), right_hash.clone()),
-                            sender: *sender,
-                        },
-                    );
-                    return;
-                };
+                let (left_hash_fp, right_hash_fp, parent_hash_fp) = (
+                    left_hash.to_field::<Fp>(),
+                    right_hash.to_field::<Fp>(),
+                    parent_hash.to_field::<Fp>(),
+                );
 
                 let actual_hash = hash_node_at_depth(address.length(), left_hash_fp, right_hash_fp);
                 if actual_hash != parent_hash_fp {

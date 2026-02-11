@@ -1045,6 +1045,7 @@ pub struct PicklesProofProofsVerifiedMaxStableV2 {
 /// Location: [src/lib/non_zero_curve_point/compressed_poly.ml:13:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/non_zero_curve_point/compressed_poly.ml#L13)
 /// Args: crate :: bigint :: BigInt , bool
 #[derive(
+    Copy,
     Clone,
     Debug,
     PartialEq,
@@ -1344,7 +1345,7 @@ pub enum MinaBaseAccountTimingStableV2 {
 /// Location: [src/lib/mina_base/signature.ml:12:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/signature.ml#L12)
 /// Args: crate :: bigint :: BigInt , crate :: bigint :: BigInt
 #[derive(
-    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+    Copy, Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
 )]
 pub struct MinaBaseSignatureStableV1(pub crate::bigint::BigInt, pub crate::bigint::BigInt);
 

@@ -1048,7 +1048,7 @@ fn zkapp_main(
     w.exists(&statement);
 
     dummy_constraints(w);
-    let state_body: &ProtocolStateBody = &w.exists(witness.state_body.try_into()?);
+    let state_body: &ProtocolStateBody = &w.exists(witness.state_body.into());
     let block_global_slot = w.exists(witness.block_global_slot).to_checked();
     let pending_coinbase_stack_init = w.exists(witness.init_stack.clone());
 
@@ -1592,7 +1592,7 @@ impl From<&WrapProof> for v2::PicklesProofProofsVerified2ReprStableV2 {
                         },
                         evals: prev_evals_to_p2p(evals),
                     },
-                    ft_eval1: ft_eval1.into(),
+                    ft_eval1: (*ft_eval1).into(),
                 }
             },
             proof: v2::PicklesWrapWireProofStableV1 {
@@ -1633,11 +1633,11 @@ impl From<&WrapProof> for v2::PicklesProofProofsVerified2ReprStableV2 {
                         endomul_scalar_selector: to_tuple(endomul_scalar_selector),
                     }
                 },
-                ft_eval1: ft_eval1.into(),
+                ft_eval1: (*ft_eval1).into(),
                 bulletproof: v2::PicklesWrapWireProofStableV1Bulletproof {
                     lr: lr.iter().map(|(a, b)| (to_tuple(a), to_tuple(b))).collect(),
-                    z_1: z1.into(),
-                    z_2: z2.into(),
+                    z_1: (*z1).into(),
+                    z_2: (*z2).into(),
                     delta: to_tuple(delta),
                     challenge_polynomial_commitment: to_tuple(sg),
                 },
@@ -1717,21 +1717,21 @@ pub fn generate_zkapp_proof(params: ZkappParams) -> anyhow::Result<LedgerProof> 
         }
         _ => unreachable!(),
     };
-    let zkapp_command: ZkAppCommand = zkapp.try_into()?;
+    let zkapp_command: ZkAppCommand = zkapp.into();
 
     let witnesses_specs_stmts = zkapp_command_witnesses_exn(ZkappCommandWitnessesParams {
         global_slot: Slot::from_u32(tx_witness.block_global_slot.as_u32()),
         state_body: &tx_witness.protocol_state_body,
         fee_excess: Signed::zero(),
         zkapp_commands_with_context: vec![ZkappCommandsWithContext {
-            pending_coinbase_init_stack: (&tx_witness.init_stack).try_into()?,
+            pending_coinbase_init_stack: (&tx_witness.init_stack).into(),
             pending_coinbase_of_statement: pending_coinbase::StackState {
-                source: (&statement.source.pending_coinbase_stack).try_into()?,
-                target: (&statement.target.pending_coinbase_stack).try_into()?,
+                source: (&statement.source.pending_coinbase_stack).into(),
+                target: (&statement.target.pending_coinbase_stack).into(),
             },
-            first_pass_ledger: (&tx_witness.first_pass_ledger).try_into()?,
-            second_pass_ledger: (&tx_witness.second_pass_ledger).try_into()?,
-            connecting_ledger_hash: statement.connecting_ledger_left.to_field()?,
+            first_pass_ledger: (&tx_witness.first_pass_ledger).into(),
+            second_pass_ledger: (&tx_witness.second_pass_ledger).into(),
+            connecting_ledger_hash: statement.connecting_ledger_left.to_field::<Fp>(),
             zkapp_command: &zkapp_command,
         }],
     })?;

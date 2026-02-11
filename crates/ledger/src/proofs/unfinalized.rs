@@ -1,6 +1,6 @@
 use kimchi::proof::{PointEvaluations, ProofEvaluations};
 use mina_curves::pasta::{Fp, Fq};
-use mina_p2p_messages::{bigint::InvalidBigInt, v2};
+use mina_p2p_messages::v2;
 
 use crate::proofs::{
     field::FieldWitness, public_input::plonk_checks::derive_plonk, step::FeatureFlags,
@@ -142,14 +142,8 @@ impl AllEvals<Fq> {
     }
 }
 
-impl<F: FieldWitness> TryFrom<&v2::PicklesProofProofsVerified2ReprStableV2PrevEvals>
-    for AllEvals<F>
-{
-    type Error = InvalidBigInt;
-
-    fn try_from(
-        value: &v2::PicklesProofProofsVerified2ReprStableV2PrevEvals,
-    ) -> Result<Self, Self::Error> {
+impl<F: FieldWitness> From<&v2::PicklesProofProofsVerified2ReprStableV2PrevEvals> for AllEvals<F> {
+    fn from(value: &v2::PicklesProofProofsVerified2ReprStableV2PrevEvals) -> Self {
         let v2::PicklesProofProofsVerified2ReprStableV2PrevEvals {
             evals:
                 v2::PicklesProofProofsVerified2ReprStableV2PrevEvalsEvals {
@@ -159,13 +153,13 @@ impl<F: FieldWitness> TryFrom<&v2::PicklesProofProofsVerified2ReprStableV2PrevEv
             ft_eval1,
         } = value;
 
-        Ok(Self {
-            ft_eval1: ft_eval1.to_field()?,
+        Self {
+            ft_eval1: ft_eval1.to_field(),
             evals: EvalsWithPublicInput {
-                evals: prev_evals_from_p2p::<F>(evals)?,
-                public_input: (vec![p0.to_field()?], vec![p1.to_field()?]),
+                evals: prev_evals_from_p2p::<F>(evals),
+                public_input: (vec![p0.to_field()], vec![p1.to_field()]),
             },
-        })
+        }
     }
 }
 
@@ -188,26 +182,23 @@ pub fn evals_from_p2p<F: FieldWitness>(
 
     use mina_p2p_messages::bigint::BigInt;
 
-    let of =
-        |(zeta, zeta_omega): &(BigInt, BigInt)| -> Result<PointEvaluations<Vec<F>>, InvalidBigInt> {
-            Ok(PointEvaluations {
-                zeta: vec![zeta.to_field()?],
-                zeta_omega: vec![zeta_omega.to_field()?],
-            })
-        };
+    let of = |(zeta, zeta_omega): &(BigInt, BigInt)| PointEvaluations {
+        zeta: vec![zeta.to_field()],
+        zeta_omega: vec![zeta_omega.to_field()],
+    };
 
     use std::array;
     Ok(ProofEvaluations {
-        w: crate::try_array_into_with(w, of)?,
-        z: of(z)?,
-        s: crate::try_array_into_with(s, of)?,
-        coefficients: crate::try_array_into_with(coefficients, of)?,
-        generic_selector: of(generic_selector)?,
-        poseidon_selector: of(poseidon_selector)?,
-        complete_add_selector: of(complete_add_selector)?,
-        mul_selector: of(mul_selector)?,
-        emul_selector: of(emul_selector)?,
-        endomul_scalar_selector: of(endomul_scalar_selector)?,
+        w: crate::array_into_with(w, of),
+        z: of(z),
+        s: crate::array_into_with(s, of),
+        coefficients: crate::array_into_with(coefficients, of),
+        generic_selector: of(generic_selector),
+        poseidon_selector: of(poseidon_selector),
+        complete_add_selector: of(complete_add_selector),
+        mul_selector: of(mul_selector),
+        emul_selector: of(emul_selector),
+        endomul_scalar_selector: of(endomul_scalar_selector),
         range_check0_selector: None,
         range_check1_selector: None,
         foreign_field_add_selector: None,
@@ -402,7 +393,7 @@ impl<F: FieldWitness> ToFieldElements<F> for Unfinalized {
         // Digest
         {
             // Never fail, `sponge_digest_before_evaluations` was previously a `Fp`
-            fields.push(four_u64_to_field(sponge_digest_before_evaluations).unwrap());
+            fields.push(four_u64_to_field(sponge_digest_before_evaluations));
         }
 
         // Challenge
@@ -421,7 +412,7 @@ impl<F: FieldWitness> ToFieldElements<F> for Unfinalized {
         fields.extend(
             bulletproof_challenges
                 .iter()
-                .map(|c| two_u64_to_field::<F, _>(c)),
+                .map(|c| two_u64_to_field::<F>(c)),
         );
 
         // Bool

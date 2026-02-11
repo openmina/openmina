@@ -535,9 +535,7 @@ fn exists_prev_statement(
     for unfinalized in &step_statement.proof_state.unfinalized_proofs {
         w.exists_no_check(unfinalized);
     }
-    w.exists(four_u64_to_field::<Fq, _>(
-        &messages_for_next_step_proof_hash,
-    )?);
+    w.exists(four_u64_to_field::<Fq>(&messages_for_next_step_proof_hash));
     Ok(())
 }
 
@@ -2709,7 +2707,7 @@ fn pack_statement(
         // Digest
         {
             packed.push(Packed::PackedBits(
-                var(four_u64_to_field(sponge_digest_before_evaluations)?),
+                var(four_u64_to_field(sponge_digest_before_evaluations)),
                 255,
             ));
         }
@@ -2730,7 +2728,7 @@ fn pack_statement(
         packed.extend(
             bulletproof_challenges
                 .iter()
-                .map(|v| Packed::PackedBits(var(two_u64_to_field::<Fq, _>(v)), 128)), // Never fail with 2 limbs
+                .map(|v| Packed::PackedBits(var(two_u64_to_field::<Fq>(v)), 128)), // Never fail with 2 limbs
         );
 
         // Bool
@@ -2750,12 +2748,12 @@ fn pack_statement(
     }
 
     packed.push(Packed::PackedBits(
-        var(four_u64_to_field(messages_for_next_step_proof_hash)?),
+        var(four_u64_to_field(messages_for_next_step_proof_hash)),
         255,
     ));
 
     for msg in messages_for_next_wrap_proof {
-        packed.push(Packed::PackedBits(var(four_u64_to_field(msg)?), 255));
+        packed.push(Packed::PackedBits(var(four_u64_to_field(msg)), 255));
     }
 
     Ok(packed)
@@ -2891,7 +2889,7 @@ fn wrap_main(params: WrapMainParams, w: &mut Witness<Fq>) -> anyhow::Result<()> 
                         } = unfinalized;
 
                         let mut sponge = crate::proofs::transaction::poseidon::Sponge::<Fq>::new();
-                        sponge.absorb2(&[four_u64_to_field(sponge_digest_before_evaluations)?], w);
+                        sponge.absorb2(&[four_u64_to_field(sponge_digest_before_evaluations)], w);
 
                         // sponge
                         // Or `Wrap_hack.Checked.pad_challenges` needs to be used

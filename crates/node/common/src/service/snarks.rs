@@ -19,7 +19,7 @@ use mina_node::{
         BlockVerifier, SnarkEvent, TransactionVerifier, VerifierSRS,
     },
 };
-use mina_p2p_messages::{bigint::InvalidBigInt, v2};
+use mina_p2p_messages::v2;
 use rand::prelude::*;
 
 use crate::NodeService;
@@ -106,27 +106,22 @@ impl mina_node::service::SnarkWorkVerifyService for NodeService {
         }
         let tx = self.event_sender().clone();
         rayon::spawn_fifo(move || {
-            let result = (|| {
-                let conv = |proof: &v2::LedgerProofProdStableV2| -> Result<_, InvalidBigInt> {
-                    Ok((
-                        Statement::<SokDigest>::try_from(&proof.0.statement)?,
+            let result = {
+                let conv = |proof: &v2::LedgerProofProdStableV2| {
+                    (
+                        Statement::<SokDigest>::from(&proof.0.statement),
                         proof.proof.clone(),
-                    ))
+                    )
                 };
-                let Ok(works) = work
+                let works: Vec<_> = work
                     .into_iter()
                     .flat_map(|work| match &*work.proofs {
-                        v2::TransactionSnarkWorkTStableV2Proofs::One(v) => {
-                            [conv(v).map(Some), Ok(None)]
-                        }
+                        v2::TransactionSnarkWorkTStableV2Proofs::One(v) => [Some(conv(v)), None],
                         v2::TransactionSnarkWorkTStableV2Proofs::Two((v1, v2)) => {
-                            [conv(v1).map(Some), conv(v2).map(Some)]
+                            [Some(conv(v1)), Some(conv(v2))]
                         }
                     })
-                    .collect::<Result<Vec<_>, _>>()
-                else {
-                    return Err(SnarkWorkVerifyError::VerificationFailed);
-                };
+                    .collect();
                 if !ledger::proofs::verification::verify_transaction(
                     works.iter().flatten().map(|(v1, v2)| (v1, v2)),
                     &verifier_index,
@@ -136,7 +131,7 @@ impl mina_node::service::SnarkWorkVerifyService for NodeService {
                 } else {
                     Ok(())
                 }
-            })();
+            };
 
             let _ = tx.send(SnarkEvent::WorkVerify(req_id, result).into());
         });

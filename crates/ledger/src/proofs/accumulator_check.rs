@@ -1,8 +1,5 @@
-use mina_curves::pasta::{Fp, Vesta};
-use mina_p2p_messages::{
-    bigint::{BigInt, InvalidBigInt},
-    v2::PicklesProofProofsVerified2ReprStableV2,
-};
+use mina_curves::pasta::{Fp, Fq, Vesta};
+use mina_p2p_messages::{bigint::BigInt, v2::PicklesProofProofsVerified2ReprStableV2};
 use poly_commitment::{commitment::CommitmentCurve, ipa::SRS};
 
 use super::{public_input::scalar_challenge::ScalarChallenge, urs_utils};
@@ -10,7 +7,7 @@ use super::{public_input::scalar_challenge::ScalarChallenge, urs_utils};
 pub fn accumulator_check(
     urs: &SRS<Vesta>,
     proofs: &[&PicklesProofProofsVerified2ReprStableV2],
-) -> Result<bool, InvalidBigInt> {
+) -> bool {
     // accumulator check
     // <https://github.com/MinaProtocol/mina/blob/fb1c3c0a408c344810140bdbcedacc532a11be91/src/lib/pickles/common.ml#L191-L204>
     // Note:
@@ -40,8 +37,9 @@ pub fn accumulator_check(
 
         bulletproof_challenges.append(&mut chals);
 
-        let of_coord =
-            |(x, y): &(BigInt, BigInt)| Ok(Vesta::of_coordinates(x.to_field()?, y.to_field()?));
+        let of_coord = |(x, y): &(BigInt, BigInt)| {
+            Vesta::of_coordinates(x.to_field::<Fq>(), y.to_field::<Fq>())
+        };
 
         // statement.proof_state.messages_for_next_wrap_proof.challenge_polynomial_commitment
         let acc_comm = &proof
@@ -49,7 +47,7 @@ pub fn accumulator_check(
             .proof_state
             .messages_for_next_wrap_proof
             .challenge_polynomial_commitment;
-        let acc_comm: Vesta = of_coord(acc_comm)?;
+        let acc_comm: Vesta = of_coord(acc_comm);
 
         comms.push(acc_comm);
     }
@@ -60,5 +58,5 @@ pub fn accumulator_check(
         println!("accumulator_check failed");
     }
 
-    Ok(acc_check)
+    acc_check
 }

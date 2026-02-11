@@ -42,13 +42,7 @@ impl VrfMessage {
 
     pub fn to_roinput(&self) -> ROInput {
         let mut inputs = ROInput::new();
-        let epoch_seed = match self.epoch_seed.to_field() {
-            Ok(epoch_seed) => epoch_seed,
-            Err(_) => {
-                // TODO: Return an error somehow
-                mina_curves::pasta::Fp::zero()
-            }
-        };
+        let epoch_seed: BaseField = self.epoch_seed.to_field();
         inputs = inputs.append_field(epoch_seed);
 
         // OCaml's Message.to_input includes seed as a field element and

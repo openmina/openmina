@@ -5,7 +5,7 @@ use anyhow::Context;
 use consensus::ConsensusState;
 use mina_core::constants::{constraint_constants, ForkConstants};
 use mina_curves::pasta::{Fp, Fq};
-use mina_p2p_messages::{bigint::InvalidBigInt, v2};
+use mina_p2p_messages::v2;
 
 use crate::{
     dummy,
@@ -68,10 +68,8 @@ pub struct SnarkTransition {
     pub pending_coinbase_update: crate::scan_state::pending_coinbase::update::Update,
 }
 
-impl TryFrom<&v2::MinaStateBlockchainStateValueStableV2> for BlockchainState {
-    type Error = InvalidBigInt;
-
-    fn try_from(value: &v2::MinaStateBlockchainStateValueStableV2) -> Result<Self, Self::Error> {
+impl From<&v2::MinaStateBlockchainStateValueStableV2> for BlockchainState {
+    fn from(value: &v2::MinaStateBlockchainStateValueStableV2) -> Self {
         let v2::MinaStateBlockchainStateValueStableV2 {
             staged_ledger_hash,
             genesis_ledger_hash,
@@ -80,31 +78,29 @@ impl TryFrom<&v2::MinaStateBlockchainStateValueStableV2> for BlockchainState {
             body_reference,
         } = value;
 
-        Ok(Self {
-            staged_ledger_hash: staged_ledger_hash.try_into()?,
-            genesis_ledger_hash: genesis_ledger_hash.to_field()?,
-            ledger_proof_statement: ledger_proof_statement.try_into()?,
+        Self {
+            staged_ledger_hash: staged_ledger_hash.into(),
+            genesis_ledger_hash: genesis_ledger_hash.to_field::<Fp>(),
+            ledger_proof_statement: ledger_proof_statement.into(),
             timestamp: (*timestamp).into(),
             body_reference: body_reference.clone(),
-        })
+        }
     }
 }
 
-impl TryFrom<&v2::MinaStateSnarkTransitionValueStableV2> for SnarkTransition {
-    type Error = InvalidBigInt;
-
-    fn try_from(value: &v2::MinaStateSnarkTransitionValueStableV2) -> Result<Self, Self::Error> {
+impl From<&v2::MinaStateSnarkTransitionValueStableV2> for SnarkTransition {
+    fn from(value: &v2::MinaStateSnarkTransitionValueStableV2) -> Self {
         let v2::MinaStateSnarkTransitionValueStableV2 {
             blockchain_state,
             consensus_transition,
             pending_coinbase_update,
         } = value;
 
-        Ok(Self {
-            blockchain_state: blockchain_state.try_into()?,
+        Self {
+            blockchain_state: blockchain_state.into(),
             consensus_transition: consensus_transition.into(),
             pending_coinbase_update: pending_coinbase_update.into(),
-        })
+        }
     }
 }
 
@@ -194,14 +190,14 @@ fn ledger_proof_opt(
 ) -> anyhow::Result<(Statement<SokDigest>, Arc<v2::TransactionSnarkProofStableV2>)> {
     match proof {
         Some(proof) => {
-            let statement: Statement<SokDigest> = (&proof.0.statement).try_into()?;
+            let statement: Statement<SokDigest> = (&proof.0.statement).into();
             let p: &v2::TransactionSnarkProofStableV2 = &proof.0.proof;
             // TODO: Don't clone the proof here
             Ok((statement, Arc::new(p.clone())))
         }
         None => {
             let statement: Statement<()> =
-                (&next_state.body.blockchain_state.ledger_proof_statement).try_into()?;
+                (&next_state.body.blockchain_state.ledger_proof_statement).into();
             let statement = statement.with_digest(SokDigest::default());
             let p = dummy::dummy_transaction_proof();
             Ok((statement, p))
@@ -711,11 +707,11 @@ mod vrf {
         prover_state: &v2::ConsensusStakeProofStableV2,
         w: &mut Witness<Fp>,
     ) -> anyhow::Result<(Fp, Box<crate::Account>)> {
-        let private_key = prover_state.producer_private_key.to_field::<Fq>()?;
+        let private_key: Fq = prover_state.producer_private_key.to_field();
         let private_key = w.exists(field_to_bits::<Fq, 255>(private_key));
 
         let account = {
-            let mut ledger: SparseLedger = (&prover_state.ledger).try_into()?;
+            let mut ledger: SparseLedger = (&prover_state.ledger).into();
 
             let staker_addr = message.delegator;
             let staker_addr =
@@ -1334,15 +1330,14 @@ pub mod consensus {
         let next_slot_number = next_global_slot.slot_number;
 
         let block_stake_winner = {
-            let delegator_pk: CompressedPubKey = (&prover_state.delegator_pk).try_into()?;
+            let delegator_pk: CompressedPubKey = (&prover_state.delegator_pk).into();
             w.exists(delegator_pk)
         };
 
         let block_creator = {
             // TODO: See why `prover_state.producer_public_key` is compressed
             //       In OCaml it's uncompressed
-            let producer_public_key: CompressedPubKey =
-                (&prover_state.producer_public_key).try_into()?;
+            let producer_public_key: CompressedPubKey = (&prover_state.producer_public_key).into();
             let pk = decompress_pk(&producer_public_key).unwrap();
             w.exists_no_check(&pk);
             // TODO: Remove this
@@ -1351,7 +1346,7 @@ pub mod consensus {
         };
 
         let coinbase_receiver = {
-            let pk: CompressedPubKey = (&prover_state.coinbase_receiver_pk).try_into()?;
+            let pk: CompressedPubKey = (&prover_state.coinbase_receiver_pk).into();
             w.exists(pk)
         };
 
@@ -1593,7 +1588,7 @@ fn protocol_create_var(
             genesis_state_hash,
             blockchain_state: blockchain_state.clone(),
             consensus_state: consensus_state.clone(),
-            constants: constants.clone(),
+            constants: *constants,
         },
     }
 }
@@ -1613,12 +1608,12 @@ fn block_main<'a>(
         pending_coinbase,
     } = params;
 
-    let next_state: ProtocolState = next_state.try_into()?;
+    let next_state: ProtocolState = next_state.into();
     let new_state_hash = w.exists(MinaHash::hash(&next_state));
-    let transition: SnarkTransition = w.exists(transition.try_into()?);
+    let transition: SnarkTransition = w.exists(transition.into());
     w.exists(txn_snark);
 
-    let prev_state: ProtocolState = w.exists(prev_state.try_into()?);
+    let prev_state: ProtocolState = w.exists(prev_state.into());
 
     let (
         previous_state,
@@ -1698,7 +1693,7 @@ fn block_main<'a>(
     let (txn_snark_should_verify, success) = {
         let mut pending_coinbase = PendingCoinbaseWitness {
             is_new_stack: pending_coinbase.is_new_stack,
-            pending_coinbase: (&pending_coinbase.pending_coinbases).try_into()?,
+            pending_coinbase: (&pending_coinbase.pending_coinbases).into(),
         };
 
         let global_slot = global_slot_since_genesis;

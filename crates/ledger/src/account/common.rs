@@ -26,13 +26,7 @@ impl VotingFor {
 
     pub fn parse_str(s: &str) -> Result<Self, FieldHelpersError> {
         let b58check_hash = mina_p2p_messages::v2::StateHash::from_str(s).unwrap();
-        Ok(Self(
-            b58check_hash
-                .into_inner()
-                .0
-                .try_into()
-                .map_err(|_| FieldHelpersError::FromBigToField)?,
-        ))
+        Ok(Self(b58check_hash.into_inner().0.into()))
     }
 
     pub fn to_base58check(&self) -> String {
@@ -94,14 +88,7 @@ impl ReceiptChainHash {
 
     pub fn parse_str(s: &str) -> Result<Self, FieldHelpersError> {
         let b58check_hash = mina_p2p_messages::v2::PendingCoinbaseHash::from_str(s).unwrap();
-        Ok(Self(
-            b58check_hash
-                .into_inner()
-                .0
-                 .0
-                .try_into()
-                .map_err(|_| FieldHelpersError::FromBigToField)?,
-        ))
+        Ok(Self(b58check_hash.into_inner().0 .0.into()))
     }
 
     // TODO(tizoc): implement `to_string` and improve the test bellow

@@ -62,29 +62,29 @@ pub fn protocol_state_body_view(
             .ledger_proof_statement
             .target
             .first_pass_ledger
-            .to_field()?,
+            .to_field::<Fp>(),
         blockchain_length: Length(cs.blockchain_length.as_u32()),
         min_window_density: Length(cs.min_window_density.as_u32()),
         total_currency: Amount(cs.total_currency.as_u64()),
         global_slot_since_genesis: (&cs.global_slot_since_genesis).into(),
         staking_epoch_data: EpochData {
             ledger: EpochLedger {
-                hash: sed.ledger.hash.to_field()?,
+                hash: sed.ledger.hash.to_field::<Fp>(),
                 total_currency: Amount(sed.ledger.total_currency.as_u64()),
             },
-            seed: sed.seed.to_field()?,
-            start_checkpoint: sed.start_checkpoint.to_field()?,
-            lock_checkpoint: sed.lock_checkpoint.to_field()?,
+            seed: sed.seed.to_field::<Fp>(),
+            start_checkpoint: sed.start_checkpoint.to_field::<Fp>(),
+            lock_checkpoint: sed.lock_checkpoint.to_field::<Fp>(),
             epoch_length: Length(sed.epoch_length.as_u32()),
         },
         next_epoch_data: EpochData {
             ledger: EpochLedger {
-                hash: ned.ledger.hash.to_field()?,
+                hash: ned.ledger.hash.to_field::<Fp>(),
                 total_currency: Amount(ned.ledger.total_currency.as_u64()),
             },
-            seed: ned.seed.to_field()?,
-            start_checkpoint: ned.start_checkpoint.to_field()?,
-            lock_checkpoint: ned.lock_checkpoint.to_field()?,
+            seed: ned.seed.to_field::<Fp>(),
+            start_checkpoint: ned.start_checkpoint.to_field::<Fp>(),
+            lock_checkpoint: ned.lock_checkpoint.to_field::<Fp>(),
             epoch_length: Length(ned.epoch_length.as_u32()),
         },
     })

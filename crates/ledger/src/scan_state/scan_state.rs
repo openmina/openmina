@@ -531,8 +531,6 @@ pub mod transaction_snark {
     }
 
     pub mod work {
-        use mina_p2p_messages::bigint::InvalidBigInt;
-
         use super::*;
 
         pub type Statement = OneOrTwo<super::Statement<()>>;
@@ -548,15 +546,13 @@ pub mod transaction_snark {
 
         pub type Checked = Work;
 
-        impl TryFrom<&mina_core::snark::Snark> for Work {
-            type Error = InvalidBigInt;
-
-            fn try_from(value: &mina_core::snark::Snark) -> Result<Self, Self::Error> {
-                Ok(Self {
-                    prover: (&value.snarker).try_into()?,
+        impl From<&mina_core::snark::Snark> for Work {
+            fn from(value: &mina_core::snark::Snark) -> Self {
+                Self {
+                    prover: (&value.snarker).into(),
                     fee: (&value.fee).into(),
-                    proofs: (&*value.proofs).try_into()?,
-                })
+                    proofs: (&*value.proofs).into(),
+                }
             }
         }
 

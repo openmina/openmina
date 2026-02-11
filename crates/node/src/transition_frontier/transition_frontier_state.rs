@@ -180,13 +180,9 @@ impl TransitionFrontierState {
             chain
                 .iter()
                 .flat_map(|breadcrumb| breadcrumb.commands_iter())
-                .filter_map(|cmd| {
+                .map(|cmd| {
                     use ledger::scan_state::transaction_logic::{UserCommand, WithStatus};
-                    Some(
-                        WithStatus::<UserCommand>::try_from(cmd)
-                            .ok()?
-                            .into_map(UserCommand::to_valid_unsafe),
-                    )
+                    WithStatus::<UserCommand>::from(cmd).into_map(UserCommand::to_valid_unsafe)
                 })
                 .collect::<Vec<_>>()
         };

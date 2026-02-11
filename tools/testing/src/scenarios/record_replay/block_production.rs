@@ -18,7 +18,7 @@ pub struct RecordReplayBlockProduction;
 impl RecordReplayBlockProduction {
     pub async fn run(self, mut runner: ClusterRunner<'_>) {
         let initial_time = redux::Timestamp::global_now();
-        let mut constants = v2::PROTOCOL_CONSTANTS.clone();
+        let mut constants = v2::PROTOCOL_CONSTANTS;
         constants.genesis_state_timestamp =
             v2::BlockTimeTimeStableV1((u64::from(initial_time) / 1_000_000).into());
         let genesis_cfg = GenesisConfig::Counts {

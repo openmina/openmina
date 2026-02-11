@@ -301,9 +301,9 @@ fn decode_constraints_data<F: FieldWitness>(
             let id = id as usize;
             let list: Vec<_> = list
                 .iter()
-                .map(|(n, v)| (n.to_field::<F>().unwrap(), V::from(v)))
+                .map(|(n, v)| (n.to_field::<F>(), V::from(v)))
                 .collect();
-            let opt = opt.as_ref().map(|v| BigInt::to_field::<F>(v).unwrap());
+            let opt = opt.as_ref().map(|v| BigInt::to_field::<F>(v));
             (id, (list, opt))
         })
         .collect();
