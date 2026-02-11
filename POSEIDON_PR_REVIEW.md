@@ -172,7 +172,8 @@
 ### crates/vrf/src/message.rs
 - [ ] `2766321902`: "permalink to hte ocaml code, please" (line 52)
 - [ ] `2766324710`: "Why do we have to unwrap here? At worst, we should use an `expect` with a big `// SAFETY` comment." (line 55)
-- [ ] `2766326690`: "Why were these tests deleted" (line 164)
+- [x] `2766326690`: "Why were these tests deleted" (line 164)
+    - *Note: Restored both `test_serialization` and `test_conv_to_mina_type` tests.*
 
 ### Cargo.toml
 - [ ] `2766328448`: "Need to remove the two comment lines above this as well" (line 24)
