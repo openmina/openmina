@@ -67,7 +67,6 @@ COPY .cargo/config.toml ./.cargo/config.toml
 COPY crates ./crates
 COPY genesis_ledgers ./genesis_ledgers
 COPY libs ./libs
-COPY poseidon ./poseidon
 COPY tools ./tools
 COPY vendor ./vendor
 COPY xtask ./xtask
