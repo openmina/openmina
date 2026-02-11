@@ -26,10 +26,6 @@ pub enum HashParam {
     MainnetZkappBody,
     MerkleTree(usize),
     CbMerkleTree(usize),
-    ZkappActionStateEmptyElt,
-    NoInputCoinbaseStack,
-    ZkappEventsEmpty,
-    ZkappActionsEmpty,
 }
 
 const MERKLE_TREE_STRS: [&str; 36] = [
@@ -109,10 +105,6 @@ impl From<HashParam> for &'static str {
             HashParam::MainnetZkappBody => "MainnetZkappBody",
             HashParam::MerkleTree(h) => MERKLE_TREE_STRS[h],
             HashParam::CbMerkleTree(h) => CB_MERKLE_TREE_STRS[h],
-            HashParam::ZkappActionStateEmptyElt => "MinaZkappActionStateEmptyElt",
-            HashParam::NoInputCoinbaseStack => "CoinbaseStack",
-            HashParam::ZkappEventsEmpty => "MinaZkappEventsEmpty",
-            HashParam::ZkappActionsEmpty => "MinaZkappActionsEmpty",
         }
     }
 }

@@ -888,7 +888,7 @@ impl ZkAppAccount {
 
     /// empty_state_element
     pub fn empty_action_state() -> Fp {
-        hash_noinputs(HashParam::ZkappActionStateEmptyElt)
+        hash_noinputs(HashParam::ZkappSeqEvents)
     }
 
     pub fn is_default(&self) -> bool {

@@ -248,10 +248,7 @@ impl Account {
         account.balance = self.balance();
         account.nonce = self.nonce();
         account.receipt_chain_hash = self.receipt_chain_hash()?;
-        account.delegate = match self.delegate()? {
-            Some(delegate) => Some(delegate.into()),
-            None => None,
-        };
+        account.delegate = self.delegate()?.map(|delegate| delegate.into());
         account.voting_for = self.voting_for()?;
         account.timing = self.timing()?;
         account.permissions = self.permissions();
