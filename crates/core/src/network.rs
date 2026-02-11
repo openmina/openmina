@@ -1,7 +1,6 @@
 use once_cell::sync::OnceCell;
 
-use crate::constants::ConstraintConstants;
-use crate::HashParam;
+use crate::{constants::ConstraintConstants, HashParam};
 
 // From mina-signer, to avoid dependency
 #[derive(Debug, Clone)]
