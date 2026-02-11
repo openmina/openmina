@@ -166,17 +166,22 @@
 - [ ] `2766278972`: "All these tests are testing inputs which are intermediate values. We shouldn't be testing this, we should be testing the final hash to see if it's correct, that's it. We should be using the same test cases that exist in the ocaml codebase." (line 151) *Note: Skipped — needs correct expected hashes from OCaml test cases. Should be fixed together with the hashing.rs tests.*
 
 ### crates/vrf/src/message.rs
-- [ ] `2766316046`: "We should probably panic here for now instead of fail silently, right?" (line 48)
-- [ ] `2766319897`: "Could probably use a permalink to the mina ocaml code here as well" (line 66)
+- [x] `2766316046`: "We should probably panic here for now instead of fail silently, right?" (line 48)
+    - *Note: Resolved — `to_field()` is now infallible, no silent failure possible.*
+- [x] `2766319897`: "Could probably use a permalink to the mina ocaml code here as well" (line 66)
+    - *Note: Added permalink to `consensus_vrf.ml#L97-L107` (Message.to_input).*
 
 ### crates/vrf/src/message.rs
-- [ ] `2766321902`: "permalink to hte ocaml code, please" (line 52)
-- [ ] `2766324710`: "Why do we have to unwrap here? At worst, we should use an `expect` with a big `// SAFETY` comment." (line 55)
+- [x] `2766321902`: "permalink to hte ocaml code, please" (line 52)
+    - *Note: Added permalink to `consensus_vrf.ml#L255-L264` (Output.hash).*
+- [x] `2766324710`: "Why do we have to unwrap here? At worst, we should use an `expect` with a big `// SAFETY` comment." (line 55)
+    - *Note: Resolved — `to_field()` is now infallible, no unwrap needed.*
 - [x] `2766326690`: "Why were these tests deleted" (line 164)
     - *Note: Restored both `test_serialization` and `test_conv_to_mina_type` tests.*
 
 ### Cargo.toml
-- [ ] `2766328448`: "Need to remove the two comment lines above this as well" (line 24)
+- [x] `2766328448`: "Need to remove the two comment lines above this as well" (line 24)
+    - *Note: Removed the two comment lines (`# Crates to be removed...` and `# poseidon: ...`).*
 
 ---
 

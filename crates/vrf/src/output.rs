@@ -43,6 +43,7 @@ impl VrfOutput {
         self.output
     }
 
+    /// OCaml: <https://github.com/MinaProtocol/mina/blob/c4eb6b6f4e79618d1f00d3ff82ac2ba2a64712df/src/lib/consensus/vrf/consensus_vrf.ml#L255-L264>
     pub fn hash(&self) -> BaseField {
         let Affine { x, y, .. } = self.output;
 
