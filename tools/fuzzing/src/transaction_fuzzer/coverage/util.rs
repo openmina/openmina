@@ -49,7 +49,7 @@ pub fn get_module_path() -> String {
 
         let rsprocmaps::AddressRange { begin, end } = map.address_range;
 
-        if (begin..end).contains(&(get_module_path as usize as u64)) {
+        if (begin..end).contains(&(get_module_path as *const () as u64)) {
             if let rsprocmaps::Pathname::Path(path) = map.pathname {
                 return path;
             } else {

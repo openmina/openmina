@@ -181,10 +181,7 @@ impl binprot::BinProtRead for ApplyTxResult {
                      previous_hash,
                      varying,
                  }| {
-                    let previous_hash = previous_hash
-                        .0
-                        .to_field()
-                        .map_err(|x| binprot::Error::CustomError(Box::new(x)))?;
+                    let previous_hash = previous_hash.0.to_field();
 
                     let varying = (&varying)
                         .try_into()

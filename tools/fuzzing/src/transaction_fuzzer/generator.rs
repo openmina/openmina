@@ -260,7 +260,7 @@ impl Generator<(Fq, Fq)> for FuzzerCtx {
 impl Generator<InnerCurve<Fp>> for FuzzerCtx {
     #[coverage(off)]
     fn gen(&mut self) -> InnerCurve<Fp> {
-        let (x, y) = self.gen();
+        let (x, y): (Fp, Fp) = self.gen();
         InnerCurve::<Fp>::from((x, y))
     }
 }
@@ -268,7 +268,7 @@ impl Generator<InnerCurve<Fp>> for FuzzerCtx {
 impl Generator<InnerCurve<Fq>> for FuzzerCtx {
     #[coverage(off)]
     fn gen(&mut self) -> InnerCurve<Fq> {
-        let (x, y) = self.gen();
+        let (x, y): (Fq, Fq) = self.gen();
         InnerCurve::<Fq>::from((x, y))
     }
 }
