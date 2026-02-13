@@ -1,5 +1,3 @@
-use std::{array, fmt::Formatter, marker::PhantomData};
-
 use binprot::{BinProtRead, BinProtWrite};
 use malloc_size_of_derive::MallocSizeOf;
 use rsexp::{OfSexp, SexpOf};
