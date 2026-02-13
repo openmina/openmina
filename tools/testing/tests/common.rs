@@ -58,13 +58,18 @@ macro_rules! scenario_test {
             }
 
             let scenario = $scenario_instance;
-            #[allow(unused_mut)]
-            let mut config = Scenarios::from(scenario).default_cluster_config().unwrap();
+            let config = Scenarios::from(scenario).default_cluster_config().unwrap();
             #[cfg(feature = "p2p-webrtc")]
-            if $can_test_webrtc {
+            let config = if $can_test_webrtc {
+                let mut config = config;
                 config.set_all_rust_to_rust_use_webrtc();
-            }
+                config
+            } else {
+                config
+            };
+
             let mut cluster = Cluster::new(config);
+
             let runner = ClusterRunner::new(&mut cluster, |_| {});
             scenario.run(runner).await;
 
