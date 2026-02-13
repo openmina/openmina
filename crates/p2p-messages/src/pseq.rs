@@ -111,7 +111,7 @@ where
     where
         S: serde::Serializer,
     {
-        let mut serializer = serializer.serialize_tuple(N + 1)?;
+        let mut serializer = serializer.serialize_tuple(N)?;
         for elt in &self.0 {
             serializer.serialize_element(elt)?;
         }
@@ -119,66 +119,35 @@ where
     }
 }
 
-impl<'de, T, const N: usize> serde::Deserialize<'de> for PaddedSeq<T, N>
-where
-    T: serde::Deserialize<'de>,
-{
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        struct Visitor<'de, T, const S: usize>
-        where
-            T: serde::Deserialize<'de>,
-        {
-            marker: PhantomData<PaddedSeq<T, S>>,
-            lifetime: PhantomData<&'de ()>,
-        }
-        impl<'de, T, const S: usize> serde::de::Visitor<'de> for Visitor<'de, T, S>
-        where
-            T: serde::Deserialize<'de>,
-        {
-            type Value = PaddedSeq<T, S>;
-            fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
-                Formatter::write_str(formatter, "tuple struct PaddedSeq")
-            }
-            #[inline]
-            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+macro_rules! impl_padded_seq_deserialize {
+    ($($n:expr),*) => {
+        $(
+            impl<'de, T> serde::Deserialize<'de> for PaddedSeq<T, $n>
             where
-                A: serde::de::SeqAccess<'de>,
+                T: serde::Deserialize<'de>,
             {
-                let mut vec = Vec::with_capacity(S);
-                for i in 0..S {
-                    match serde::de::SeqAccess::next_element(&mut seq)? {
-                        Some(value) => vec.push(value),
-                        None => {
-                            return Err(serde::de::Error::invalid_length(
-                                i,
-                                &concat!(
-                                    "tuple struct PaddedSeq with ",
-                                    stringify!(S),
-                                    " element(s)"
-                                ),
-                            ));
-                        }
-                    }
+                fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+                where
+                    D: serde::Deserializer<'de>,
+                {
+                    <[T; $n]>::deserialize(deserializer).map(PaddedSeq)
                 }
-                let res = match <[T; S]>::try_from(vec) {
-                    Ok(a) => a,
-                    Err(_) => unreachable!(),
-                };
-                Ok(PaddedSeq(res))
+
+                fn deserialize_in_place<D>(deserializer: D, place: &mut Self) -> Result<(), D::Error>
+                where
+                    D: serde::Deserializer<'de>,
+                {
+                    <[T; $n]>::deserialize_in_place(deserializer, &mut place.0)
+                }
             }
-        }
-        deserializer.deserialize_tuple(
-            N,
-            Visitor {
-                marker: PhantomData::<PaddedSeq<T, N>>,
-                lifetime: PhantomData,
-            },
-        )
-    }
+        )*
+    };
 }
+
+impl_padded_seq_deserialize!(
+    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26,
+    27, 28, 29, 30, 31, 32
+);
 
 #[cfg(test)]
 mod tests {
