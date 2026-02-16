@@ -283,11 +283,21 @@ pub trait EncryptedSecretKey {
     /// - Default Argon2i parameters: 128MB memory cost, 6 iterations
     /// - Each encryption produces unique salt and nonce for security
     fn try_encrypt(key: &[u8], password: &str) -> Result<EncryptedSecretKeyFile, EncryptionError> {
-        let argon2 = setup_argon(Self::PW_DIFF)?;
-
         // add the prefix byte to the key
         let mut key_prefixed = vec![Self::SECRET_KEY_PREFIX_BYTE];
         key_prefixed.extend(key);
+
+        Self::try_encrypt_raw(&key_prefixed, password)
+    }
+
+    /// Encrypt raw bytes without prepending a version/prefix byte.
+    /// Used for account/BP keys, use [`EncryptedSecretKey::try_encrypt`] which adds the
+    /// standard 0x01 prefix byte.
+    fn try_encrypt_raw(
+        plaintext: &[u8],
+        password: &str,
+    ) -> Result<EncryptedSecretKeyFile, EncryptionError> {
+        let argon2 = setup_argon(Self::PW_DIFF)?;
 
         let salt = SaltString::generate(&mut OsRng);
         let password_hash = argon2
@@ -298,7 +308,7 @@ pub trait EncryptedSecretKey {
         let nonce = XSalsa20Poly1305::generate_nonce(&mut OsRng);
         let cipher = XSalsa20Poly1305::new_from_slice(password_hash.as_bytes())?;
 
-        let ciphertext = cipher.encrypt(&nonce, key_prefixed.as_slice())?;
+        let ciphertext = cipher.encrypt(&nonce, plaintext)?;
 
         // Same reason as in decrypt, we need to decode the SaltString from
         // base64 then encode it to base58 below

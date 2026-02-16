@@ -8,6 +8,7 @@ impl TransitionFrontierState {
     pub fn reducer(
         mut state_context: crate::Substate<Self>,
         action: TransitionFrontierActionWithMetaRef<'_>,
+        skip_proof_verification: bool,
     ) {
         let Ok(state) = state_context.get_substate_mut() else {
             // TODO: log or propagate
@@ -23,6 +24,7 @@ impl TransitionFrontierState {
                 super::genesis::TransitionFrontierGenesisState::reducer(
                     mina_core::Substate::from_compatible_substate(state_context),
                     meta.with_action(a),
+                    skip_proof_verification,
                 )
             }
             TransitionFrontierAction::GenesisEffect(_) => {}

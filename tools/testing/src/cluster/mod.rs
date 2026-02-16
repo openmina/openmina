@@ -443,6 +443,8 @@ impl Cluster {
                 consensus_constants: consensus_consts.clone(),
                 client_port: Some(http_port),
                 testing_run: true,
+                chain_id_override: None,
+                skip_proof_verification: false,
             },
             p2p: P2pConfig {
                 libp2p_port: Some(libp2p_port),

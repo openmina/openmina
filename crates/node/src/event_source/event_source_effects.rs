@@ -464,6 +464,26 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                     }
                 },
                 BlockProducerEvent::BlockProve(block_hash, res) => match res {
+                    Err(_err) if store.state().config.skip_proof_verification => {
+                        // When proof verification is disabled (interop
+                        // testing with --proof-level none), use a dummy
+                        // proof instead of crashing when the prover
+                        // fails. This is expected because the Rust prover
+                        // cannot generate valid proofs for blocks built
+                        // on a genesis with a dummy proof.
+                        let proof = ledger::dummy::dummy_blockchain_proof().clone();
+                        if store
+                            .state()
+                            .transition_frontier
+                            .genesis
+                            .prove_pending_block_hash()
+                            .is_some_and(|hash| hash == block_hash)
+                        {
+                            store.dispatch(TransitionFrontierGenesisAction::ProveSuccess { proof });
+                        } else {
+                            store.dispatch(BlockProducerAction::BlockProveSuccess { proof });
+                        }
+                    }
                     Err(err) => todo!(
                         "error while trying to produce block proof for block {block_hash} - {err}"
                     ),

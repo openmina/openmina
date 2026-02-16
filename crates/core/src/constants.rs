@@ -1,3 +1,5 @@
+use std::sync::OnceLock;
+
 use binprot_derive::BinProtWrite;
 use mina_curves::pasta::Fp;
 use mina_p2p_messages::{bigint, number, v2};
@@ -11,16 +13,28 @@ pub const PROTOCOL_VERSION: v2::ProtocolVersionStableV2 = v2::ProtocolVersionSta
 };
 
 pub fn constraint_constants() -> &'static ConstraintConstants {
-    NetworkConfig::global().constraint_constants
+    CONSTRAINT_CONSTANTS_OVERRIDE
+        .get()
+        .unwrap_or(NetworkConfig::global().constraint_constants)
+}
+
+static CONSTRAINT_CONSTANTS_OVERRIDE: OnceLock<ConstraintConstants> = OnceLock::new();
+
+/// Override the fork constants used during genesis computation. (interop testing)
+pub fn set_fork_override(fork: ForkConstants) {
+    let mut cc = NetworkConfig::global().constraint_constants.clone();
+    cc.fork = Some(fork);
+    let _ = CONSTRAINT_CONSTANTS_OVERRIDE.set(cc);
 }
 
 /// Constants that define fork-specific blockchain state.
 ///
 /// Fork constants specify the blockchain state at which a protocol upgrade or fork occurred.
 /// These are used to handle protocol changes and ensure compatibility across network upgrades.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct ForkConstants {
     /// Hash of the blockchain state at the fork point
+    #[serde(with = "fp_state_hash_serde")]
     pub state_hash: Fp,
 
     /// Blockchain length (number of blocks) at the fork point
@@ -28,6 +42,25 @@ pub struct ForkConstants {
 
     /// Global slot number since genesis at the fork point
     pub global_slot_since_genesis: u32,
+}
+
+mod fp_state_hash_serde {
+    use super::*;
+
+    pub fn serialize<S: serde::Serializer>(fp: &Fp, serializer: S) -> Result<S::Ok, S::Error> {
+        let state_hash = v2::StateHash::from_fp(*fp);
+        serializer.serialize_str(&state_hash.to_string())
+    }
+
+    pub fn deserialize<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Fp, D::Error> {
+        let s: String = serde::Deserialize::deserialize(deserializer)?;
+        let state_hash: v2::StateHash = s.parse().map_err(serde::de::Error::custom)?;
+        state_hash
+            .inner()
+            .0
+            .to_field()
+            .map_err(|e| serde::de::Error::custom(format!("invalid state hash: {e}")))
+    }
 }
 
 /// Protocol constraint constants that define core blockchain behavior.

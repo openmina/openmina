@@ -19,7 +19,7 @@ hex = { workspace = true }
 ledger = { workspace = true }
 libp2p-identity = { workspace = true, features = ["peerid"] }
 mina-core = { path = "../core" }
-mina-node = { workspace = true, features = ["replay", "exit-on-invalid-peers"] }
+mina-node = { workspace = true, features = ["replay"] }
 mina-node-account = { workspace = true }
 mina-node-native = { path = "../node/native" }
 mina-p2p-messages = { workspace = true }
@@ -48,8 +48,9 @@ tikv-jemallocator = { workspace = true }
 tempfile = { workspace = true }
 
 [features]
-default = ["p2p-libp2p", "p2p-webrtc"]
+default = ["p2p-libp2p", "p2p-webrtc", "exit-on-invalid-peers"]
 unsafe-signal-handlers = []
 p2p-libp2p = ["mina-node-native/p2p-libp2p"]
 p2p-webrtc = ["mina-node-native/p2p-webrtc"]
 fuzzing = ["mina-node/fuzzing", "mina-core/fuzzing"]
+exit-on-invalid-peers = ["mina-node/exit-on-invalid-peers"]
