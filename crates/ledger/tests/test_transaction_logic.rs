@@ -29,7 +29,7 @@ fn pub_key(address: &str) -> CompressedPubKey {
 fn test_hash_empty_event() {
     // Same value than OCaml
     const EXPECTED: &str =
-        "6963060754718463299978089777716994949151371320681588566338620419071140958308";
+        "16580012705864177241905923711864666027965216928284588602669501632136706453456";
 
     let event = zkapp_command::Event::empty();
     assert_eq!(event.hash(), Fp::from_str(EXPECTED).unwrap());

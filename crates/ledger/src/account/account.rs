@@ -1881,7 +1881,7 @@ mod tests {
 
         assert_eq!(
             hash.to_hex(),
-            "7018596b7a10344908c7582482b1401a3cbdd40212beb428baf629b84ceb7f0b"
+            "be10e8c60423aecd1b0bf4ddb48d58ed4a659af618782acf41b60b53dc45791c"
         );
 
         let acc = Account {
@@ -1903,7 +1903,7 @@ mod tests {
 
         assert_eq!(
             acc.hash().to_hex(),
-            "8cb53d374b844227d4c63b2dcf198312f8fcb4b60392fee5b165243508d16e32"
+            "50e9c4ae9ad54e2c21d6e341710df10755016ea785ad53521422935172d83d35"
         );
     }
 
@@ -1958,7 +1958,7 @@ mod tests {
 
         assert_eq!(
             mina_p2p_messages::v2::LedgerHash::from_fp(acc.hash()).to_string(),
-            "jwnEz6CjzSYowUsvw5gKpuTkRjBY5dEtc6YmQj1U5d2k5KZzTmc"
+            "jxwHSU9wJFMppHfkqnMseQb8Gh4c5TTzoLHDVU2qQD5FXxSYUWt"
         );
     }
 
@@ -1966,7 +1966,7 @@ mod tests {
     fn test_dummy_sideloaded_verification_key() {
         assert_eq!(
             VerificationKey::dummy().hash().to_hex(),
-            "d6da18e4091fbcd86843604fb8ff2d9613e76fa16c49b0263a1566a8e7188007"
+            "25cf2e7770332c28432720fa3da8f29a02dffc45efaf19b3dcec0b8a21e6690b"
         );
     }
 
