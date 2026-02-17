@@ -585,10 +585,10 @@ export function performance_now() {
         let heights = [0, 5, 10, 11];
 
         let hexs = [
-            "f3ee39f42a7b2cac196c8eb1c9fe00f853678c920c0c9ce3724c0b7fe911c731",
-            "d305ebed68f3d4ff16cfc9c6857c274bfbd4a5e83db6fb26e009f75711005524",
-            "bfae9c6290bcc9cf282889c6b880e4eac236d4e50b22395639731e1465939915",
-            "def7de4e2f2f13aa638f5671eccf9367ab9d39ae49ed683fca0169b33b31c416",
+            "2885a3e579685cf187a791169f451e876e8834977e0d985888dcfec5babdb437",
+            "149b931762d1b1748d7a5869a8ed7ffba80c18fed899048257bb359eb6fc1239",
+            "387f31d59103a05dd735749f8b2d8c90791b8b072666af056c680379522a6d2d",
+            "fb5e83227391deec7fcdbb12faf69af8ccf714a5e61130324fea0974c2c01711",
         ];
 
         let result: Vec<_> = heights
