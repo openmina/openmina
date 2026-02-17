@@ -1,3 +1,5 @@
+use std::array;
+
 use binprot::{BinProtRead, BinProtWrite};
 use malloc_size_of_derive::MallocSizeOf;
 use rsexp::{OfSexp, SexpOf};

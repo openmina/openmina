@@ -42,13 +42,14 @@ impl SparseLedgerImpl<AccountId, Account> {
 
         let mut ledger = oledger.copy();
         let mut sparse = Self::create(
-            ledger.depth() as usize,
+            dbg!(ledger.depth() as usize),
             BaseLedger::merkle_root(&mut ledger),
         );
 
         for key in keys {
-            match BaseLedger::location_of_account(&ledger, key) {
+            match BaseLedger::location_of_account(&ledger, dbg!(key)) {
                 Some(addr) => {
+                    dbg!("hit here");
                     let account = BaseLedger::get(&ledger, addr.clone()).unwrap();
                     let merkle_path = ledger.merkle_path(addr);
                     sparse.add_path(&merkle_path, key.clone(), *account);

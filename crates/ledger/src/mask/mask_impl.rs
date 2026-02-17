@@ -574,9 +574,9 @@ impl MaskImpl {
 
     pub fn get_cached_hash(&self, addr: &Address) -> Option<Fp> {
         let matrix = match self {
-            Root { database, .. } => return database.get_cached_hash(addr),
-            Attached { hashes, .. } => hashes,
-            Unattached { hashes, .. } => hashes,
+            Root { database, .. } => return dbg!(database.get_cached_hash(addr)),
+            Attached { hashes, .. } => dbg!(hashes),
+            Unattached { hashes, .. } => dbg!(hashes),
         };
 
         matrix.get(addr).copied()

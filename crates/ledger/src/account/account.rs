@@ -888,7 +888,7 @@ impl ZkAppAccount {
 
     /// empty_state_element
     pub fn empty_action_state() -> Fp {
-        hash_noinputs(HashParam::ZkappSeqEvents)
+        hash_noinputs(HashParam::ZkappActionStateEmptyElt)
     }
 
     pub fn is_default(&self) -> bool {
@@ -1872,7 +1872,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "fix expected hash/hasing"]
     fn test_hash_account() {
         let acc = Account::create();
         let hash = acc.hash();
@@ -1909,7 +1908,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "fix expected hash/hasing"]
     fn test_hash_genesis_winner_account() {
         let acc = Account {
             public_key: CompressedPubKey::from_address(
@@ -1965,7 +1963,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "fix expected hash/hasing"]
     fn test_dummy_sideloaded_verification_key() {
         assert_eq!(
             VerificationKey::dummy().hash().to_hex(),

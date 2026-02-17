@@ -96,7 +96,7 @@ impl MakeEvents for Events {
     const DERIVER_NAME: () = ();
 
     fn get_salt_phrase() -> HashParam {
-        HashParam::ZkappEvents
+        HashParam::ZkappEventsEmpty
     }
 
     fn get_hash_prefix() -> HashParam {
@@ -117,7 +117,7 @@ impl MakeEvents for Actions {
     const DERIVER_NAME: () = ();
 
     fn get_salt_phrase() -> HashParam {
-        HashParam::ZkappSeqEvents
+        HashParam::ZkappActionsEmpty
     }
 
     fn get_hash_prefix() -> HashParam {

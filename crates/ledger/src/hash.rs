@@ -99,9 +99,22 @@ pub(crate) fn hash_fields<F: KimchiParams>(fields: &[F]) -> F {
     sponge.squeeze()
 }
 
+/// Hash with no inputs (salt only). Uses zero-padded domain string to match
+/// OCaml's `salt |> digest` behavior, which differs from the star-padded
+/// domain used for hashing with inputs.
 pub fn hash_noinputs(domain: HashParam) -> Fp {
+    use ark_ff::Field;
+
     let s: &'static str = domain.into();
-    mina_hasher::create_kimchi::<GenericHashable>(CustomDomain(s.to_string())).digest()
+    let param_bytes = s.as_bytes();
+    let mut bytes = [0u8; 32];
+    bytes[..param_bytes.len()].copy_from_slice(param_bytes);
+    let domain_field = Fp::from_random_bytes(&bytes).expect("invalid domain bytes");
+
+    let mut sponge =
+        ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi, FULL_ROUNDS>::new(Fp::static_params());
+    sponge.absorb(&[domain_field]);
+    sponge.squeeze()
 }
 
 #[derive(Clone)]
@@ -200,5 +213,85 @@ impl AppendToInputs for Inputs {
         T: ToInputs,
     {
         value.to_inputs(self);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use o1_utils::field_helpers::FieldHelpers;
+
+    /// Verify Rust ArithmeticSponge matches snarky kimchi test vectors.
+    /// Vectors from snarky/sponge/test_vectors/kimchi.json.
+    #[test]
+    fn test_sponge_kimchi_vectors() {
+        // Test vector 0: empty input — just squeeze
+        let mut sponge = ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi, FULL_ROUNDS>::new(
+            Fp::static_params(),
+        );
+        let result0 = sponge.squeeze();
+        let expected0 =
+            Fp::from_hex("a8eb9ee0f30046308abbfa5d20af73c81bbdabc25b459785024d045228bead2f")
+                .unwrap();
+        assert_eq!(result0, expected0, "empty input vector mismatch");
+
+        // Test vector 1: 1 input
+        let input1 =
+            Fp::from_hex("f2eee8d8f6e5fb182c610cae6c5393fce69dc4d900e7b4923b074e54ad00fb36")
+                .unwrap();
+        let mut sponge = ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi, FULL_ROUNDS>::new(
+            Fp::static_params(),
+        );
+        sponge.absorb(&[input1]);
+        let result1 = sponge.squeeze();
+        let expected1 =
+            Fp::from_hex("fb5992f65c07f9335995f43fd791d39012ad466717729e61045c297507054f3d")
+                .unwrap();
+        assert_eq!(result1, expected1, "1-input vector mismatch");
+
+        // Test vector 2: 2 inputs
+        let input2a =
+            Fp::from_hex("bd3f1c8f183ceedea15080edbe79d30bd7d613b86bf2ba12007091c60ae39337")
+                .unwrap();
+        let input2b =
+            Fp::from_hex("65e4f04ab87706bab06d13c7eee0a7807d0b8ce268b4ece6aab1e0508ec9c42f")
+                .unwrap();
+        let mut sponge = ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi, FULL_ROUNDS>::new(
+            Fp::static_params(),
+        );
+        sponge.absorb(&[input2a, input2b]);
+        let result2 = sponge.squeeze();
+        let expected2 =
+            Fp::from_hex("fe2436f2027620a11233318b55d0a117086f09674826d1b7ce08d48ad0736c33")
+                .unwrap();
+        assert_eq!(result2, expected2, "2-input vector mismatch");
+    }
+
+    /// Verify hash_noinputs produces consistent results via manual sponge
+    /// and via the hash_noinputs function.
+    #[test]
+    fn test_hash_noinputs_consistency() {
+        use ark_ff::Field;
+
+        let s = "CoinbaseStack";
+        let param_bytes = s.as_bytes();
+        let mut bytes = [0u8; 32];
+        bytes[..param_bytes.len()].copy_from_slice(param_bytes);
+        let domain_field = Fp::from_random_bytes(&bytes).expect("invalid domain bytes");
+
+        // Verify byte-to-field: should be the raw LE byte representation
+        assert_eq!(
+            domain_field.to_hex(),
+            "436f696e62617365537461636b00000000000000000000000000000000000000"
+        );
+
+        let mut sponge = ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi, FULL_ROUNDS>::new(
+            Fp::static_params(),
+        );
+        sponge.absorb(&[domain_field]);
+        let result = sponge.squeeze();
+
+        let result2 = hash_noinputs(HashParam::NoInputCoinbaseStack);
+        assert_eq!(result, result2, "manual sponge != hash_noinputs");
     }
 }
