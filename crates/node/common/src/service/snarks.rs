@@ -36,6 +36,7 @@ pub struct SnarkBlockVerifyArgs {
 impl NodeService {
     pub fn snark_block_proof_verifier_spawn(
         event_sender: EventSender,
+        skip_proof_verification: bool,
     ) -> mpsc::TrackedUnboundedSender<SnarkBlockVerifyArgs> {
         let (tx, mut rx) = mpsc::tracked_unbounded_channel();
         thread::Builder::new()
@@ -50,16 +51,22 @@ impl NodeService {
                     } = msg.0;
                     eprintln!("verify({}) - start", block.hash_ref());
                     let header = block.header_ref();
-                    let result = {
-                        if !ledger::proofs::verification::verify_block(
+
+                    if skip_proof_verification {
+                        eprintln!("verify({}) - skipping proof verification", block.hash_ref());
+                    }
+
+                    let verified = skip_proof_verification
+                        || ledger::proofs::verification::verify_block(
                             header,
                             &verifier_index,
                             &verifier_srs,
-                        ) {
-                            Err(SnarkBlockVerifyError::VerificationFailed)
-                        } else {
-                            Ok(())
-                        }
+                        );
+
+                    let result = if verified {
+                        Ok(())
+                    } else {
+                        Err(SnarkBlockVerifyError::VerificationFailed)
                     };
                     eprintln!("verify({}) - end", block.hash_ref());
 

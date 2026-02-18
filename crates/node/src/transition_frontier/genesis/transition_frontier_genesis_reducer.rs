@@ -22,6 +22,7 @@ impl TransitionFrontierGenesisState {
     pub fn reducer(
         mut state_context: crate::Substate<Self>,
         action: TransitionFrontierGenesisActionWithMetaRef<'_>,
+        skip_proof_verification: bool,
     ) {
         let Ok(state) = state_context.get_substate_mut() else {
             // TODO: log or propagate
@@ -104,16 +105,21 @@ impl TransitionFrontierGenesisState {
                         return;
                     };
                     use mina_core::{constants, ChainId};
-                    let constraint_system_digests =
-                        mina_core::NetworkConfig::global().constraint_system_digests;
-                    let chain_id = ChainId::compute(
-                        constraint_system_digests,
-                        genesis_hash,
-                        &genesis.body.constants,
-                        constants::PROTOCOL_TRANSACTION_VERSION,
-                        constants::PROTOCOL_NETWORK_VERSION,
-                        &v2::UnsignedExtendedUInt32StableV1::from(constants::TX_POOL_MAX_SIZE),
-                    );
+                    let chain_id = if let Some(override_id) = &global_state.config.chain_id_override
+                    {
+                        override_id.clone()
+                    } else {
+                        let constraint_system_digests =
+                            mina_core::NetworkConfig::global().constraint_system_digests;
+                        ChainId::compute(
+                            constraint_system_digests,
+                            genesis_hash,
+                            &genesis.body.constants,
+                            constants::PROTOCOL_TRANSACTION_VERSION,
+                            constants::PROTOCOL_NETWORK_VERSION,
+                            &v2::UnsignedExtendedUInt32StableV1::from(constants::TX_POOL_MAX_SIZE),
+                        )
+                    };
                     dispatcher.push(P2pInitializeAction::Initialize { chain_id });
                 }
                 dispatcher.push(TransitionFrontierGenesisAction::ProveInit);
@@ -129,6 +135,19 @@ impl TransitionFrontierGenesisState {
                 else {
                     return;
                 };
+
+                // When proof verification is disabled (interop testing with
+                // OCaml --proof-level none), skip real genesis proving and
+                // use a dummy proof. The real prover can panic on custom
+                // genesis configurations due to sparse ledger mismatches.
+                if skip_proof_verification {
+                    let dispatcher = state_context.into_dispatcher();
+                    dispatcher.push(TransitionFrontierGenesisAction::ProvePending);
+                    dispatcher.push(TransitionFrontierGenesisAction::ProveSuccess {
+                        proof: dummy_blockchain_proof().clone(),
+                    });
+                    return;
+                }
 
                 let genesis_hash = genesis_hash.clone();
                 let producer_pk = genesis.body.consensus_state.block_creator.clone();

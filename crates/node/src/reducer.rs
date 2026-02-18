@@ -68,9 +68,11 @@ pub fn reducer(
             );
         }
         Action::TransitionFrontier(a) => {
+            let skip_proof_verification = state.config.skip_proof_verification;
             crate::transition_frontier::TransitionFrontierState::reducer(
                 Substate::new(state, dispatcher),
                 meta.with_action(a),
+                skip_proof_verification,
             );
         }
         Action::SnarkPool(a) => {

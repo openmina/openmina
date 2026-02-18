@@ -41,6 +41,7 @@ pub struct NodeServiceCommonBuilder {
     p2p: Option<P2pServiceCtx>,
     gather_stats: bool,
     rpc: RpcService,
+    skip_proof_verification: bool,
 }
 
 #[derive(thiserror::Error, Debug, Clone)]
@@ -65,6 +66,7 @@ impl NodeServiceCommonBuilder {
             p2p: None,
             rpc: RpcService::new(),
             gather_stats: false,
+            skip_proof_verification: false,
         }
     }
 
@@ -122,6 +124,11 @@ impl NodeServiceCommonBuilder {
         self
     }
 
+    pub fn skip_proof_verification(&mut self, skip: bool) -> &mut Self {
+        self.skip_proof_verification = skip;
+        self
+    }
+
     pub fn build(self) -> Result<NodeService, NodeServiceCommonBuildError> {
         let ledger_manager = self
             .ledger_manager
@@ -143,6 +150,7 @@ impl NodeServiceCommonBuilder {
             event_receiver: self.event_receiver,
             snark_block_proof_verify: NodeService::snark_block_proof_verifier_spawn(
                 self.event_sender,
+                self.skip_proof_verification,
             ),
             ledger_manager,
             block_producer: self.block_producer,

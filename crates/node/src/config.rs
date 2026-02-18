@@ -35,6 +35,8 @@ pub struct GlobalConfig {
     pub consensus_constants: ConsensusConstants,
     pub client_port: Option<u16>,
     pub testing_run: bool,
+    pub chain_id_override: Option<mina_core::ChainId>,
+    pub skip_proof_verification: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

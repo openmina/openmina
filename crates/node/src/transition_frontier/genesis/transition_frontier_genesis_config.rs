@@ -261,6 +261,13 @@ impl GenesisConfig {
                 // (mask, load_result)
             }
             Self::DaemonJson(config) => {
+                // Apply fork override from daemon.json proof section.
+                // This must happen before genesis block computation so
+                // that OCaml and Rust nodes use matching fork values.
+                if let Some(fork) = config.proof.as_ref().and_then(|p| p.fork.clone()) {
+                    mina_core::constants::set_fork_override(fork);
+                }
+
                 let mut masks = Vec::new();
                 let constants = config
                     .genesis

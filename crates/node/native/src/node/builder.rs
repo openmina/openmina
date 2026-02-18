@@ -70,6 +70,10 @@ pub struct NodeBuilder {
     http_port: Option<u16>,
     /// Daemon JSON configuration.
     daemon_conf: Daemon,
+    /// If `Some`, overrides computed chain ID (for interop testing).
+    chain_id_override: Option<mina_core::ChainId>,
+    /// If `true`, skips SNARK proof verification (for interop testing).
+    skip_proof_verification: bool,
 }
 
 impl NodeBuilder {
@@ -117,7 +121,21 @@ impl NodeBuilder {
             work_verifier_index: None,
             http_port: None,
             daemon_conf,
+            chain_id_override: None,
+            skip_proof_verification: false,
         }
+    }
+
+    /// Override chain ID for P2P networking (interop testing).
+    pub fn chain_id_override(&mut self, chain_id: mina_core::ChainId) -> &mut Self {
+        self.chain_id_override = Some(chain_id);
+        self
+    }
+
+    /// Skip SNARK proof verification (interop testing).
+    pub fn skip_proof_verification(&mut self, skip: bool) -> &mut Self {
+        self.skip_proof_verification = skip;
+        self
     }
 
     /// Set custom initial time. Used for testing.
@@ -372,6 +390,8 @@ impl NodeBuilder {
                 consensus_constants: consensus_consts.clone(),
                 testing_run: false,
                 client_port: self.http_port,
+                chain_id_override: self.chain_id_override,
+                skip_proof_verification: self.skip_proof_verification,
             },
             p2p: self.p2p,
             ledger: LedgerConfig {},
@@ -394,6 +414,7 @@ impl NodeBuilder {
         // build service
         let mut service = self.service;
         service.ledger_init();
+        service.skip_proof_verification(self.skip_proof_verification);
 
         if !self.p2p_is_started {
             service.p2p_init(p2p_sec_key);

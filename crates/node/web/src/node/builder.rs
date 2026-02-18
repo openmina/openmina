@@ -229,6 +229,8 @@ impl NodeBuilder {
                 consensus_constants: consensus_consts.clone(),
                 testing_run: false,
                 client_port: None,
+                chain_id_override: None,
+                skip_proof_verification: false,
             },
             p2p: P2pConfig {
                 libp2p_port: None,

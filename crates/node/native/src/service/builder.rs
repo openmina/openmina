@@ -78,6 +78,11 @@ impl NodeServiceBuilder {
         self
     }
 
+    pub fn skip_proof_verification(&mut self, skip: bool) -> &mut Self {
+        self.common.skip_proof_verification(skip);
+        self
+    }
+
     pub fn record(&mut self, recorder: Recorder) -> &mut Self {
         self.recorder = recorder;
         self

@@ -280,6 +280,17 @@ pub struct Node {
 
     #[arg(long, env)]
     pub rng_seed: Option<String>,
+
+    /// Override the chain ID used for P2P networking. (interop testing)
+    #[arg(long, env = "MINA_CHAIN_ID")]
+    pub chain_id: Option<String>,
+
+    /// Skip SNARK proof verification (interop testing).
+    /// WARNING: THIS DISABLES A CRITICAL SECURITY CHECK. ONLY USE
+    /// FOR INTEROP TESTING WITH OCAML NODES RUNNING --PROOF-LEVEL
+    /// NONE, WHICH PRODUCE BLOCKS WITH DUMMY PROOFS.
+    #[arg(long)]
+    pub skip_proof_verification: bool,
 }
 
 impl Node {
@@ -352,6 +363,14 @@ impl Node {
             ),
         };
 
+        // Parse chain ID override (applied to builder below).
+        let chain_id_override = self
+            .chain_id
+            .as_deref()
+            .map(mina_node::core::ChainId::from_hex)
+            .transpose()
+            .context("invalid --chain-id hex string")?;
+
         let custom_rng_seed = match self.rng_seed {
             None => None,
             Some(v) => match hex::decode(v)
@@ -373,6 +392,13 @@ impl Node {
 
         let mut node_builder: NodeBuilder =
             NodeBuilder::new(custom_rng_seed, daemon_conf, genesis_conf);
+
+        if let Some(chain_id) = chain_id_override {
+            node_builder.chain_id_override(chain_id);
+        }
+        if self.skip_proof_verification {
+            node_builder.skip_proof_verification(true);
+        }
 
         // Configure P2P identity
         if let Some(sec_key) = self.p2p_secret_key {

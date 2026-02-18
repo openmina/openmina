@@ -1,3 +1,4 @@
+use mina_core::constants::ForkConstants;
 use serde::{Deserialize, Serialize};
 
 mod json_daemon;
@@ -26,6 +27,7 @@ pub struct DaemonJson {
     pub ledger: Option<Ledger>,
     pub genesis: Option<Genesis>,
     pub epoch_data: Option<Epochs>,
+    pub proof: Option<Proof>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -40,6 +42,11 @@ pub struct EpochData {
     pub hash: Option<String>,
     pub s3_data_hash: Option<String>,
     pub seed: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Proof {
+    pub fork: Option<ForkConstants>,
 }
 
 impl EpochData {
