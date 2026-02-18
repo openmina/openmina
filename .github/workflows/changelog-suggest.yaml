@@ -1,0 +1,195 @@
+name: Suggest CHANGELOG entries
+
+on:
+  pull_request:
+    types: [opened, synchronize, unlabeled]
+    branches:
+      - develop
+
+concurrency:
+  group: changelog-suggest-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  suggest-changelog:
+    name: Suggest changelog entries
+    if: >-
+      !contains(github.event.pull_request.labels.*.name, 'no changelog')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check changelog and manage previous suggestions
+        id: check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const prNumber = context.issue.number;
+
+            // Check if CHANGELOG.md was modified in this PR
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner,
+              repo,
+              pull_number: prNumber,
+              per_page: 100,
+            });
+
+            const changelogChanged = files.some(
+              (f) => f.filename === "CHANGELOG.md"
+            );
+            core.setOutput("changelog_changed", changelogChanged.toString());
+
+            if (changelogChanged) {
+              core.info("CHANGELOG.md was modified, skipping suggestion");
+              return;
+            }
+
+            // Look for previous suggestion comment
+            const marker = "<!-- changelog-suggestion -->";
+            let previousBody = "";
+            let page = 1;
+
+            while (true) {
+              const { data: comments } =
+                await github.rest.issues.listComments({
+                  owner,
+                  repo,
+                  issue_number: prNumber,
+                  per_page: 100,
+                  page,
+                });
+
+              if (comments.length === 0) break;
+
+              const previous = comments.find((c) => c.body.includes(marker));
+              if (previous) {
+                previousBody = previous.body;
+
+                await github.rest.issues.deleteComment({
+                  owner,
+                  repo,
+                  comment_id: previous.id,
+                });
+                core.info(
+                  `Deleted previous suggestion comment #${previous.id}`
+                );
+                break;
+              }
+              page++;
+            }
+
+            if (previousBody) {
+              core.setOutput("had_previous", "true");
+              const fs = require("fs");
+              fs.writeFileSync(
+                "/tmp/previous_suggestion.txt",
+                previousBody
+              );
+            } else {
+              core.setOutput("had_previous", "false");
+            }
+
+      - name: Generate changelog suggestion
+        if: steps.check.outputs.changelog_changed == 'false'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            You are helping maintain a CHANGELOG for the mina-rust project.
+            This PR was opened without updating CHANGELOG.md.
+
+            Analyze the PR's commit messages and description, then generate
+            suggested CHANGELOG entries.
+
+            ## CHANGELOG format rules
+
+            Entries go under `## Unreleased` in one of these sections:
+            - `### Added` — new features or functionality
+            - `### Changed` — changes to existing behavior, refactoring, CI
+            - `### Fixed` — bug fixes
+            - `### Dependencies` — dependency version updates
+
+            Entry format (wrap at 80 chars, 2-space continuation indent):
+            ```
+            - **Category**: Description of change
+              ([#NUMBER](https://github.com/o1-labs/mina-rust/pull/NUMBER))
+            ```
+
+            Categories: CI, Build System, Documentation, Frontend, Node, P2P,
+            Ledger, SNARK, Dev Tools, Web Node, etc.
+
+            ## Instructions
+
+            The PR number is #${{ github.event.pull_request.number }}.
+            The repo is https://github.com/${{ github.repository }}.
+
+            Write ONLY the suggested markdown entries to the file
+            /tmp/changelog_suggestion.md — nothing else. No explanation,
+            no markers, no headings. Just the raw CHANGELOG entries that
+            could be pasted directly under `## Unreleased`.
+
+            Example output file content:
+            ```
+            ### Changed
+
+            - **CI**: Add merge queue support to workflows
+              ([#123](https://github.com/o1-labs/mina-rust/pull/123))
+            ```
+
+            Do not post a comment. Do not modify any repo files.
+            Write only to /tmp/changelog_suggestion.md.
+
+      - name: Post changelog suggestion
+        if: steps.check.outputs.changelog_changed == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require("fs");
+            const { owner, repo } = context.repo;
+            const prNumber = context.issue.number;
+
+            // Read Claude's generated suggestion
+            const suggestionPath = "/tmp/changelog_suggestion.md";
+            if (!fs.existsSync(suggestionPath)) {
+              core.warning("No suggestion file found — Claude may have failed");
+              return;
+            }
+            const suggestion = fs.readFileSync(suggestionPath, "utf8").trim();
+
+            if (!suggestion) {
+              core.warning("Suggestion file is empty");
+              return;
+            }
+
+            // Build the comment body
+            const marker = "<!-- changelog-suggestion -->";
+            let body = `${marker}\n`;
+            body += `### Suggested CHANGELOG entries\n\n`;
+            body += `Add these under \`## Unreleased\` in \`CHANGELOG.md\`:\n\n`;
+            body += "```markdown\n";
+            body += suggestion;
+            body += "\n```";
+
+            // Previous suggestions are base64-encoded because they contain
+            // HTML comments (<!-- -->). Nesting raw HTML comments would break
+            // on the first inner -->, corrupting the comment body.
+            const previousPath = "/tmp/previous_suggestion.txt";
+            if (fs.existsSync(previousPath)) {
+              const previousBody = fs.readFileSync(previousPath, "utf8");
+              const encoded = Buffer.from(previousBody).toString("base64");
+              body += `\n\n<!-- previous-base64: ${encoded} -->`;
+            }
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: prNumber,
+              body,
+            });
+            core.info("Posted changelog suggestion comment");
