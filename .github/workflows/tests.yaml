@@ -228,7 +228,7 @@ jobs:
         run: ./.github/scripts/test-misc-mina-key-pair.sh
 
       - name: Upload binaries
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: bin-${{ github.sha }}
           path: target/release/mina
@@ -368,7 +368,7 @@ jobs:
         run: make build-tests
 
       - name: Upload tests
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: tests-${{ github.sha }}
           path: target/release/tests
@@ -397,7 +397,7 @@ jobs:
         run: make build-tests-webrtc
 
       - name: Upload tests
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: tests-webrtc-${{ github.sha }}
           path: target/release/tests
@@ -639,7 +639,7 @@ jobs:
           }
 
       - name: Upload logs
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: bootstrap-logs-${{ github.sha }}
           path: ${{ env.MINA_HOME }}/logs/*
@@ -647,7 +647,7 @@ jobs:
         if: ${{ failure() }}
 
       - name: Upload record
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: bootstrap-record-${{ github.sha }}
           path: ${{ env.MINA_HOME }}/recorder/*

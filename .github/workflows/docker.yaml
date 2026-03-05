@@ -58,7 +58,7 @@ jobs:
           touch "/tmp/digests/${digest#sha256:}"
 
       - name: Upload digest
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: node-digests-${{ env.PLATFORM_PAIR }}
           path: /tmp/digests/*
@@ -125,7 +125,7 @@ jobs:
           touch "/tmp/digests/${digest#sha256:}"
 
       - name: Upload digest
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: frontend-digests-${{ env.PLATFORM_PAIR }}
           path: /tmp/digests/*
