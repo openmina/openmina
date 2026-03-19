@@ -235,39 +235,7 @@ Example:
 Example:
 `/p2p/12D3KooWABC.../webrtc/p2p-circuit/p2p/12D3KooWRTzN7HfmjoUBHokyRZuKdyohVVSGqKBMF24ZC3tGK74R`
 
-### Legacy format (deprecated)
-
-<!-- prettier-ignore-start -->
-
-:::caution Deprecated
-The legacy format below is deprecated and will emit warnings when used. Please
-migrate to the standard multiaddr format above.
-:::
-
-<!-- prettier-ignore-end -->
-
-The legacy format uses a custom structure that differs from standard multiaddr:
-
-```
-/{peer_id}/{signaling_method}
-```
-
-Where `{peer_id}` is the base58-encoded peer ID and `{signaling_method}`
-specifies how to reach the signaling server.
-
-**Legacy signaling method formats:**
-
-| Method      | Format                                              | Example                                              |
-| ----------- | --------------------------------------------------- | ---------------------------------------------------- |
-| HTTP        | `/{peer_id}/http/{host}/{port}`                     | `/12D3KooW.../http/localhost/8080`                   |
-| HTTPS       | `/{peer_id}/https/{host}/{port}`                    | `/12D3KooW.../https/signal.example.com/443`          |
-| HTTPS Proxy | `/{peer_id}/https_proxy/{cluster_id}/{host}/{port}` | `/12D3KooW.../https_proxy/123/proxy.example.com/443` |
-| P2P Relay   | `/{peer_id}/p2p/{relay_peer_id}`                    | `/12D3KooW.../p2p/12D3KooWABC...`                    |
-
-The parser continues to accept this format for backward compatibility but logs a
-deprecation warning with the suggested multiaddr equivalent
-
-## Future Considerations
+## Future considerations
 
 While the current OCaml implementation doesn't use WebRTC, the Rust
 implementation provides a foundation for enhancing peer discovery and reducing
