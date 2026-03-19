@@ -117,7 +117,14 @@ impl P2pChannelsSignalingExchangeState {
                 });
                 Ok(())
             }
-            P2pChannelsSignalingExchangeAction::OfferDecryptError { .. } => {
+            P2pChannelsSignalingExchangeAction::OfferDecryptError { error, .. } => {
+                if matches!(error, super::OfferDecryptErrorKind::IdentityKeyMismatch) {
+                    tracing::warn!(
+                        %peer_id,
+                        "offer identity key mismatch: possible relay \
+                         tampering or spoofed offer"
+                    );
+                }
                 let dispatcher = state_context.into_dispatcher();
                 let answer = P2pConnectionResponse::SignalDecryptionFailed;
                 dispatcher.push(P2pChannelsSignalingExchangeAction::AnswerSend { peer_id, answer });

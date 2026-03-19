@@ -190,7 +190,8 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingAction {
                         }
                         P2pConnectionOutgoingError::Rejected(_)
                         | P2pConnectionOutgoingError::RemoteSignalDecryptionFailed
-                        | P2pConnectionOutgoingError::RemoteInternalError => {
+                        | P2pConnectionOutgoingError::RemoteInternalError
+                        | P2pConnectionOutgoingError::RemoteAnswerNotProvided => {
                             matches!(s, P2pConnectionOutgoingState::AnswerRecvPending { .. })
                         }
                         P2pConnectionOutgoingError::FinalizeError(_) => {

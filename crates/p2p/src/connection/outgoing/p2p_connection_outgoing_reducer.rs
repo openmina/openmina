@@ -327,6 +327,9 @@ impl P2pConnectionOutgoingState {
                         P2pConnectionErrorResponse::InternalError => {
                             P2pConnectionOutgoingError::RemoteInternalError
                         }
+                        P2pConnectionErrorResponse::AnswerNotProvided => {
+                            P2pConnectionOutgoingError::RemoteAnswerNotProvided
+                        }
                     },
                 });
                 Ok(())

@@ -375,10 +375,9 @@ impl P2pChannelsSignalingDiscoveryState {
 
                 let dispatcher = state_context.into_dispatcher();
                 match answer {
-                    // TODO(binier): custom error
                     None => dispatcher.push(P2pConnectionOutgoingAction::AnswerRecvError {
                         peer_id: target_public_key.peer_id(),
-                        error: P2pConnectionErrorResponse::InternalError,
+                        error: P2pConnectionErrorResponse::AnswerNotProvided,
                     }),
                     Some(answer) => dispatcher.push(
                         P2pChannelsEffectfulAction::SignalingDiscoveryAnswerDecrypt {

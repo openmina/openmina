@@ -159,6 +159,8 @@ pub enum P2pConnectionOutgoingError {
     RemoteSignalDecryptionFailed,
     #[error("remote internal error")]
     RemoteInternalError,
+    #[error("remote answer not provided")]
+    RemoteAnswerNotProvided,
     #[error("finalization error: {0}")]
     FinalizeError(String),
     #[error("connection authorization error")]
