@@ -36,6 +36,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Node**: migrate HTTP server from warp to axum
   ([#2119](https://github.com/o1-labs/mina-rust/pull/2119))
 
+### Fixed
+
+- **P2P**: Identify protocol no longer rejects peers that advertise unknown
+  protocol strings, improving forward compatibility with newer nodes
+  ([#2200](https://github.com/o1-labs/mina-rust/pull/2200))
+
 ### Dependencies
 
 - Bump react and react-dom from 19.2.3 to 19.2.4 in /website
