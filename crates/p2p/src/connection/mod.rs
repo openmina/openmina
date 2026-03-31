@@ -27,4 +27,6 @@ pub enum P2pConnectionErrorResponse {
     SignalDecryptionFailed,
     #[error("internal error")]
     InternalError,
+    #[error("answer not provided")]
+    AnswerNotProvided,
 }

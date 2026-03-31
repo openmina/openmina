@@ -6,7 +6,9 @@ use crate::webrtc::{Offer, P2pConnectionResponse};
 use super::{
     signaling::{
         discovery::{P2pChannelsSignalingDiscoveryAction, SignalingDiscoveryChannelMsg},
-        exchange::{P2pChannelsSignalingExchangeAction, SignalingExchangeChannelMsg},
+        exchange::{
+            OfferDecryptErrorKind, P2pChannelsSignalingExchangeAction, SignalingExchangeChannelMsg,
+        },
     },
     ChannelMsg, MsgId, P2pChannelsEffectfulAction, P2pChannelsService,
 };
@@ -85,13 +87,20 @@ impl P2pChannelsEffectfulAction {
                     Err(_) => {
                         store.dispatch(P2pChannelsSignalingExchangeAction::OfferDecryptError {
                             peer_id,
+                            error: OfferDecryptErrorKind::DecryptionFailed,
                         });
                     }
                     Ok(offer) if offer.identity_pub_key != pub_key => {
-                        // TODO(binier): propagate specific error.
-                        // This is invalid behavior either from relayer or offerer.
+                        // The offer's embedded identity key doesn't match the
+                        // expected public key. This indicates a compromised relay,
+                        // offer tampering, or wrong key pair usage.
+                        //
+                        // We deliberately respond with SignalDecryptionFailed
+                        // rather than a specific mismatch error to avoid leaking
+                        // information to a potential attacker.
                         store.dispatch(P2pChannelsSignalingExchangeAction::OfferDecryptError {
                             peer_id,
+                            error: OfferDecryptErrorKind::IdentityKeyMismatch,
                         });
                     }
                     Ok(offer) => {

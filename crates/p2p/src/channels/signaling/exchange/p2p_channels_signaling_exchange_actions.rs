@@ -11,6 +11,12 @@ use crate::{
 
 use super::{P2pChannelsSignalingExchangeState, SignalingExchangeState};
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum OfferDecryptErrorKind {
+    DecryptionFailed,
+    IdentityKeyMismatch,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, ActionEvent)]
 #[action_event(fields(display(peer_id)))]
 pub enum P2pChannelsSignalingExchangeAction {
@@ -36,6 +42,7 @@ pub enum P2pChannelsSignalingExchangeAction {
     },
     OfferDecryptError {
         peer_id: PeerId,
+        error: OfferDecryptErrorKind,
     },
     OfferDecryptSuccess {
         peer_id: PeerId,
@@ -126,7 +133,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSignalingExchangeAction {
                     }
                     _ => false,
                 }),
-            P2pChannelsSignalingExchangeAction::OfferDecryptError { peer_id } => state
+            P2pChannelsSignalingExchangeAction::OfferDecryptError { peer_id, .. } => state
                 .get_ready_peer(peer_id)
                 .is_some_and(|p| match &p.channels.signaling.exchange {
                     P2pChannelsSignalingExchangeState::Ready { local, .. } => {

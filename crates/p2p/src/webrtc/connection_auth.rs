@@ -88,10 +88,29 @@ use super::{Answer, Offer};
 /// ## Usage
 ///
 /// ```rust
-/// use mina_p2p::webrtc::{ConnectionAuth, Offer, Answer};
+/// use mina_p2p::webrtc::{ConnectionAuth, Offer, Answer, Host};
+/// use mina_p2p::identity::SecretKey;
+/// use rand::thread_rng;
+///
+/// let sk_a = SecretKey::rand();
+/// let sk_b = SecretKey::rand();
+/// let offer = Offer {
+///     sdp: "v=0\r\no=- 0 0 IN IP4 127.0.0.1".into(),
+///     chain_id: mina_core::DEVNET_CHAIN_ID,
+///     identity_pub_key: sk_a.public_key(),
+///     target_peer_id: sk_b.public_key().peer_id(),
+///     host: Host::Domain("localhost".into()),
+///     listen_port: Some(8080),
+/// };
+/// let answer = Answer {
+///     sdp: "v=0\r\no=- 1 1 IN IP4 127.0.0.1".into(),
+///     identity_pub_key: sk_b.public_key(),
+///     target_peer_id: sk_a.public_key().peer_id(),
+/// };
 ///
 /// let connection_auth = ConnectionAuth::new(&offer, &answer);
-/// let encrypted_auth = connection_auth.encrypt(&my_secret_key, &peer_public_key, rng)?;
+/// let encrypted_auth = connection_auth.encrypt(&sk_a, &sk_b.public_key(), thread_rng());
+/// assert!(encrypted_auth.is_some());
 /// ```
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
 pub struct ConnectionAuth(Vec<u8>);
@@ -124,9 +143,32 @@ pub struct ConnectionAuth(Vec<u8>);
 /// ## Example
 ///
 /// ```rust
+/// use mina_p2p::webrtc::{ConnectionAuth, ConnectionAuthEncrypted, Offer, Answer, Host};
+/// use mina_p2p::identity::SecretKey;
+/// use rand::thread_rng;
+///
+/// let sk_a = SecretKey::rand();
+/// let sk_b = SecretKey::rand();
+/// let offer = Offer {
+///     sdp: "v=0\r\no=- 0 0 IN IP4 127.0.0.1".into(),
+///     chain_id: mina_core::DEVNET_CHAIN_ID,
+///     identity_pub_key: sk_a.public_key(),
+///     target_peer_id: sk_b.public_key().peer_id(),
+///     host: Host::Domain("localhost".into()),
+///     listen_port: Some(8080),
+/// };
+/// let answer = Answer {
+///     sdp: "v=0\r\no=- 1 1 IN IP4 127.0.0.1".into(),
+///     identity_pub_key: sk_b.public_key(),
+///     target_peer_id: sk_a.public_key().peer_id(),
+/// };
+///
+/// let auth = ConnectionAuth::new(&offer, &answer);
+/// let encrypted_auth = auth.encrypt(&sk_a, &sk_b.public_key(), thread_rng()).unwrap();
+///
 /// // After receiving encrypted authentication data
-/// let decrypted_auth = encrypted_auth.decrypt(&my_secret_key, &peer_public_key)?;
-/// // Verify that the decrypted data matches expected values
+/// let decrypted_auth = encrypted_auth.decrypt(&sk_b, &sk_a.public_key());
+/// assert!(decrypted_auth.is_some());
 /// ```
 #[derive(Debug, Clone)]
 pub struct ConnectionAuthEncrypted(Box<[u8; 92]>);
@@ -158,7 +200,24 @@ impl ConnectionAuth {
     /// # Example
     ///
     /// ```rust
-    /// use mina_p2p::webrtc::ConnectionAuth;
+    /// use mina_p2p::webrtc::{ConnectionAuth, Offer, Answer, Host};
+    /// use mina_p2p::identity::SecretKey;
+    ///
+    /// let sk_a = SecretKey::rand();
+    /// let sk_b = SecretKey::rand();
+    /// let offer = Offer {
+    ///     sdp: "v=0\r\no=- 0 0 IN IP4 127.0.0.1".into(),
+    ///     chain_id: mina_core::DEVNET_CHAIN_ID,
+    ///     identity_pub_key: sk_a.public_key(),
+    ///     target_peer_id: sk_b.public_key().peer_id(),
+    ///     host: Host::Domain("localhost".into()),
+    ///     listen_port: Some(8080),
+    /// };
+    /// let answer = Answer {
+    ///     sdp: "v=0\r\no=- 1 1 IN IP4 127.0.0.1".into(),
+    ///     identity_pub_key: sk_b.public_key(),
+    ///     target_peer_id: sk_a.public_key().peer_id(),
+    /// };
     ///
     /// let auth = ConnectionAuth::new(&offer, &answer);
     /// // Use auth for connection verification
@@ -196,10 +255,28 @@ impl ConnectionAuth {
     /// # Example
     ///
     /// ```rust
+    /// use mina_p2p::webrtc::{ConnectionAuth, Offer, Answer, Host};
+    /// use mina_p2p::identity::SecretKey;
     /// use rand::thread_rng;
     ///
-    /// let mut rng = thread_rng();
-    /// let encrypted_auth = connection_auth.encrypt(&my_secret_key, &peer_public_key, &mut rng);
+    /// let sk_a = SecretKey::rand();
+    /// let sk_b = SecretKey::rand();
+    /// let offer = Offer {
+    ///     sdp: "v=0\r\no=- 0 0 IN IP4 127.0.0.1".into(),
+    ///     chain_id: mina_core::DEVNET_CHAIN_ID,
+    ///     identity_pub_key: sk_a.public_key(),
+    ///     target_peer_id: sk_b.public_key().peer_id(),
+    ///     host: Host::Domain("localhost".into()),
+    ///     listen_port: Some(8080),
+    /// };
+    /// let answer = Answer {
+    ///     sdp: "v=0\r\no=- 1 1 IN IP4 127.0.0.1".into(),
+    ///     identity_pub_key: sk_b.public_key(),
+    ///     target_peer_id: sk_a.public_key().peer_id(),
+    /// };
+    ///
+    /// let connection_auth = ConnectionAuth::new(&offer, &answer);
+    /// let encrypted_auth = connection_auth.encrypt(&sk_a, &sk_b.public_key(), thread_rng());
     ///
     /// if let Some(encrypted) = encrypted_auth {
     ///     // Send encrypted authentication data to peer
@@ -254,8 +331,31 @@ impl ConnectionAuthEncrypted {
     /// # Example
     ///
     /// ```rust
+    /// use mina_p2p::webrtc::{ConnectionAuth, Offer, Answer, Host};
+    /// use mina_p2p::identity::SecretKey;
+    /// use rand::thread_rng;
+    ///
+    /// let sk_a = SecretKey::rand();
+    /// let sk_b = SecretKey::rand();
+    /// let offer = Offer {
+    ///     sdp: "v=0\r\no=- 0 0 IN IP4 127.0.0.1".into(),
+    ///     chain_id: mina_core::DEVNET_CHAIN_ID,
+    ///     identity_pub_key: sk_a.public_key(),
+    ///     target_peer_id: sk_b.public_key().peer_id(),
+    ///     host: Host::Domain("localhost".into()),
+    ///     listen_port: Some(8080),
+    /// };
+    /// let answer = Answer {
+    ///     sdp: "v=0\r\no=- 1 1 IN IP4 127.0.0.1".into(),
+    ///     identity_pub_key: sk_b.public_key(),
+    ///     target_peer_id: sk_a.public_key().peer_id(),
+    /// };
+    ///
+    /// let auth = ConnectionAuth::new(&offer, &answer);
+    /// let encrypted_auth = auth.encrypt(&sk_a, &sk_b.public_key(), thread_rng()).unwrap();
+    ///
     /// // After receiving encrypted authentication data from peer
-    /// if let Some(decrypted_auth) = encrypted_auth.decrypt(&my_secret_key, &peer_public_key) {
+    /// if let Some(decrypted_auth) = encrypted_auth.decrypt(&sk_b, &sk_a.public_key()) {
     ///     // Authentication successful, proceed with connection
     ///     println!("Peer authentication verified");
     /// } else {
