@@ -330,35 +330,41 @@ impl P2pConnectionOutgoingInitOpts {
         let mut iter = maddr.iter();
 
         let Some(Protocol::P2p(relay_peer_id_hash)) = iter.next() else {
-            return Err(P2pConnectionOutgoingInitOptsParseError::Other(
-                "expected p2p protocol for relay".to_string(),
-            ));
+            return Err(
+                P2pConnectionOutgoingInitOptsParseError::InvalidMultiaddrStructure(
+                    "expected p2p protocol for relay".to_string(),
+                ),
+            );
         };
         let relay_peer_id = libp2p_identity::PeerId::from_multihash(relay_peer_id_hash.into())
             .map_err(|_| {
-                P2pConnectionOutgoingInitOptsParseError::Other(
+                P2pConnectionOutgoingInitOptsParseError::InvalidPeerId(
                     "invalid relay peer_id multihash".to_string(),
                 )
             })?
             .try_into()
             .map_err(|_| {
-                P2pConnectionOutgoingInitOptsParseError::Other(
+                P2pConnectionOutgoingInitOptsParseError::InvalidPeerId(
                     "unexpected error converting relay PeerId".to_string(),
                 )
             })?;
 
         // Expect /webrtc
         if iter.next() != Some(Protocol::WebRTC) {
-            return Err(P2pConnectionOutgoingInitOptsParseError::Other(
-                "expected webrtc protocol".to_string(),
-            ));
+            return Err(
+                P2pConnectionOutgoingInitOptsParseError::InvalidMultiaddrStructure(
+                    "expected webrtc protocol".to_string(),
+                ),
+            );
         };
 
         // Expect /p2p-circuit
         if iter.next() != Some(Protocol::P2pCircuit) {
-            return Err(P2pConnectionOutgoingInitOptsParseError::Other(
-                "expected p2p-circuit protocol".to_string(),
-            ));
+            return Err(
+                P2pConnectionOutgoingInitOptsParseError::InvalidMultiaddrStructure(
+                    "expected p2p-circuit protocol".to_string(),
+                ),
+            );
         };
 
         // Get target peer_id
@@ -378,23 +384,27 @@ impl P2pConnectionOutgoingInitOpts {
             Some(Protocol::P2p(peer_id_hash)) => {
                 libp2p_identity::PeerId::from_multihash(peer_id_hash.into())
                     .map_err(|_| {
-                        P2pConnectionOutgoingInitOptsParseError::Other(format!(
+                        P2pConnectionOutgoingInitOptsParseError::InvalidPeerId(format!(
                             "invalid {label} peer_id multihash"
                         ))
                     })?
                     .try_into()
                     .map_err(|_| {
-                        P2pConnectionOutgoingInitOptsParseError::Other(format!(
+                        P2pConnectionOutgoingInitOptsParseError::InvalidPeerId(format!(
                             "unexpected error converting {label} PeerId"
                         ))
                     })
             }
-            Some(other_protocol) => Err(P2pConnectionOutgoingInitOptsParseError::Other(format!(
-                "expected p2p protocol for {label} peer id, got {other_protocol:?}"
-            ))),
-            None => Err(P2pConnectionOutgoingInitOptsParseError::Other(format!(
-                "missing {label} peer id"
-            ))),
+            Some(other_protocol) => Err(
+                P2pConnectionOutgoingInitOptsParseError::InvalidMultiaddrStructure(format!(
+                    "expected p2p protocol for {label} peer id, got {other_protocol:?}"
+                )),
+            ),
+            None => Err(
+                P2pConnectionOutgoingInitOptsParseError::InvalidMultiaddrStructure(format!(
+                    "missing {label} peer id"
+                )),
+            ),
         }
     }
 }
@@ -414,57 +424,22 @@ impl fmt::Display for P2pConnectionOutgoingInitOpts {
 
 #[derive(Error, Serialize, Deserialize, Debug, Clone)]
 pub enum P2pConnectionOutgoingInitOptsParseError {
-    #[error("not enough args for the signaling method")]
-    NotEnoughArgs,
-    #[error("peer id parse error: {0}")]
-    PeerIdParseError(String),
-    #[error("signaling method parse error: `{0}`")]
-    SignalingMethodParseError(webrtc::SignalingMethodParseError),
-    #[error("other error: {0}")]
-    Other(String),
+    #[error("invalid multiaddr: {0}")]
+    InvalidMultiaddr(String),
+    #[error("invalid multiaddr structure: {0}")]
+    InvalidMultiaddrStructure(String),
+    #[error("invalid peer id: {0}")]
+    InvalidPeerId(String),
 }
 
 impl FromStr for P2pConnectionOutgoingInitOpts {
     type Err = P2pConnectionOutgoingInitOptsParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.is_empty() {
-            return Err(P2pConnectionOutgoingInitOptsParseError::NotEnoughArgs);
-        }
-
-        // Try parsing as multiaddr first (the preferred format)
-        if let Ok(maddr) = Multiaddr::from_str(s) {
-            return Self::try_from(&maddr);
-        }
-
-        // Fallback: try legacy WebRTC format (/{peer_id}/{signaling_method}/...)
-        // This format is deprecated; prefer multiaddr format instead.
-        let id_end_index = s[1..]
-            .find('/')
-            .map(|i| i + 1)
-            .filter(|i| s.len() > *i)
-            .ok_or(P2pConnectionOutgoingInitOptsParseError::NotEnoughArgs)?;
-
-        let opts = Self::WebRTC {
-            peer_id: s[1..id_end_index].parse::<PeerId>().map_err(|err| {
-                P2pConnectionOutgoingInitOptsParseError::PeerIdParseError(err.to_string())
-            })?,
-            signaling: s[id_end_index..]
-                .parse::<webrtc::SignalingMethod>()
-                .map_err(|err| {
-                    P2pConnectionOutgoingInitOptsParseError::SignalingMethodParseError(err)
-                })?,
-        };
-
-        // Emit deprecation warning with the suggested multiaddr format
-        let suggested_maddr: Multiaddr = (&opts).into();
-        tracing::warn!(
-            message = "Deprecated address format detected. Please use multiaddr format instead.",
-            legacy_format = %s,
-            suggested_format = %suggested_maddr,
-        );
-
-        Ok(opts)
+        let maddr = Multiaddr::from_str(s).map_err(|e| {
+            P2pConnectionOutgoingInitOptsParseError::InvalidMultiaddr(e.to_string())
+        })?;
+        Self::try_from(&maddr)
     }
 }
 
@@ -529,7 +504,7 @@ impl TryFrom<&multiaddr::Multiaddr> for P2pConnectionOutgoingInitOpts {
         if !is_webrtc {
             cfg_if::cfg_if! {
                 if #[cfg(target_arch = "wasm32")] {
-                    return Err(P2pConnectionOutgoingInitOptsParseError::Other(
+                    return Err(P2pConnectionOutgoingInitOptsParseError::InvalidMultiaddrStructure(
                         "libp2p not supported in wasm".to_owned(),
                     ))
                 } else {
@@ -555,24 +530,31 @@ impl TryFrom<&multiaddr::Multiaddr> for P2pConnectionOutgoingInitOpts {
                         Host::Domain(v.to_string())
                     }
                     _ => {
-                        return Err(P2pConnectionOutgoingInitOptsParseError::Other(
-                            "expected host (dns/dns4/dns6/ip4/ip6) in webrtc multiaddr".to_string(),
-                        ))
+                        return Err(
+                            P2pConnectionOutgoingInitOptsParseError::InvalidMultiaddrStructure(
+                                "expected host (dns/dns4/dns6/ip4/ip6) in webrtc multiaddr"
+                                    .to_string(),
+                            ),
+                        )
                     }
                 };
 
                 // Extract /tcp/{port}
                 let Some(Protocol::Tcp(port)) = iter.next() else {
-                    return Err(P2pConnectionOutgoingInitOptsParseError::Other(
-                        "expected tcp port in webrtc multiaddr".to_string(),
-                    ));
+                    return Err(
+                        P2pConnectionOutgoingInitOptsParseError::InvalidMultiaddrStructure(
+                            "expected tcp port in webrtc multiaddr".to_string(),
+                        ),
+                    );
                 };
 
                 // Skip /webrtc
                 if iter.next() != Some(Protocol::WebRTC) {
-                    return Err(P2pConnectionOutgoingInitOptsParseError::Other(
-                        "expected webrtc protocol".to_string(),
-                    ));
+                    return Err(
+                        P2pConnectionOutgoingInitOptsParseError::InvalidMultiaddrStructure(
+                            "expected webrtc protocol".to_string(),
+                        ),
+                    );
                 };
 
                 // Determine signaling method: http, https, or proxy with http-path
@@ -581,9 +563,11 @@ impl TryFrom<&multiaddr::Multiaddr> for P2pConnectionOutgoingInitOpts {
                     Some(Protocol::Http) => webrtc::ProxyScheme::Http,
                     Some(Protocol::Https) => webrtc::ProxyScheme::Https,
                     _ => {
-                        return Err(P2pConnectionOutgoingInitOptsParseError::Other(
-                            "expected http or https protocol after webrtc".to_string(),
-                        ))
+                        return Err(
+                            P2pConnectionOutgoingInitOptsParseError::InvalidMultiaddrStructure(
+                                "expected http or https protocol after webrtc".to_string(),
+                            ),
+                        )
                     }
                 };
                 let (signaling, peer_id) = match iter.next() {
@@ -609,12 +593,12 @@ impl TryFrom<&multiaddr::Multiaddr> for P2pConnectionOutgoingInitOpts {
                         (signaling, peer_id)
                     }
                     Some(other_protocol) => {
-                        return Err(P2pConnectionOutgoingInitOptsParseError::Other(
+                        return Err(P2pConnectionOutgoingInitOptsParseError::InvalidMultiaddrStructure(
                             format!("expected /p2p/peer_id or /http-path/encoded_path, got {other_protocol:?}"
                         )))
                     },
                     None => {
-                        return Err(P2pConnectionOutgoingInitOptsParseError::Other(
+                        return Err(P2pConnectionOutgoingInitOptsParseError::InvalidMultiaddrStructure(
                             "expected p2p protocol with peer_id".to_string(),
                         ))
                     }
@@ -761,51 +745,63 @@ impl TryFrom<&multiaddr::Multiaddr> for P2pConnectionOutgoingInitLibp2pOpts {
                     Host::Domain(v.to_string())
                 }
                 Some(other_host) => {
-                    return Err(P2pConnectionOutgoingInitOptsParseError::Other(
+                    return Err(P2pConnectionOutgoingInitOptsParseError::InvalidMultiaddrStructure(
                         format!("unexpected transport in multiaddr! expected /dns|dns4|dns6|ip4|ip6/<host>, got {other_host:?}!")
                     ));
                 }
                 None => {
-                    return Err(P2pConnectionOutgoingInitOptsParseError::Other(
-                        "missing /dns|dns4|dns6|ip4|ip6/host from multiaddr".to_string(),
-                    ));
+                    return Err(
+                        P2pConnectionOutgoingInitOptsParseError::InvalidMultiaddrStructure(
+                            "missing /dns|dns4|dns6|ip4|ip6/host from multiaddr".to_string(),
+                        ),
+                    );
                 }
             },
             port: match iter.next() {
                 Some(Protocol::Tcp(port)) => port,
                 Some(other_port) => {
-                    return Err(P2pConnectionOutgoingInitOptsParseError::Other(format!(
+                    return Err(
+                        P2pConnectionOutgoingInitOptsParseError::InvalidMultiaddrStructure(
+                            format!(
                         "unexpected part in multiaddr! expected /tcp/<port>, got {other_port:?}"
-                    )));
+                    ),
+                        ),
+                    );
                 }
                 None => {
-                    return Err(P2pConnectionOutgoingInitOptsParseError::Other(
-                        "missing port part from multiaddr".to_string(),
-                    ));
+                    return Err(
+                        P2pConnectionOutgoingInitOptsParseError::InvalidMultiaddrStructure(
+                            "missing port part from multiaddr".to_string(),
+                        ),
+                    );
                 }
             },
             peer_id: match iter.next() {
                 Some(Protocol::P2p(hash)) => libp2p_identity::PeerId::from_multihash(hash.into())
                     .map_err(|_| {
-                        P2pConnectionOutgoingInitOptsParseError::Other(
+                        P2pConnectionOutgoingInitOptsParseError::InvalidPeerId(
                             "invalid peer_id multihash".to_string(),
                         )
                     })?
                     .try_into()
                     .map_err(|_| {
-                        P2pConnectionOutgoingInitOptsParseError::Other(
+                        P2pConnectionOutgoingInitOptsParseError::InvalidPeerId(
                             "unexpected error converting PeerId".to_string(),
                         )
                     })?,
                 Some(_) => {
-                    return Err(P2pConnectionOutgoingInitOptsParseError::Other(
-                        "unexpected part in multiaddr! expected peer_id".to_string(),
-                    ));
+                    return Err(
+                        P2pConnectionOutgoingInitOptsParseError::InvalidMultiaddrStructure(
+                            "unexpected part in multiaddr! expected peer_id".to_string(),
+                        ),
+                    );
                 }
                 None => {
-                    return Err(P2pConnectionOutgoingInitOptsParseError::Other(
-                        "peer_id not set in multiaddr. Missing `../p2p/<peer_id>`".to_string(),
-                    ));
+                    return Err(
+                        P2pConnectionOutgoingInitOptsParseError::InvalidMultiaddrStructure(
+                            "peer_id not set in multiaddr. Missing `../p2p/<peer_id>`".to_string(),
+                        ),
+                    );
                 }
             },
         })
@@ -1100,28 +1096,5 @@ mod tests {
         // Verify roundtrip
         let opts2: P2pConnectionOutgoingInitOpts = (&maddr).try_into().unwrap();
         assert_eq!(opts, opts2);
-    }
-
-    #[test]
-    fn test_legacy_format_still_works() {
-        // Use a peer_id in the legacy format (internal base58 check encoding)
-        // First parse from libp2p format to get a valid internal PeerId
-        let libp2p_peer_id: libp2p_identity::PeerId = TEST_PEER_ID_LIBP2P.parse().unwrap();
-        let peer_id: PeerId = libp2p_peer_id.try_into().unwrap();
-        let legacy_peer_id_str = peer_id.to_string();
-
-        // Test that legacy format /{peer_id}/{signaling} still parses
-        let legacy_str = format!("/{}/http/signal.example.com/8080", legacy_peer_id_str);
-        let opts: P2pConnectionOutgoingInitOpts = legacy_str.parse().unwrap();
-
-        match opts {
-            P2pConnectionOutgoingInitOpts::WebRTC { signaling, .. } => {
-                assert!(
-                    matches!(signaling, webrtc::SignalingMethod::Http(_)),
-                    "expected Http signaling, got {signaling:?}"
-                );
-            }
-            x => panic!("Expected WebRTC variant, got {x:?}"),
-        }
     }
 }

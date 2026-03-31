@@ -41,6 +41,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **P2P**: Identify protocol no longer rejects peers that advertise unknown
   protocol strings, improving forward compatibility with newer nodes
   ([#2200](https://github.com/o1-labs/mina-rust/pull/2200))
+### Removed
+
+- **P2P**: Deprecated legacy WebRTC address format (`/{peer_id}/{signaling}`);
+  only standard multiaddr is now accepted
+  ([#2201](https://github.com/o1-labs/mina-rust/pull/2201))
 
 ### Dependencies
 
