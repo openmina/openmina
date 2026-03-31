@@ -1669,13 +1669,10 @@ impl TransactionPool {
     fn has_sufficient_fee(&self, pool_max_size: usize, cmd: &valid::UserCommand) -> bool {
         match self.pool.min_fee() {
             None => true,
-            Some(min_fee) => {
-                if self.pool.size() >= pool_max_size {
-                    cmd.forget_check().fee_per_wu() > min_fee
-                } else {
-                    true
-                }
+            Some(min_fee) if self.pool.size() >= pool_max_size => {
+                cmd.forget_check().fee_per_wu() > min_fee
             }
+            Some(_) => true,
         }
     }
 

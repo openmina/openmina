@@ -399,8 +399,7 @@ pub fn make_zkapp_verifier_index(vk: &VerificationKey) -> VerifierIndex<Fq> {
 
     let public = 40; // Is that constant ?
 
-    let domain: Radix2EvaluationDomain<Fq> =
-        Radix2EvaluationDomain::new(1 << log2_size as u64).unwrap();
+    let domain: Radix2EvaluationDomain<Fq> = Radix2EvaluationDomain::new(1 << log2_size).unwrap();
 
     let srs = {
         let degree = 1 << BACKEND_TOCK_ROUNDS_N;

@@ -352,8 +352,8 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerSnar
                 .and_then(|s| s.snarked()?.fetch_pending())
                 .is_some_and(|pending| {
                     pending
-                        .iter()
-                        .filter_map(|(_, query_state)| query_state.attempts.get(peer_id))
+                        .values()
+                        .filter_map(|query_state| query_state.attempts.get(peer_id))
                         .any(|peer_rpc_state| matches!(peer_rpc_state, PeerRpcState::Init { .. }))
                 }),
             TransitionFrontierSyncLedgerSnarkedAction::PeerQueryAddressError {

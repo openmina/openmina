@@ -200,8 +200,8 @@ impl SnarkPoolCandidatesState {
                     let peer_jobs = self.by_peer.get(peer_id)?;
                     if peer_jobs.get(job_id)?.work().is_some() {
                         let jobs = peer_jobs
-                            .iter()
-                            .filter_map(|(_, v)| match v {
+                            .values()
+                            .filter_map(|v| match v {
                                 SnarkPoolCandidateState::WorkReceived { work, .. } => Some(work),
                                 _ => None,
                             })

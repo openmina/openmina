@@ -705,7 +705,7 @@ mod tests {
 
         // HashMap deliberately uses an unstable order; here we sort to ensure that the output is
         // consistent when printing.
-        index_terms_fp.sort_by(|(x, _), (y, _)| x.cmp(y));
+        index_terms_fp.sort_by_key(|(x, _)| *x);
 
         let fp_other_terms: Vec<(String, String)> = index_terms_fp
             .iter()
@@ -772,7 +772,7 @@ mod tests {
 
         // HashMap deliberately uses an unstable order; here we sort to ensure that the output is
         // consistent when printing.
-        index_terms_fq.sort_by(|(x, _), (y, _)| x.cmp(y));
+        index_terms_fq.sort_by_key(|(x, _)| *x);
 
         // dbg!(index_terms_fq)
 

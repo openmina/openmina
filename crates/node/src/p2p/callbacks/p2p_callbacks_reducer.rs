@@ -471,8 +471,8 @@ impl crate::State {
                 let p2p = p2p_ready!(state.p2p, meta.time());
                 let peers = p2p
                     .peers
-                    .iter()
-                    .filter_map(|(_, v)| v.dial_opts.clone())
+                    .values()
+                    .filter_map(|v| v.dial_opts.clone())
                     .collect();
                 let response = Some(Box::new(P2pRpcResponse::InitialPeers(peers)));
 

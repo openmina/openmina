@@ -151,7 +151,7 @@ impl<'a> TryFrom<&'a P2pNetworkIdentify> for super::pb::Identify {
                 .iter()
                 .map(|v| match v {
                     StreamProtocolId::Known(k) => k.name_str().into(),
-                    StreamProtocolId::Unknown(s) => s.clone().into(),
+                    StreamProtocolId::Unknown(s) => s.clone(),
                 })
                 .collect(),
         })

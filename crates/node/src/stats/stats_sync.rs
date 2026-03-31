@@ -426,8 +426,8 @@ impl SyncBlock {
         match state {
             TransitionFrontierSyncBlockState::FetchPending { attempts, .. } => {
                 if let Some(time) = attempts
-                    .iter()
-                    .filter_map(|(_, v)| v.fetch_pending_since())
+                    .values()
+                    .filter_map(|v| v.fetch_pending_since())
                     .min()
                 {
                     self.status = SyncBlockStatus::Fetching;
