@@ -21,7 +21,7 @@
     "clsx": "^2.0.0",
     "docusaurus-theme-github-codeblock": "^2.0.2",
     "prism-react-renderer": "^2.3.0",
-    "react": "^19.2.4",
+    "react": "^19.2.5",
     "react-dom": "^19.2.4"
   },
   "devDependencies": {
