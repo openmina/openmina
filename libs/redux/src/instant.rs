@@ -1,4 +1,4 @@
-use std::{
+use core::{
     cell::RefCell,
     cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd},
     ops::{Add, AddAssign, Sub, SubAssign},
@@ -139,8 +139,8 @@ impl SubAssign<Duration> for Instant {
     }
 }
 
-impl std::fmt::Debug for Instant {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for Instant {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         self.inner.fmt(f)
     }
 }
