@@ -43,7 +43,7 @@ export function performance_now() {
         }
     }
 
-    use std::{ops::*, time::Duration};
+    use core::{ops::*, time::Duration};
 
     impl Add<Duration> for Instant {
         type Output = Instant;
@@ -98,8 +98,8 @@ impl From<Stats> for PerfStats {
     }
 }
 
-impl std::fmt::Display for Stats {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for Stats {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         if f.alternate() {
             todo!()
         } else {
@@ -145,7 +145,7 @@ fn bench_internal<O, F: Fn() -> O>(iters: usize, wu_cd_iters: usize, f: &F) -> P
     stats.into()
 }
 
-use std::time::Duration;
+use core::time::Duration;
 
 use derive_more::Display;
 use serde::{Deserialize, Serialize};

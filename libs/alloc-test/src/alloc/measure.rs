@@ -1,4 +1,4 @@
-use std::{
+use core::{
     mem,
     sync::atomic::{AtomicBool, Ordering},
 };
