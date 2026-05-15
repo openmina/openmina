@@ -35,6 +35,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ([#2092](https://github.com/o1-labs/mina-rust/pull/2092))
 - **Node**: migrate HTTP server from warp to axum
   ([#2119](https://github.com/o1-labs/mina-rust/pull/2119))
+- **Node-common**: silence the wasm32 build warnings emitted from the `archive`
+  service module by gating the native-only imports, constants, and helpers
+  behind `#[cfg(not(target_arch = "wasm32"))]`
+  ([#2210](https://github.com/o1-labs/mina-rust/pull/2210))
 
 ### Dependencies
 
