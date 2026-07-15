@@ -13,6 +13,18 @@ to help test future releases._
 </div>
 
 ---
+<div align="center">
+⚠️ 
+  
+Development of the Mina Rust Node is currently paused as o1Labs focuses engineering efforts on other priorities.
+The repository will remain publicly available for reference and experimentation. During this period, o1Labs is not actively developing the project, reviewing pull requests, or accepting external contributions, and there is currently no committed timeline for future releases or mainnet deployment.
+If development resumes in the future and official Mina ecosystem channels.
+Developers are welcome to fork the repository to continue experimenting or building on the existing codebase.
+
+⚠️ 
+</div>
+
+---
 
 ## What is Mina Protocol?
 
