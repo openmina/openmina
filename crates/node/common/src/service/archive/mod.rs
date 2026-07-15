@@ -2,11 +2,17 @@ use mina_node::{
     core::{channels::mpsc, thread},
     ledger::write::BlockApplyResult,
 };
-use mina_p2p_messages::v2::{self};
-use std::{env, io::Write};
 
+#[cfg(not(target_arch = "wasm32"))]
+use mina_p2p_messages::v2::{self};
+#[cfg(not(target_arch = "wasm32"))]
+use std::env;
+
+#[cfg(not(target_arch = "wasm32"))]
 use mina_core::NetworkConfig;
+#[cfg(not(target_arch = "wasm32"))]
 use mina_p2p_messages::v2::PrecomputedBlock;
+#[cfg(not(target_arch = "wasm32"))]
 use std::net::SocketAddr;
 
 use super::NodeService;
@@ -22,8 +28,11 @@ pub mod config;
 
 use config::ArchiveStorageOptions;
 
+#[cfg(not(target_arch = "wasm32"))]
 const ARCHIVE_SEND_RETRIES: u8 = 5;
+#[cfg(not(target_arch = "wasm32"))]
 const MAX_EVENT_COUNT: u64 = 100;
+#[cfg(not(target_arch = "wasm32"))]
 const RETRY_INTERVAL_MS: u64 = 1000;
 
 #[derive(Debug, thiserror::Error)]
@@ -245,9 +254,9 @@ impl ArchiveService {
     // Note: Placeholder for the wasm implementation, if we decide to include an archive mode in the future
     #[cfg(target_arch = "wasm32")]
     fn run(
-        mut archive_receiver: mpsc::UnboundedReceiver<BlockApplyResult>,
-        options: ArchiveStorageOptions,
-        work_dir: String,
+        _archive_receiver: mpsc::UnboundedReceiver<BlockApplyResult>,
+        _options: ArchiveStorageOptions,
+        _work_dir: String,
     ) {
         unimplemented!()
     }
@@ -315,9 +324,11 @@ impl mina_node::transition_frontier::archive::archive_service::ArchiveService fo
 #[cfg(target_arch = "wasm32")]
 mod rpc {}
 
+#[cfg(not(target_arch = "wasm32"))]
 fn write_to_local_storage(base_path: &str, key: &str, data: &[u8]) -> Result<(), Error> {
     use std::{
         fs::{create_dir_all, File},
+        io::Write,
         path::Path,
     };
 
