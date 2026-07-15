@@ -1,0 +1,51 @@
+codecov:
+  require_ci_to_pass: yes
+  notify:
+    after_n_builds: 1
+
+coverage:
+  precision: 2
+  round: down
+  range: "70...95"
+
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 1%
+        if_not_found: success
+        if_ci_failed: error
+    patch:
+      default:
+        target: auto
+        threshold: 1%
+        if_not_found: success
+        if_ci_failed: error
+
+parsers:
+  gcov:
+    branch_detection:
+      conditional: yes
+      loop: yes
+      method: no
+      macro: no
+
+ignore:
+  - "**/*test*.rs"
+  - "**/tests.rs"
+  - "**/benches/**"
+  - "**/target/**"
+  - "**/fuzzer/**"
+  - "**/tools/fuzzing/**"
+  - "**/examples/**"
+  - "**/node/testing/**"
+
+comment:
+  layout: "reach,diff,flags,tree"
+  behavior: default
+  require_changes: no
+  require_base: no
+  require_head: yes
+
+github_checks:
+  annotations: true

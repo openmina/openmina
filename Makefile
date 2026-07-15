@@ -383,6 +383,108 @@ nextest-p2p: ## Run P2P tests with cargo-nextest
 nextest-ledger: build-ledger ## Run ledger tests with cargo-nextest, requires nightly Rust
 	@cd crates/ledger && cargo +$(NIGHTLY_RUST_VERSION) nextest run --release
 
+# Coverage targets
+
+.PHONY: setup-coverage-tools
+setup-coverage-tools: ## Install tools required for code coverage
+	@echo "Installing coverage tools..."
+	@rustup component add llvm-tools-preview
+	@cargo install grcov || echo "grcov already installed"
+	@echo "Coverage tools installed successfully"
+
+.PHONY: test-coverage
+test-coverage: ## Run tests with code coverage (basic, fast)
+	@echo "Running tests with code coverage..."
+	@mkdir -p target/coverage
+	@CARGO_INCREMENTAL=0 \
+		RUSTFLAGS="-Cinstrument-coverage" \
+		LLVM_PROFILE_FILE="target/coverage/cargo-test-%p-%m.profraw" \
+		cargo test --workspace \
+		--exclude fuzzer \
+		--exclude heartbeats-processor \
+		--lib \
+		--tests
+	@echo "Coverage data collected in target/coverage/"
+
+.PHONY: test-with-coverage
+test-with-coverage: ## Run comprehensive tests with code coverage (slower, more complete)
+	@echo "Running comprehensive tests with code coverage..."
+	@mkdir -p target/coverage
+	@CARGO_INCREMENTAL=0 \
+		RUSTFLAGS="-Cinstrument-coverage" \
+		LLVM_PROFILE_FILE="target/coverage/cargo-test-%p-%m.profraw" \
+		cargo test --workspace \
+		--exclude fuzzer \
+		--exclude heartbeats-processor \
+		--lib \
+		--tests \
+		--bins
+	@echo "Coverage data collected in target/coverage/"
+
+.PHONY: coverage-report
+coverage-report: ## Generate HTML coverage report from collected data
+	@echo "Generating HTML coverage report..."
+	@mkdir -p target/coverage/html
+	@grcov target/coverage \
+		--binary-path target/debug/deps/ \
+		--source-dir . \
+		--output-types html \
+		--branch \
+		--ignore-not-existing \
+		--ignore "/*" \
+		--ignore "target/*" \
+		--ignore "tests/*" \
+		--ignore "**/tests.rs" \
+		--ignore "**/test_*.rs" \
+		--ignore "**/bench_*.rs" \
+		--ignore "**/benches/*" \
+		--output-path target/coverage/html
+	@echo "HTML coverage report generated in target/coverage/html/"
+	@echo "Open target/coverage/html/index.html in your browser to view the report"
+
+.PHONY: coverage-lcov
+coverage-lcov: ## Generate LCOV coverage report for CI/codecov
+	@echo "Generating LCOV coverage report..."
+	@mkdir -p target/coverage
+	@grcov target/coverage \
+		--binary-path target/debug/deps/ \
+		--source-dir . \
+		--output-types lcov \
+		--branch \
+		--ignore-not-existing \
+		--ignore "/*" \
+		--ignore "target/*" \
+		--ignore "tests/*" \
+		--ignore "**/tests.rs" \
+		--ignore "**/test_*.rs" \
+		--ignore "**/bench_*.rs" \
+		--ignore "**/benches/*" \
+		--output-path target/coverage/lcov.info
+	@echo "LCOV coverage report generated at target/coverage/lcov.info"
+
+.PHONY: coverage-clean
+coverage-clean: ## Clean coverage data and reports
+	@echo "Cleaning coverage data..."
+	@rm -rf target/coverage
+	@echo "Coverage data cleaned"
+
+.PHONY: coverage-summary
+coverage-summary: ## Display coverage summary from collected data
+	@echo "Generating coverage summary..."
+	@grcov target/coverage \
+		--binary-path target/debug/deps/ \
+		--source-dir . \
+		--output-types markdown \
+		--branch \
+		--ignore-not-existing \
+		--ignore "/*" \
+		--ignore "target/*" \
+		--ignore "tests/*" \
+		--ignore "**/tests.rs" \
+		--ignore "**/test_*.rs" \
+		--ignore "**/bench_*.rs" \
+		--ignore "**/benches/*"
+
 # Docker build targets
 
 .PHONY: docker-build-all

@@ -86,6 +86,13 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
+      label: 'Development',
+      items: [
+        'developers/code-coverage',
+      ],
+    },
+    {
+      type: 'category',
       label: 'Architecture',
       items: [
         'developers/why-rust',

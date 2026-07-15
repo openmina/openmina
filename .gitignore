@@ -13,6 +13,9 @@ pkg/
 cargo-build-test.json
 tests.tsv
 
+# Coverage
+target/coverage/
+
 # Generated API docs should not be committed
 website/static/api-docs/
 website/static/openapi/openapi.json

@@ -1,0 +1,109 @@
+name: Code Coverage (Nightly)
+
+on:
+  schedule:
+    # Run at 2:00 AM UTC every day
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      coverage_type:
+        description: 'Type of coverage to run'
+        required: false
+        default: 'comprehensive'
+        type: choice
+        options:
+          - 'basic'
+          - 'comprehensive'
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: full
+  OPENMINA_PANIC_ON_BUG: true
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  code-coverage:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v4
+
+      - name: Setup build dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y protobuf-compiler
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, llvm-tools-preview
+          toolchain: 1.84
+
+      - name: Setup Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: "coverage-v0"
+
+      - name: Install grcov
+        run: |
+          cargo install grcov
+
+      - name: Determine coverage type
+        id: coverage-type
+        run: |
+          if [ "${{ github.event.inputs.coverage_type }}" = "basic" ]; then
+            echo "target=test-coverage" >> $GITHUB_OUTPUT
+            echo "type=basic" >> $GITHUB_OUTPUT
+          else
+            echo "target=test-with-coverage" >> $GITHUB_OUTPUT
+            echo "type=comprehensive" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run tests with coverage
+        run: |
+          make ${{ steps.coverage-type.outputs.target }}
+
+      - name: Generate LCOV report
+        run: |
+          make coverage-lcov
+
+      - name: Generate HTML report
+        run: |
+          make coverage-report
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: target/coverage/lcov.info
+          flags: ${{ steps.coverage-type.outputs.type }}
+          name: openmina-coverage
+          fail_ci_if_error: true
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload coverage reports as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports-${{ steps.coverage-type.outputs.type }}
+          path: |
+            target/coverage/lcov.info
+            target/coverage/html/
+          retention-days: 30
+
+      - name: Coverage Summary
+        run: |
+          echo "## Coverage Summary" >> $GITHUB_STEP_SUMMARY
+          echo "Coverage report type: ${{ steps.coverage-type.outputs.type }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Coverage Report Files" >> $GITHUB_STEP_SUMMARY
+          echo "- LCOV: \`target/coverage/lcov.info\`" >> $GITHUB_STEP_SUMMARY
+          echo "- HTML Report: \`target/coverage/html/index.html\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Coverage Summary" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          make coverage-summary >> $GITHUB_STEP_SUMMARY || echo "Coverage summary generation failed" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
