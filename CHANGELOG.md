@@ -35,6 +35,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ([#2092](https://github.com/o1-labs/mina-rust/pull/2092))
 - **Node**: migrate HTTP server from warp to axum
   ([#2119](https://github.com/o1-labs/mina-rust/pull/2119))
+- **Alloc-test**: prefer `core`/`alloc` imports over `std` in the `alloc-test`
+  library to progress toward `no_std` support
+  ([#2209](https://github.com/o1-labs/mina-rust/pull/2209))
 
 ### Dependencies
 

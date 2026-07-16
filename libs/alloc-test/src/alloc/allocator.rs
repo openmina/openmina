@@ -1,4 +1,4 @@
-use std::alloc::{GlobalAlloc, Layout};
+use core::alloc::{GlobalAlloc, Layout};
 
 #[derive(Debug, Default)]
 pub struct TracingAllocator<H: 'static, A>(A, H)

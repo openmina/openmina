@@ -1,7 +1,6 @@
+use core::fmt::{Debug, Display};
 use std::{
-    env,
-    fmt::{Debug, Display},
-    fs, io,
+    env, fs, io,
     path::{Path, PathBuf},
     process::Command,
 };
