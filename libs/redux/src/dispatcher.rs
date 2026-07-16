@@ -1,4 +1,5 @@
-use std::{collections::VecDeque, marker::PhantomData};
+use alloc::collections::VecDeque;
+use core::marker::PhantomData;
 
 use crate::{AnyAction, Callback, EnablingCondition};
 

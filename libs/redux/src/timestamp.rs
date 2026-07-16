@@ -1,5 +1,5 @@
 pub use crate::instant::Instant;
-use std::time::Duration;
+use core::time::Duration;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub use std::time::SystemTime;
@@ -60,7 +60,7 @@ impl From<Timestamp> for SystemTime {
     }
 }
 
-impl std::ops::Add for Timestamp {
+impl core::ops::Add for Timestamp {
     type Output = Timestamp;
     #[inline]
     fn add(self, other: Timestamp) -> Timestamp {
@@ -68,7 +68,7 @@ impl std::ops::Add for Timestamp {
     }
 }
 
-impl std::ops::Add<u64> for Timestamp {
+impl core::ops::Add<u64> for Timestamp {
     type Output = Timestamp;
     #[inline]
     fn add(self, other: u64) -> Timestamp {
@@ -76,7 +76,7 @@ impl std::ops::Add<u64> for Timestamp {
     }
 }
 
-impl std::ops::Add<Duration> for Timestamp {
+impl core::ops::Add<Duration> for Timestamp {
     type Output = Timestamp;
     #[inline]
     fn add(self, other: Duration) -> Timestamp {
