@@ -1,0 +1,139 @@
+# Component Summaries
+
+This document provides a tree view of all component summary documentation
+throughout the OpenMina codebase. Each component's `summary.md` file contains
+technical debt analysis and implementation notes.
+
+## Component Tree
+
+- **openmina/**
+  - **core/**
+    - [summary.md](../../core/summary.md)
+  - **ledger/**
+    - [summary.md](../../ledger/summary.md)
+    - **src/**
+      - **proofs/**
+        - [summary.md](../../ledger/src/proofs/summary.md)
+  - **node/**
+    - **src/**
+      - [summary.md](../../node/src/summary.md)
+      - **block_producer/**
+        - [summary.md](../../node/src/block_producer/summary.md)
+        - **vrf_evaluator/**
+          - [summary.md](../../node/src/block_producer/vrf_evaluator/summary.md)
+      - **event_source/**
+        - [summary.md](../../node/src/event_source/summary.md)
+      - **external_snark_worker/**
+        - [summary.md](../../node/src/external_snark_worker/summary.md)
+      - **ledger/**
+        - [summary.md](../../node/src/ledger/summary.md)
+        - **read/**
+          - [summary.md](../../node/src/ledger/read/summary.md)
+        - **write/**
+          - [summary.md](../../node/src/ledger/write/summary.md)
+      - **rpc/**
+        - [summary.md](../../node/src/rpc/summary.md)
+      - **snark_pool/**
+        - [summary.md](../../node/src/snark_pool/summary.md)
+        - **candidate/**
+          - [summary.md](../../node/src/snark_pool/candidate/summary.md)
+      - **transaction_pool/**
+        - [summary.md](../../node/src/transaction_pool/summary.md)
+        - [transaction_pool_refactoring.md](../../node/src/transaction_pool/transaction_pool_refactoring.md)
+        - **candidate/**
+          - [summary.md](../../node/src/transaction_pool/candidate/summary.md)
+      - **transition_frontier/**
+        - [summary.md](../../node/src/transition_frontier/summary.md)
+        - **candidate/**
+          - [summary.md](../../node/src/transition_frontier/candidate/summary.md)
+        - **genesis/**
+          - [summary.md](../../node/src/transition_frontier/genesis/summary.md)
+        - **sync/**
+          - [summary.md](../../node/src/transition_frontier/sync/summary.md)
+          - **ledger/**
+            - [summary.md](../../node/src/transition_frontier/sync/ledger/summary.md)
+            - **snarked/**
+              - [summary.md](../../node/src/transition_frontier/sync/ledger/snarked/summary.md)
+            - **staged/**
+              - [summary.md](../../node/src/transition_frontier/sync/ledger/staged/summary.md)
+      - **watched_accounts/**
+        - [summary.md](../../node/src/watched_accounts/summary.md)
+  - **p2p/**
+    - **src/**
+      - [summary.md](../../p2p/src/summary.md)
+      - **channels/**
+        - [summary.md](../../p2p/src/channels/summary.md)
+        - **best_tip/**
+          - [summary.md](../../p2p/src/channels/best_tip/summary.md)
+        - **rpc/**
+          - [summary.md](../../p2p/src/channels/rpc/summary.md)
+        - **signaling/**
+          - **discovery/**
+            - [summary.md](../../p2p/src/channels/signaling/discovery/summary.md)
+          - **exchange/**
+            - [summary.md](../../p2p/src/channels/signaling/exchange/summary.md)
+        - **snark/**
+          - [summary.md](../../p2p/src/channels/snark/summary.md)
+        - **snark_job_commitment/**
+          - [summary.md](../../p2p/src/channels/snark_job_commitment/summary.md)
+        - **streaming_rpc/**
+          - [summary.md](../../p2p/src/channels/streaming_rpc/summary.md)
+        - **transaction/**
+          - [summary.md](../../p2p/src/channels/transaction/summary.md)
+      - **connection/**
+        - [summary.md](../../p2p/src/connection/summary.md)
+        - **incoming/**
+          - [summary.md](../../p2p/src/connection/incoming/summary.md)
+        - **outgoing/**
+          - [summary.md](../../p2p/src/connection/outgoing/summary.md)
+      - **disconnection/**
+        - [summary.md](../../p2p/src/disconnection/summary.md)
+      - **network/**
+        - [summary.md](../../p2p/src/network/summary.md)
+        - **identify/**
+          - [summary.md](../../p2p/src/network/identify/summary.md)
+          - **stream/**
+            - [summary.md](../../p2p/src/network/identify/stream/summary.md)
+        - **kad/**
+          - [summary.md](../../p2p/src/network/kad/summary.md)
+          - **bootstrap/**
+            - [summary.md](../../p2p/src/network/kad/bootstrap/summary.md)
+          - **request/**
+            - [summary.md](../../p2p/src/network/kad/request/summary.md)
+          - **stream/**
+            - [summary.md](../../p2p/src/network/kad/stream/summary.md)
+        - **noise/**
+          - [summary.md](../../p2p/src/network/noise/summary.md)
+          - [p2p_network_noise_refactoring.md](../../p2p/src/network/noise/p2p_network_noise_refactoring.md)
+        - **pnet/**
+          - [summary.md](../../p2p/src/network/pnet/summary.md)
+          - [p2p_network_pnet_refactoring.md](../../p2p/src/network/pnet/p2p_network_pnet_refactoring.md)
+        - **pubsub/**
+          - [summary.md](../../p2p/src/network/pubsub/summary.md)
+          - [p2p_network_pubsub_refactoring.md](../../p2p/src/network/pubsub/p2p_network_pubsub_refactoring.md)
+        - **rpc/**
+          - [summary.md](../../p2p/src/network/rpc/summary.md)
+        - **scheduler/**
+          - [summary.md](../../p2p/src/network/scheduler/summary.md)
+        - **select/**
+          - [summary.md](../../p2p/src/network/select/summary.md)
+        - **yamux/**
+          - [summary.md](../../p2p/src/network/yamux/summary.md)
+          - [p2p_network_yamux_refactoring.md](../../p2p/src/network/yamux/p2p_network_yamux_refactoring.md)
+  - **snark/**
+    - **src/**
+      - [summary.md](../../snark/src/summary.md)
+      - **block_verify/**
+        - [summary.md](../../snark/src/block_verify/summary.md)
+      - **user_command_verify/**
+        - [summary.md](../../snark/src/user_command_verify/summary.md)
+      - **work_verify/**
+        - [summary.md](../../snark/src/work_verify/summary.md)
+
+## Navigation Tips
+
+- Each `summary.md` file contains technical debt analysis and implementation
+  notes for that component
+- Files ending with `_refactoring.md` contain detailed refactoring plans
+- The tree structure reflects the actual code organization in the repository
+- Components are organized into three main areas: `node`, `p2p`, and `snark`
