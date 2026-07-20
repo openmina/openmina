@@ -26,7 +26,7 @@ jobs:
 
       - name: Check changelog and manage previous suggestions
         id: check
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const { owner, repo } = context.repo;
@@ -147,7 +147,7 @@ jobs:
 
       - name: Post changelog suggestion
         if: steps.check.outputs.changelog_changed == 'false'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const fs = require("fs");
