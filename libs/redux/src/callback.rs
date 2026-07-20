@@ -1,15 +1,15 @@
 #[cfg(feature = "serializable_callbacks")]
 use linkme::distributed_slice;
 
+use alloc::borrow::Cow;
 pub use paste;
 use serde::{Deserialize, Serialize};
-use std::borrow::Cow;
 
-pub struct AnyAction(pub Box<dyn std::any::Any>);
+pub struct AnyAction(pub Box<dyn core::any::Any>);
 
 #[cfg(feature = "serializable_callbacks")]
 #[distributed_slice]
-pub static CALLBACKS: [(&str, fn(&str, Box<dyn std::any::Any>) -> AnyAction)];
+pub static CALLBACKS: [(&str, fn(&str, Box<dyn core::any::Any>) -> AnyAction)];
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Callback<T> {
@@ -46,7 +46,7 @@ impl<T: 'static> Callback<T> {
             // We reach this point only when the callback was deserialized
             for (name, fun) in CALLBACKS {
                 if name == &self.fun_name {
-                    return fun(std::any::type_name::<T>(), Box::new(args)).into();
+                    return fun(core::any::type_name::<T>(), Box::new(args)).into();
                 }
             }
 
@@ -70,11 +70,11 @@ macro_rules! _callback {
                 AnyAction(Box::new(action))
             }
 
-            fn $callback_name(call_type: &str, args: Box<dyn std::any::Any>) -> AnyAction {
+            fn $callback_name(call_type: &str, args: Box<dyn core::any::Any>) -> AnyAction {
                 #[cfg(feature = "serializable_callbacks")]
                 {
                     #[distributed_slice(CALLBACKS)]
-                    static CALLBACK_DESERIALIZE: (&str, fn(&str, Box<dyn std::any::Any>) -> AnyAction) = (
+                    static CALLBACK_DESERIALIZE: (&str, fn(&str, Box<dyn core::any::Any>) -> AnyAction) = (
                         stringify!($callback_name),
                         $callback_name,
                     );

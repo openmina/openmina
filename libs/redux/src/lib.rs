@@ -1,5 +1,7 @@
 #![cfg_attr(feature = "fuzzing", feature(no_coverage))]
 
+extern crate alloc;
+
 mod instant;
 
 mod timestamp;
