@@ -13,7 +13,7 @@ generic-array = { workspace = true }
 hex = { workspace = true, optional = true }
 inout = { workspace = true }
 serde = { workspace = true, features = ["derive"], optional = true }
-zeroize = { workspace = true }
+zeroize = { workspace = true, features = ["derive"] }
 
 [features]
 default = ["serde", "hex"]
