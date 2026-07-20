@@ -199,6 +199,7 @@ const sidebars: SidebarsConfig = {
       label: 'Cryptography',
       items: [
         'researchers/snark-work',
+        'researchers/zkapp-signing',
       ],
     },
     {
