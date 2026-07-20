@@ -236,7 +236,7 @@ tempfile = "3.8.0"
 text-diff = "0.4.0"
 thiserror = "1.0.60"
 tikv-jemallocator = "0.6"
-time = { version = "0.3.36", features = ["formatting", "macros", "parsing"] }
+time = { version = "0.3.47", features = ["formatting", "macros", "parsing"] }
 tokio = { version = "1.46.1" }
 toml = "0.5.9"
 tower-http = { version = "0.6", features = ["cors", "fs", "trace"] }
