@@ -80,6 +80,7 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'Introduction',
       items: [
+        'developers/mina-as-database',
         'developers/getting-started',
         'developers/updating-ocaml-node',
       ],
