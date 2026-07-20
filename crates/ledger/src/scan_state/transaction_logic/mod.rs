@@ -856,8 +856,8 @@ impl UserCommand {
         accounts: &BTreeMap<AccountId, Account>,
     ) -> HashMap<AccountId, VerificationKeyWire> {
         accounts
-            .iter()
-            .filter_map(|(_, account)| {
+            .values()
+            .filter_map(|account| {
                 let zkapp = account.zkapp.as_ref()?;
                 let vk = zkapp.verification_key.clone()?;
                 Some((account.id(), vk))

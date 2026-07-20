@@ -143,8 +143,8 @@ impl P2pState {
         let timeouts = &self.config.timeouts;
 
         self.peers
-            .iter()
-            .filter_map(|(_, peer)| {
+            .values()
+            .filter_map(|peer| {
                 if peer.can_reconnect(time, timeouts) {
                     peer.dial_opts.clone()
                 } else {

@@ -209,6 +209,10 @@ where
         Poll::Ready(loop {
             if !*this.done {
                 match ready!(this.stream.as_mut().try_poll_next(cx)) {
+                    #[allow(
+                        clippy::collapsible_match,
+                        reason = "false positive: match guard would move non-Copy `event`"
+                    )]
                     Some(Ok(ClusterEvent::Rust { id, event })) => {
                         if (this.f)(id, event, this.stream.rust_node(id).state()) {
                             *this.done = true;

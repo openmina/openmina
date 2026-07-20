@@ -141,7 +141,7 @@ impl P2pState {
     }
 
     pub fn disconnected_peers(&self) -> impl '_ + Iterator<Item = P2pConnectionOutgoingInitOpts> {
-        self.peers.iter().filter_map(|(_, state)| {
+        self.peers.values().filter_map(|state| {
             if let P2pPeerState {
                 status: P2pPeerStatus::Disconnected { .. },
                 dial_opts: Some(opts),

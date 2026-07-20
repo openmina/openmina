@@ -7,7 +7,7 @@ use crate::{
         pb::{self, Identify},
         stream::P2pNetworkIdentifyStreamError,
         stream_effectful::P2pNetworkIdentifyStreamEffectfulAction,
-        P2pNetworkIdentify, P2pNetworkIdentifyState,
+        P2pNetworkIdentify, P2pNetworkIdentifyState, StreamProtocolId,
     },
     token, ConnectionAddr, Data, P2pLimits, P2pNetworkConnectionError, P2pNetworkSchedulerAction,
     P2pNetworkStreamProtobufError, P2pNetworkYamuxAction, P2pState, PeerId, YamuxFlags,
@@ -386,14 +386,18 @@ impl P2pNetworkIdentifyStreamState {
         let public_key = Some(state.config.identity_pub_key.clone());
 
         let mut protocols = vec![
-            token::StreamKind::Identify(token::IdentifyAlgorithm::Identify1_0_0),
-            token::StreamKind::Broadcast(token::BroadcastAlgorithm::Meshsub1_1_0),
-            token::StreamKind::Rpc(token::RpcAlgorithm::Rpc0_0_1),
+            StreamProtocolId::Known(token::StreamKind::Identify(
+                token::IdentifyAlgorithm::Identify1_0_0,
+            )),
+            StreamProtocolId::Known(token::StreamKind::Broadcast(
+                token::BroadcastAlgorithm::Meshsub1_1_0,
+            )),
+            StreamProtocolId::Known(token::StreamKind::Rpc(token::RpcAlgorithm::Rpc0_0_1)),
         ];
         if state.network.scheduler.discovery_state.is_some() {
-            protocols.push(token::StreamKind::Discovery(
+            protocols.push(StreamProtocolId::Known(token::StreamKind::Discovery(
                 token::DiscoveryAlgorithm::Kademlia1_0_0,
-            ));
+            )));
         }
         let identify_msg = P2pNetworkIdentify {
             protocol_version: Some("ipfs/0.1.0".to_string()),

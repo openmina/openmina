@@ -73,6 +73,12 @@ impl P2pState {
 
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
 
+                let supports_rpc = info.supports(&StreamKind::Rpc(RpcAlgorithm::Rpc0_0_1));
+                let supports_broadcast =
+                    info.supports(&StreamKind::Broadcast(BroadcastAlgorithm::Meshsub1_1_0));
+                let supports_discovery =
+                    info.supports(&StreamKind::Discovery(DiscoveryAlgorithm::Kademlia1_0_0));
+
                 dispatcher.push(P2pNetworkKademliaAction::UpdateRoutingTable {
                     peer_id,
                     addrs: info.listen_addrs,
@@ -80,8 +86,7 @@ impl P2pState {
 
                 let stream_id = YamuxStreamKind::Rpc.stream_id(addr.incoming);
 
-                let stream_kind = StreamKind::Rpc(RpcAlgorithm::Rpc0_0_1);
-                if !info.protocols.contains(&stream_kind) {
+                if !supports_rpc {
                     dispatcher.push(P2pDisconnectionAction::Init {
                         peer_id,
                         reason: P2pDisconnectionReason::Unsupported,
@@ -94,14 +99,15 @@ impl P2pState {
                     state.channels_init(dispatcher, peer_id);
                 }
 
+                let stream_kind = StreamKind::Rpc(RpcAlgorithm::Rpc0_0_1);
                 dispatcher.push(P2pNetworkYamuxAction::OpenStream {
                     addr,
                     stream_id,
                     stream_kind,
                 });
 
-                let stream_kind = StreamKind::Broadcast(BroadcastAlgorithm::Meshsub1_1_0);
-                if info.protocols.contains(&stream_kind) {
+                if supports_broadcast {
+                    let stream_kind = StreamKind::Broadcast(BroadcastAlgorithm::Meshsub1_1_0);
                     dispatcher.push(P2pNetworkYamuxAction::OpenStream {
                         addr,
                         stream_id: stream_id + 2,
@@ -110,9 +116,8 @@ impl P2pState {
                 }
 
                 let kad_state: Option<&P2pNetworkKadState> = state.substate().ok();
-                let protocol = StreamKind::Discovery(DiscoveryAlgorithm::Kademlia1_0_0);
                 if kad_state.is_some_and(|state| state.request(&peer_id).is_some())
-                    && info.protocols.contains(&protocol)
+                    && supports_discovery
                 {
                     dispatcher.push(P2pNetworkKadRequestAction::MuxReady { peer_id, addr });
                 }

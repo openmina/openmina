@@ -19,13 +19,34 @@ pub struct P2pNetworkIdentify {
     pub listen_addrs: Vec<Multiaddr>,
     #[with_malloc_size_of_func = "measurement::multiaddr_opt"]
     pub observed_addr: Option<Multiaddr>,
-    pub protocols: Vec<token::StreamKind>,
+    pub protocols: Vec<StreamProtocolId>,
+}
+
+/// A protocol identifier from an Identify message. Wraps known `StreamKind`
+/// variants and preserves unknown protocol strings for forward compatibility.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, MallocSizeOf)]
+pub enum StreamProtocolId {
+    Known(StreamKind),
+    Unknown(String),
+}
+
+impl StreamProtocolId {
+    pub fn as_known(&self) -> Option<&StreamKind> {
+        match self {
+            Self::Known(k) => Some(k),
+            Self::Unknown(_) => None,
+        }
+    }
+}
+
+impl P2pNetworkIdentify {
+    pub fn supports(&self, kind: &StreamKind) -> bool {
+        self.protocols.iter().any(|p| p.as_known() == Some(kind))
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, thiserror::Error)]
 pub enum P2pNetworkIdentifyFromMessageError {
-    #[error("cant parse protocol: {0}")]
-    UnsupportedProtocol(String),
     #[error("unsupported public key type: {0}")]
     UnsupportedPubKeyType(String),
     #[error("error parsing public key: {0}")]
@@ -65,11 +86,12 @@ impl TryFrom<super::pb::Identify> for P2pNetworkIdentify {
             None => None,
         };
 
-        let mut protocols = Vec::new();
-
-        for proto in value.protocols.iter() {
-            protocols.push(parse_protocol(proto)?)
-        }
+        let protocols = value
+            .protocols
+            .iter()
+            .map(String::as_str)
+            .map(parse_protocol)
+            .collect();
 
         Ok(Self {
             protocol_version,
@@ -127,7 +149,10 @@ impl<'a> TryFrom<&'a P2pNetworkIdentify> for super::pb::Identify {
             protocols: value
                 .protocols
                 .iter()
-                .map(|v| v.name_str().into())
+                .map(|v| match v {
+                    StreamProtocolId::Known(k) => k.name_str().into(),
+                    StreamProtocolId::Unknown(s) => s.clone(),
+                })
                 .collect(),
         })
     }
@@ -165,19 +190,15 @@ pub fn parse_public_key(key_bytes: &[u8]) -> Result<PublicKey, P2pNetworkIdentif
     )
 }
 
-pub fn parse_protocol(name: &str) -> Result<StreamKind, P2pNetworkIdentifyFromMessageError> {
-    // buffer content should match one of tokens
+pub fn parse_protocol(name: &str) -> StreamProtocolId {
     for tok in token::Token::ALL.iter() {
         if let token::Token::Protocol(token::Protocol::Stream(a)) = tok {
             if a.name_str() == name {
-                return Ok(*a);
+                return StreamProtocolId::Known(*a);
             }
         }
     }
-
-    Err(P2pNetworkIdentifyFromMessageError::UnsupportedProtocol(
-        name.to_string(),
-    ))
+    StreamProtocolId::Unknown(name.to_string())
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, thiserror::Error)]

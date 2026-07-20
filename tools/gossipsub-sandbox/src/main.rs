@@ -106,16 +106,14 @@ async fn main() {
     let mut file = File::create(path.join("snark_pool_diff")).unwrap();
     while let Some(event) = swarm.next().await {
         match event {
-            SwarmEvent::Behaviour(gossipsub::Event::Message { message, .. }) => {
+            SwarmEvent::Behaviour(gossipsub::Event::Message { message, .. })
                 // GossipNetMessageV2::SnarkPoolDiff
-                if message.data[8] == 1 {
+                if message.data[8] == 1 => {
                     file.write_all(&message.data).unwrap();
-                }
             }
             SwarmEvent::Behaviour(gossipsub::Event::Subscribed { peer_id, topic }) => {
                 log::info!("{peer_id} {topic}");
             }
-            SwarmEvent::ConnectionEstablished { .. } => {}
             _ => {}
         }
     }

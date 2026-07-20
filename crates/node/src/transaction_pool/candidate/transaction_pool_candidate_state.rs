@@ -251,8 +251,8 @@ impl TransactionPoolCandidatesState {
                     let peer_transactions = self.by_peer.get(peer_id)?;
                     if peer_transactions.get(hash)?.transaction().is_some() {
                         let transactions = peer_transactions
-                            .iter()
-                            .filter_map(|(_, v)| match v {
+                            .values()
+                            .filter_map(|v| match v {
                                 TransactionPoolCandidateState::Received { transaction, .. } => {
                                     Some(transaction)
                                 }
