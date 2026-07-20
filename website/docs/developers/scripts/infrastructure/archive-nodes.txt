@@ -1,0 +1,2 @@
+https://devnet-archive-node-api.gcp.o1test.net/
+https://archive-node-api.gcp.o1test.net/

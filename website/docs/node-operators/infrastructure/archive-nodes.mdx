@@ -4,26 +4,120 @@ description: o1Labs archive node infrastructure for historical data access
 sidebar_position: 3
 ---
 
+import CodeBlock from "@theme/CodeBlock";
+import ArchiveNodesList from "!!raw-loader!../../developers/scripts/infrastructure/archive-nodes.txt";
+import QueryArchiveBlocks from "!!raw-loader!../../developers/scripts/infrastructure/query-archive-blocks.sh";
+
 # Archive Nodes
+
+o1Labs maintains archive node infrastructure that provides access to historical
+blockchain data through a GraphQL API. These nodes store complete transaction
+history and block data.
+
+## Available archive nodes
+
+The following archive node endpoints are officially maintained by o1Labs:
+
+<CodeBlock
+  language="text"
+  title="website/docs/developers/scripts/infrastructure/archive-nodes.txt"
+>
+  {ArchiveNodesList}
+</CodeBlock>
+
+## Node information
+
+- **Availability**: Maintained 24/7 by o1Labs
+- **Purpose**: Historical blockchain data access and queries
+- **Location**: Hetzner Cloud (Europe)
+
+## Using archive nodes
+
+### GraphQL API access
+
+Archive nodes provide a GraphQL API for querying historical blockchain data:
+
+<CodeBlock
+  language="bash"
+  title="website/docs/developers/scripts/infrastructure/query-archive-blocks.sh"
+>
+  {QueryArchiveBlocks}
+</CodeBlock>
+
+### API capabilities
+
+- **Block history**: Query blocks by height, hash, or time range
+- **Transaction history**: Complete transaction records
+- **Account history**: Historical account states and balances
+- **Event data**: Protocol events and state transitions
 
 <!-- prettier-ignore-start -->
 
-:::caution Under Construction
+:::info API documentation
 
-This page is currently under construction. o1Labs archive node infrastructure
-documentation will be added here once the archive nodes are deployed and
-available.
-
-Archive nodes will provide:
-
-- Historical blockchain data access
-- Complete transaction history
-- Block and state archival
-- Database query interfaces
-
-Check back soon for complete documentation on accessing o1Labs archive
-infrastructure.
+For complete API documentation, see the
+[Archive Database Queries](../../developers/api-and-data/archive-database-queries)
+documentation.
 
 :::
 
 <!-- prettier-ignore-stop -->
+
+## Troubleshooting
+
+### Connection issues
+
+If you cannot connect to archive nodes:
+
+1. **Check network connectivity**: Ensure internet access and HTTPS traffic is
+   allowed
+2. **Verify URLs**: Confirm you're using the correct node URLs
+3. **Test manually**: Try accessing the URLs in a browser
+4. **Check node status**: Verify the node is responding to queries
+
+## Updates and maintenance
+
+### Infrastructure updates
+
+o1Labs maintains these archive nodes with:
+
+- **Regular updates**: Nodes are kept current with latest releases
+- **Monitoring**: 24/7 health monitoring and alerting
+- **Data integrity**: Continuous verification of archived data
+- **Performance optimization**: Regular performance tuning
+
+### Communication
+
+Infrastructure maintenance and updates are communicated through:
+
+- GitHub release notes
+- Project documentation updates
+- Community announcements
+
+## Deployment (o1Labs employees only)
+
+<!-- prettier-ignore-start -->
+
+:::caution o1Labs employees only
+
+This section is for o1Labs employees only. If you do not have access to the
+required repositories, contact the platform lead.
+
+:::
+
+<!-- prettier-ignore-stop -->
+
+o1Labs uses [ArgoCD](https://argo-cd.readthedocs.io/) to maintain the
+infrastructure through GitOps.
+
+The archive node infrastructure is configured in:
+`platform/hetzner-rivendell-1/applications/archive-node-api/`
+
+## Reference information
+
+### Related documentation
+
+- [Plain Nodes](./plain-nodes) - API access nodes
+- [Seed Nodes](./seed-nodes) - P2P network bootstrap nodes
+- [Archive Database Queries](../../developers/api-and-data/archive-database-queries) -
+  Query reference

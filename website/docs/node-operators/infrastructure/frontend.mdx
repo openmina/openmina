@@ -59,9 +59,44 @@ To update the Node Dashboard deployment:
 The web node is an experimental feature that allows running a Mina node directly
 in the browser using WebAssembly.
 
+### Production instance
+
+- **URL**: https://mina-rust-web-node.gcp.o1test.net
+- **Environment**: Production
+- **Network**: Mina Devnet
+- **Status**: Experimental
+
+### Resources
+
 - [Web node deployment guides](../web-node/) - Step-by-step instructions for
   running a web node using Docker or building from source
 - [Web node developer documentation](../../developers/frontend/web-node) -
   Architecture overview and development workflow
 
 Track progress: [Issue #1474](https://github.com/o1-labs/mina-rust/issues/1474)
+
+### Deployment (o1Labs employees only)
+
+<!-- prettier-ignore-start -->
+
+:::caution o1Labs employees only
+
+This section is for o1Labs employees only. If you do not have access to the
+required repositories, contact the platform lead.
+
+:::
+
+<!-- prettier-ignore-stop -->
+
+To update the Web Node deployment:
+
+1. Access the private repository:
+   `https://github.com/o1-labs/gitops-infrastructure`
+2. Create a new branch for your changes
+3. Edit: `applications/auto-deployed/mina-rust-web-node-app.yaml`
+4. Update the `MINA_RUST_TAG` variable to the desired commit or release tag
+   (must be available as a Docker image on
+   [DockerHub](https://hub.docker.com/r/o1labs/mina-rust-frontend))
+5. Create a pull request with your changes
+6. Ask the platform lead or rust node team lead to review and merge the PR
+7. Once merged, ArgoCD will automatically deploy the update
