@@ -1289,7 +1289,7 @@ source = "git+https://github.com/openmina/binprot-rs?rev=400b52c#400b52c204d7a82
 dependencies = [
  "binprot_derive",
  "byteorder",
- "md5",
+ "md5 0.7.0",
 ]
 
 [[package]]
@@ -3136,7 +3136,7 @@ dependencies = [
  "fuzzcheck_mutators_derive 0.10.0",
  "getopts",
  "libc",
- "md5",
+ "md5 0.7.0",
  "nu-ansi-term 0.39.0",
  "object 0.27.1",
  "regex-syntax 0.6.29",
@@ -3160,7 +3160,7 @@ dependencies = [
  "fuzzcheck_mutators_derive 0.12.0",
  "getopts",
  "libc",
- "md5",
+ "md5 0.7.0",
  "nu-ansi-term 0.39.0",
  "object 0.27.1",
  "regex-syntax 0.6.29",
@@ -4968,6 +4968,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "490cc448043f947bae3cbee9c203358d62dbee0db12107a74be5c30ccfd09771"
 
 [[package]]
+name = "md5"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ae960838283323069879657ca3de837e9f7bbb4c7bf6ea7f1b290d5e9476d2e0"
+
+[[package]]
 name = "memchr"
 version = "2.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5103,7 +5109,7 @@ dependencies = [
  "js-sys",
  "lazy_static",
  "libp2p-identity",
- "md5",
+ "md5 0.8.0",
  "mina-curves",
  "mina-fuzzer",
  "mina-hasher",
@@ -9133,7 +9139,7 @@ dependencies = [
  "flate2",
  "itertools 0.12.1",
  "leb128",
- "md5",
+ "md5 0.8.0",
  "mina-core",
  "mina-curves",
  "mina-hasher",
