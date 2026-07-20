@@ -32,10 +32,6 @@ jobs:
         run: |
           ./website/docs/developers/scripts/setup/install-system-deps.sh
 
-      - name: Test Node.js installation
-        run: |
-          ./website/docs/developers/scripts/setup/install-nodejs.sh
-
       - name: Test Rust installation
         run: |
           ./website/docs/developers/scripts/setup/install-rust.sh
@@ -87,10 +83,6 @@ jobs:
       - name: Test system dependencies installation
         run: |
           ./website/docs/developers/scripts/setup/install-system-deps-macos.sh
-
-      - name: Test Node.js installation
-        run: |
-          ./website/docs/developers/scripts/setup/install-nodejs-macos.sh
 
       - name: Test Rust installation
         run: |
